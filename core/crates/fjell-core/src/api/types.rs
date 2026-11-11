@@ -66,7 +66,10 @@ pub struct ScanConfig {
 pub enum ScanPhase {
     Idle,
     Listing,
+    /// Rask fase pågår (BLAKE3, ingen dekoding).
     Exact,
+    /// Eksakte grupper og forslag er skrevet; ingen miniatyr er nødvendigvis hentet ennå.
+    ExactReady,
     Analyzing,
     Done,
 }
@@ -149,6 +152,12 @@ pub enum ApiError {
     NotUndoable,
     AlreadyPurged(AssetId),
     PurgeStale,
+    /// Planen er for gammel, eller bildene er endret siden forhåndsvisningen.
+    PlanStale,
+    /// `begin_purge` krever at bildet er i «Nylig slettet».
+    NotTrashed(AssetId),
+    /// Valget ville fjernet alle aktive medlemmer i gruppen.
+    WouldEmptyGroup(GroupId),
     Internal(String),
 }
 

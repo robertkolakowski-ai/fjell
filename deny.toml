@@ -5,6 +5,10 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
+ignore = [
+    # basic-toml er "unmaintained" (ikke en sårbarhet) og kommer bare via uniffi_bindgen, et byggeverktøy for Swift-bindinger som ikke brukes i PC-MVP. Fjernes når uniffi flyttes ut eller oppdateres.
+    { id = "RUSTSEC-2026-0374", reason = "unmaintained, kun byggetid via uniffi_bindgen" },
+]
 
 [licenses]
 version = 2
@@ -18,6 +22,8 @@ allow = [
     "Unicode-3.0",
     "Zlib",
     "CC0-1.0",
+    # uniffi (fjell-ffi) er MPL-2.0: filnivå copyleft, kun avhengighet (ingen endring av uniffi-filer)
+    "MPL-2.0",
 ]
 confidence-threshold = 0.9
 
@@ -28,6 +34,8 @@ ignore = true
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# K7-12: ingen async-runtime i kjernen.
+deny = [{ name = "tokio" }]
 allow-wildcard-paths = true
 
 [sources]
