@@ -1,0 +1,108 @@
+//! Modul `store` (L1). Se docs/mvp/ARKITEKTUR.md del 2 og 3.
+//!
+//! Avhenger av: model (ingen andre moduler).
+//! Grensesnitt (hovedpunkter):
+//! - `Store::open(path)` / `Store::open_in_memory()`: åpner, setter WAL og migrerer via `PRAGMA user_version`.
+//! - `Store::schema_dump()`: sortert dump av `sqlite_master` (brukes av migreringstesten K6-1).
+//! - `migrate::MIGRATIONS` / `migrate::migrate_to`: migreringene som SQL-filer (`NNN_*.sql`).
+//! - Skriver er én tilkobling (`Store`), lesing bruker egen tilkobling (`Store::reader`).
+//!
+//! Status (M1): skjema og migrering 1 med triggere. Spørringer (upsert, work_set m.m.) kommer senere i K6.
+
+mod migrate;
+#[cfg(test)]
+mod migrate_tests;
+
+use rusqlite::{Connection, OpenFlags};
+use std::path::{Path, PathBuf};
+
+pub use migrate::{migrate_to, MIGRATIONS};
+
+/// Feil fra lagringslaget.
+#[derive(Debug)]
+pub enum StoreError {
+    Sqlite(rusqlite::Error),
+    /// Databasen har nyere skjemaversjon enn denne kjernen kjenner.
+    TooNew {
+        found: u32,
+        supported: u32,
+    },
+}
+
+impl From<rusqlite::Error> for StoreError {
+    fn from(e: rusqlite::Error) -> Self {
+        StoreError::Sqlite(e)
+    }
+}
+
+impl std::fmt::Display for StoreError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StoreError::Sqlite(e) => write!(f, "sqlite: {e}"),
+            StoreError::TooNew { found, supported } => {
+                write!(f, "skjemaversjon {found} er nyere enn støttet {supported}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for StoreError {}
+
+/// Indeksen. Eier den ene skrivetilkoblingen.
+pub struct Store {
+    conn: Connection,
+    path: Option<PathBuf>,
+}
+
+impl Store {
+    /// Åpner (og oppretter) databasen på `path`, aktiverer WAL og migrerer til nyeste versjon.
+    pub fn open(path: &Path) -> Result<Store, StoreError> {
+        let conn = Connection::open(path)?;
+        Self::init(conn, Some(path.to_path_buf()))
+    }
+
+    /// Database i minnet (tester). Ingen WAL, ingen separat lesetilkobling.
+    pub fn open_in_memory() -> Result<Store, StoreError> {
+        Self::init(Connection::open_in_memory()?, None)
+    }
+
+    fn init(mut conn: Connection, path: Option<PathBuf>) -> Result<Store, StoreError> {
+        if path.is_some() {
+            // `journal_mode` returnerer en rad, så den må leses.
+            conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
+            conn.pragma_update(None, "synchronous", "NORMAL")?;
+        }
+        conn.pragma_update(None, "foreign_keys", true)?;
+        migrate_to(&mut conn, MIGRATIONS.len() as u32)?;
+        Ok(Store { conn, path })
+    }
+
+    /// Skrivetilkoblingen (kun brukt fra denne modulen og tester).
+    #[cfg(test)]
+    pub(crate) fn conn(&self) -> &Connection {
+        &self.conn
+    }
+
+    /// Egen skrivebeskyttet tilkobling for lesing (blokkeres ikke av skriver i WAL). `None` for minnedatabase.
+    pub fn reader(&self) -> Result<Option<Connection>, StoreError> {
+        match &self.path {
+            None => Ok(None),
+            Some(p) => {
+                let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+                Ok(Some(Connection::open_with_flags(p, flags)?))
+            }
+        }
+    }
+
+    /// Gjeldende `PRAGMA user_version`.
+    pub fn user_version(&self) -> Result<u32, StoreError> {
+        Ok(self
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))?)
+    }
+
+    /// Sortert dump av alle skjemaobjekter (`type|name|sql`), uavhengig av opprettelsesrekkefølge.
+    pub fn schema_dump(&self) -> Result<String, StoreError> {
+        migrate::schema_dump(&self.conn)
+    }
+}
