@@ -12,7 +12,7 @@
 //!   full listing (`since = None`).
 
 use crate::locality::{default_probe, LocalProbe};
-use crate::path::{os_path, resolve};
+use crate::path::{os_path, resolve, strip_extended};
 use crate::quarantine::QUARANTINE_DIR;
 use crate::thumb;
 use fjell_core::model::{
@@ -104,7 +104,11 @@ impl FsSource {
     }
 
     fn id_of(&self, p: &Path) -> SourceId {
-        let rel = p.strip_prefix(&self.root).unwrap_or(p);
+        // På Windows gir `read_dir` over en `\\?\`-sti oppføringer med samme prefiks, så begge
+        // sider normaliseres til visningsform før roten strippes. Ellers ville id-en bli hele stien.
+        let ps = PathBuf::from(strip_extended(&p.to_string_lossy()));
+        let rs = PathBuf::from(strip_extended(&self.root.to_string_lossy()));
+        let rel = ps.strip_prefix(&rs).unwrap_or(&ps);
         let parts: Vec<_> = rel.iter().map(|s| s.to_string_lossy()).collect();
         SourceId(parts.join("/"))
     }
