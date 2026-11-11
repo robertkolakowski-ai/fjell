@@ -56,7 +56,7 @@ Selected -> Explained -> Confirmed -> AwaitingSystem -> Purged | PartiallyPurged
 | Selected | Brukeren åpner «Nylig slettet» og velger (standard: utløpte, øvrige må velges) | `begin_purge(ids)` | Bare `trashed`. Gir `PurgeIntent{summary, digest}`. |
 | Explained | UI har vist forklaring av systemdialogen (antall, at dialogen er systemets, at den ikke kan angres i Fjell) | `confirm_purge(intent)` | Brukeren trykker eksplisitt. Gir `PurgeTicket` (omslutter `Confirmed`, gyldig 10 min, i minnet). |
 | Confirmed | Fjells bekreftelse gitt | UI kaller adapter `delete(ids)` | Ticket brukes én gang. |
-| AwaitingSystem | iOS `PHAssetChangeRequest.deleteAssets`, Android 11+ `MediaStore.createDeleteRequest`, Android 10 `RecoverableSecurityException`-flyt | adapter returnerer per id: Deleted / Cancelled / Failed | Kjernen er ikke involvert. |
+| AwaitingSystem | iOS `PHAssetChangeRequest.deleteAssets` | adapter returnerer per id: Deleted / Cancelled / Failed | Kjernen er ikke involvert. |
 | Purged / PartiallyPurged | `finish_purge(ticket, results)` | - | Bare id-er med Deleted settes til `purged`. Resten forblir `trashed` (ingen tap). |
 | Aborted | Bruker avbrøt systemdialogen, ticket utløp, eller app døde | - | Ingen tilstandsendring. Avstemming tar eventuelle slettinger som skjedde likevel. |
 
@@ -72,7 +72,7 @@ Krasj mellom plattformsletting og databaseskriving: neste skanning ser at `sourc
 | Frist | `trash_days` = 30 (setting). Endring gjelder bare nye elementer (forkorting skal aldri plutselig utløpe eksisterende). |
 | Utløp | `expire_due()` kjøres ved oppstart og i bakgrunnsskanning. Returnerer `ExpiryNotice{count, bytes}` én gang per element (`expired_notified_at`). UI viser lokalt varsel og banner. Elementene blir liggende og kan gjenopprettes. Kjernen sletter aldri. |
 | Tøm | Hele eller delmengde. Utløpte er forhåndsvalgt, ikke-utløpte må velges. |
-| Lagring | `TrashSummary{trashed_count, trashed_bytes, expired_count}`. «Kan frigjøres» = `trashed_bytes`. «Frigjort» telles først etter `finish_purge`. iOS: sletting havner i systemets «Nylig slettet» (30 dager), plass frigjøres først når den tømmes. Android 11+: frigjøres ved sletting. Begge verifiseres på referanseenhet før tekst låses. |
+| Lagring | `TrashSummary{trashed_count, trashed_bytes, expired_count}`. «Kan frigjøres» = `trashed_bytes`. «Frigjort» telles først etter `finish_purge`. iOS: sletting havner i systemets «Nylig slettet» (30 dager), plass frigjøres først når den tømmes. Verifiseres på iPhone før tekst låses. |
 
 ## 4. Konsekvensforhåndsvisning, beskyttelse, masse-sletting
 
@@ -95,7 +95,7 @@ Krasj mellom plattformsletting og databaseskriving: neste skanning ser at `sourc
 |---|---|---|---|
 | Favoritt | adapter-flagg | Ja | Aldri forhåndsvalgt. Egen bekreftelse. |
 | Delt album | adapter (album + `shared`) | Ja | Samme. Teksten sier at andre kan miste bildet. |
-| Redigert | adapter (PhotoKit adjustments / Android «edited»-flagg der det finnes) | Ja, der plattformen gir det | Samme. |
+| Redigert | adapter (PhotoKit adjustments) | Ja, der plattformen gir det | Samme. |
 | Mange ansikter fra nære personer | krever ansiktsmodell | Nei (post-MVP, flagget reservert) | Dokumenter i UI-plan at denne beskyttelsen mangler i MVP. |
 
 Regler:
@@ -156,7 +156,7 @@ Modellbasert test: referansemodell (`HashMap<AssetId, State>` + stabel) kjøres 
 | T7 | Plan blir gammel (bilde gjenopprettet/endret mellom plan og commit) | `PlanStale`, ingenting skrevet | Enhet |
 | T8 | 31 dager frem (`Clock`) | Elementer `trashed`, `ExpiryNotice` én gang, restore virker, ingen sletting | Egenskap |
 | T9 | iOS-dialog: bruker avbryter | Alle forblir `trashed`; ingen logg `purge` | Adapter-fake + UI |
-| T10 | Android: delvis (7 av 10 slettet) | 7 `purged`, 3 `trashed`; rapport viser 7/3 | Adapter-fake |
+| T10 | Delvis (7 av 10 slettet) | 7 `purged`, 3 `trashed`; rapport viser 7/3 | Adapter-fake |
 | T11 | App drepes etter plattformsletting, før DB | Neste skanning avstemmer til `purged` (`cause=external`) | Integrasjon (`fjell-cli`) |
 | T12 | Bilde slettet utenfor Fjell mens `trashed` | Avstemmes til `purged`; angre hopper over det og rapporterer | Integrasjon |
 | T13 | Angre av batch som inneholder purge | `NotUndoable`; UI viser ikke knapp | Enhet |
@@ -168,7 +168,7 @@ Modellbasert test: referansemodell (`HashMap<AssetId, State>` + stabel) kjøres 
 | T19 | Tom mengde, duplikat-id-er, ukjent id | Tom: no-op uten batch; duplikater dedupes; ukjent: `UnknownAsset` | Enhet |
 | T20 | Kontrakt: alle koder oversatt | `ConsequenceCode` og `PlatformDialogNext` finnes i nb og en | i18n |
 | T21 | UI nb (+30 %) for bekreftelser og systemdialog-forklaring | Ingen avkapping; knapper nåbare | UI |
-| T22 | VoiceOver/TalkBack på bekreftelse og «Tøm» | Etiketter finnes; swipe og knapp gir samme resultat | UI |
+| T22 | VoiceOver på bekreftelse og «Tøm» | Etiketter finnes; swipe og knapp gir samme resultat | UI |
 | T23 | Fixture-sjekksum etter full skanning, alle ops og `FsAdapter.delete` bare på temp-kopi | Original-fixture uendret | Integrasjon |
 | T24 | Migrering legger til triggere og kolonner | Fra forrige og fra tom db gir lik skjemadump; triggere virker | Migrering |
 
@@ -194,10 +194,9 @@ Faser følger CLAUDE.md: én fase, én gren, én PR.
 
 ## 9. Åpne punkter
 
-- iOS og Android: bekreft på referanseenhet hva som frigjør plass når (tekst i UI låses etterpå).
+- iOS: bekreft på referanseenhet hva som frigjør plass når (tekst i UI låses etterpå).
 - Terskler `MassDelete` (50 / 1 GB) og plangyldighet (5 min) kalibreres i brukertest.
 - Ansiktsbeskyttelse (nære personer) er post-MVP og krever modellvalg.
-- Android 10-flyt (`RecoverableSecurityException`) gir en dialog per bilde i verste fall: vurder å sette Android 11 som minimum for «Tøm» i MVP.
 
 ## Grensesnitt mot andre planer
 
@@ -207,7 +206,7 @@ Faser følger CLAUDE.md: én fase, én gren, én PR.
 |---|---|
 | Arkitekt / data (`store`, `model`) | **Skjema:** `asset.protect_flags INTEGER` (bitmaske Favorite, SharedAlbum, Edited, Faces-reservert); tabeller `album(id, name, shared)` og `asset_album(asset_id, album_id)`; `asset.expired_notified_at`; `action_log.inverse_of`, `action_log.prev_sugg_status`, `action_log.cause` (user, expiry, external, undo); triggere for I2, I3, I14. `upsert_assets` skal bevare `state`, `trashed_at`, `expires_at` (I13). `set_state(batch)` må være én transaksjon. |
 | Arkitekt | Bekreft at `purge(ids, Confirmed)` i `actions` betyr «oppdater indeks etter plattformens svar» (ikke selve slettingen), og at `Confirmed`/`PurgeTicket` lages i `api` via `begin_purge` / `confirm_purge`. |
-| Plattformadaptere (iOS, Android, fs) | `AssetMeta` med `is_favorite`, `in_shared_album`, `is_edited`, albumliste (id, navn, delt), valgfri `BackupState`. Adapter-operasjon `delete(ids) -> Vec<(AssetId, Deleted\|Cancelled\|Failed)>` som bare UI kaller med gyldig ticket. `list_changes` må kunne melde slettede kilder (til avstemming). |
+| Plattformadaptere (iOS, fs) | `AssetMeta` med `is_favorite`, `in_shared_album`, `is_edited`, albumliste (id, navn, delt), valgfri `BackupState`. Adapter-operasjon `delete(ids) -> Vec<(AssetId, Deleted\|Cancelled\|Failed)>` som bare UI kaller med gyldig ticket. `list_changes` må kunne melde slettede kilder (til avstemming). |
 | Pipeline (`scan`) | Avstemming av borte kilder til `purged` (`cause=external`). Skanning rører ikke `state` ellers. Trashed bilder utelates fra klynging og kort. |
 | Forslag (`suggest`) | Foretrekk beskyttet medlem som behold. Aldri forslag som sletter alle aktive medlemmer i en gruppe. `ReasonCode` per bilde leveres til `Plan`. |
 | UI/UX-plan | Bekreftelsesflyt per kategori, `MassAck`, forklaring før systemdialog, «Nylig slettet» med tre tall (merket / kan frigjøres / frigjort), banner for utløp, tydelig «ikke slettet fra telefonen ennå». Alle med knappealternativ til swipe. |

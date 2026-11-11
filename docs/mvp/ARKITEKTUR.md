@@ -1,13 +1,13 @@
 # MVP-arkitektur
 
-Status: besluttet (gren `plan/mvp`). Omfang: eksakte og visuelle duplikater, uskarpe bilder og skjermbilder, swipe-modus, papirkurv, angre, norsk og engelsk.
+Status: besluttet (gren `plan/mvp`). Omfang: eksakte og visuelle duplikater, uskarpe bilder og skjermbilder, swipe-modus, papirkurv, angre, norsk og engelsk. Kun iPhone (iOS 17+); Android og nynorsk kommer etter MVP.
 Prinsipp: færrest mulige bevegelige deler. Ingen ML-modell, ingen vektorindeks og ingen async-runtime i MVP.
 
 ## 1. Beslutninger
 
 | # | Valg | Beslutning | Begrunnelse | Forkastet | Konsekvens (kvalitet / tokenbruk) |
 |---|---|---|---|---|---|
-| 1 | Delt kjerne | **Rust** + UniFFI (genererer Swift og Kotlin) | Én implementasjon på iOS, Android og desktop. Rask hashing uten GC. Samme kode i tester, CLI og app. | Kotlin Multiplatform (svak iOS-historie, tung runtime); separate implementasjoner (tre ganger feil og tre ganger kontekst) | Én logikkbase gir identisk oppførsel. Agenter leser ett språk i `core/`. |
+| 1 | Delt kjerne | **Rust** + UniFFI (genererer Swift; Kotlin kan legges til etter MVP) | Én implementasjon på iOS og desktop (CLI), og klar for Android senere. Rask hashing uten GC. Samme kode i tester, CLI og app. | Kotlin Multiplatform (svak iOS-historie, tung runtime); separate implementasjoner (tre ganger feil og tre ganger kontekst) | Én logikkbase gir identisk oppførsel. Agenter leser ett språk i `core/`. |
 | 2 | Desktop | **Tauri**, men **utenfor MVP**. Kjernen kompileres for desktop fra dag én og brukes via `fjell-cli`. | Tauri bruker Rust-kjernen direkte og bundler ikke Chromium. Mobil er primærmålgruppen. | Electron (Chromium og Node ved siden av Rust); desktop-UI i MVP (tredje UI uten MVP-verdi) | CLI fungerer som testsele og ytelsesmåler uten emulator. |
 | 3 | Embeddings og estetikkmodeller | **Ingen i MVP.** Perseptuelle hasher (dHash + pHash, 64 bit hver). Modellvalg utsettes til serier og «beste bilde» (fase etter MVP). Krav da: permissiv lisens, ≤ 30 MB, ONNX. | Visuelle duplikater (samme bilde, ny størrelse eller komprimering) løses av hasher. Modeller gir lisens-, størrelse- og kalibreringsrisiko uten MVP-gevinst. | CLIP-lignende embeddings nå; sky-analyse | Ingen modellfiler, ingen runtime og ingen NNAPI/Core ML-forskjeller å teste. |
 | 4 | Vektorindeks | **Ingen.** Multi-index hashing i minnet over 64-bit hasher (8 blokker × 8 bit, Hamming ≤ 6). | 10 000 hasher er 80 kB. Pigeonhole-garanti gir full recall for terskelen. | HNSW i SQLite (passer for embeddings, ikke for biter) | Klynging for 10 000 bilder < 5 s. Ingen indeks å vedlikeholde i databasen. |
@@ -16,10 +16,10 @@ Prinsipp: færrest mulige bevegelige deler. Ingen ML-modell, ingen vektorindeks 
 | 7 | Eksakte duplikater | **BLAKE3** over filbytes, filstørrelse som forfilter (hash bare ved lik størrelse). | Rask og kollisjonssikker. Forfilteret sparer I/O. | SHA-256 (tregere); bare metadata-sammenligning (upålitelig) | Færre filer lest. |
 | 8 | Uskarphet | **Varians av Laplace** på 256 px gråtone, normalisert mot bildets kontrast. Terskel kalibreres mot golden-korpus. | Billig (< 3 ms) og forklarbar («Uskarpt»-merke). | ML-kvalitetsmodell (se 3) | Ingen modell. Terskel er én konstant i `quality`. |
 | 9 | Skjermbilder | **Heuristikk:** plattformflagg eller album «Skjermbilder», oppløsning lik kjent skjermstørrelse, ingen kamera-EXIF, PNG. Minst to av fire signaler gir forslag. | Rimelig presisjon uten modell. Signalene lagres og vises som begrunnelse. | Bildeklassifisering | Deterministisk og enkel å teste med fixtures. |
-| 10 | Samtidighet | **std-tråder + rayon.** Ingen tokio. Én bakgrunnsarbeider for indeksering, kjernens API er synkront. | Arbeidet er CPU-bundet. Async gir bare ekstra FFI-kompleksitet. | tokio; Kotlin-coroutines i kjernen | Enklere FFI og enklere feilsøking. |
-| 11 | Mobil-UI | **Native tynne UI-er** (SwiftUI, Jetpack Compose). All logikk i kjernen. UI viser kort og sender beslutninger. | Swipe < 100 ms, VoiceOver/TalkBack og gester med knappealternativ kommer best fra native. | Flutter, React Native, KMP Compose (ekstra runtime og a11y-risiko) | UI-filer er små og lette å lese for agenter. |
+| 10 | Samtidighet | **std-tråder + rayon.** Ingen tokio. Én bakgrunnsarbeider for indeksering, kjernens API er synkront. | Arbeidet er CPU-bundet. Async gir bare ekstra FFI-kompleksitet. | tokio; async i kjernen | Enklere FFI og enklere feilsøking. |
+| 11 | Mobil-UI | **Native tynne UI-er** (SwiftUI, kun iPhone i MVP). All logikk i kjernen. UI viser kort og sender beslutninger. | Swipe < 100 ms, VoiceOver og gester med knappealternativ kommer best fra native. | Flutter, React Native, KMP Compose (ekstra runtime og a11y-risiko) | UI-filer er små og lette å lese for agenter. |
 | 12 | Papirkurv og angre | **Tilstand i indeksen** (`asset.state`: active, trashed, purged), ikke filflytting. Hver handling skrives til `action_log` med `batch_id`. Angre = invers av siste batch i én transaksjon. Fysisk sletting skjer bare ved «Tøm» med eksplisitt bekreftelse og plattformens egen dialog. Ved utløp (30 dager, konfigurerbart) merkes elementer «utløpt» og brukeren varsles. Ingen stille sletting. | Oppfyller reglene «originaler endres aldri», «alt kan angres», «aldri hard sletting uten varsel». Handling er én rad-oppdatering. | Flytte filer til skjult mappe (iOS tillater det ikke); plattformens papirkurv alene (ingen angre per swipe) | Angre er < 5 ms. **Merk:** lagring frigjøres først ved «Tøm». UI viser «kan frigjøres» separat. |
-| 13 | Språk | **nb + en** i MVP. `nn` får tom filmal med fallback til nb (avvik fra CLAUDE.md «nynorsk fra dag én», se MVP-PLAN åpent spørsmål 1). Kilde: `i18n/*.json`, generert til `.xcstrings` og Android `strings.xml`. Kjernen returnerer **begrunnelseskoder**, aldri tekst. | Tekst bor kun i UI-laget. Én kilde hindrer divergens. | Tekst i kjernen; manuell vedlikehold per plattform | Pseudo-lokalet `nb` (+30 %) fanger overflyt i test. |
+| 13 | Språk | **nb + en** i MVP. `nn` utsettes til etter MVP (avklart 2026-11-11); nøkkelstruktur og nøkkelvis fallback til nb beholdes i designet. Kilde: `i18n/*.json`, generert til `.xcstrings`. Kjernen returnerer **begrunnelseskoder**, aldri tekst. | Tekst bor kun i UI-laget. Én kilde hindrer divergens. | Tekst i kjernen; manuell vedlikehold per plattform | Pseudo-lokalet `nb` (+30 %) fanger overflyt i test. |
 | 14 | Algoritmeversjon | `fingerprint.algo_ver` per rad. Ved endret algoritme analyseres bare rader med gammel versjon på nytt. | Kalibrering vil endre seg. Full reindeksering er dyrt. | Alltid full reindeksering | Sparer batteri og CI-tid. |
 | 15 | Taskrunner og CI | **`just`** som eneste inngang, **GitHub Actions** med stifiltre. Se del 5. | Ett sett kommandoer lokalt og i CI. | Make, egne skript per plattform | Agenter trenger bare `just check`. |
 | 16 | Telemetri | **Ingen** i MVP. Ytelse måles i test, ikke hos brukere. | On-device først, ingen datainnsamling. | Anonym telemetri | Ingen samtykkeflyt å bygge. |
@@ -93,7 +93,7 @@ Regler:
 | Uendret original | Sjekksum av fixture-mappen før og etter full skanning og alle handlinger er lik. | Hver PR |
 | Migrering | Hver `user_version` migreres fra forrige og fra tom database til lik skjemadump. | Hver PR |
 | Integrasjon (`fjell-cli`) | Full skanning av fixture-bibliotek mot filsystemadapter, deretter handlinger og angre. | Hver PR |
-| UI | Swipe og knappealternativ gir samme resultat. VoiceOver/TalkBack-etiketter finnes. Skjermbilder med pseudo-lokale `nb` (+30 %) og `en` uten avkapping. | Native UI-tester ved endring i `app/` |
+| UI | Swipe og knappealternativ gir samme resultat. VoiceOver-etiketter finnes. Skjermbilder med pseudo-lokale `nb` (+30 %) og `en` uten avkapping. | Native UI-tester ved endring i `app/` |
 | i18n | Nøkkelparitet nb/en, ingen hardkodet tekst i UI-filer (lint). | Hver PR |
 | Ytelse | Se under. | Se under |
 
@@ -103,7 +103,7 @@ Regler:
 |---|---|---|
 | Handling (swipe, trash, undo, behold) p95 | **< 100 ms** ende til ende. Kjernekall < 10 ms (sikte < 5 ms). | `perf`-test i `fjell-cli`: 1 000 kall mot database med 50 000 bilder, p95 rapporteres. PR feiler over 10 ms for kjernekall. Ende til ende måles i UI-test på referanseenhet. |
 | Neste kort | Forhåndslast 3 miniatyrer. Spørring bruker `idx(status, kind, confidence)`. < 5 ms. | Samme perf-test |
-| Første indeksering | **< 10 min per 10 000 bilder**, dvs. < 60 ms veggtid per bilde. | Nattlig kjøring på referanseenhet (mellomklasse-telefon) med syntetisk 10 000-bibliotek. |
+| Første indeksering | **< 10 min per 10 000 bilder**, dvs. < 60 ms veggtid per bilde. | Nattlig kjøring på referanseenhet (iPhone) med syntetisk 10 000-bibliotek. |
 | Klynging og forslag (10 000 bilder) | < 5 s | `criterion`-benchmark |
 | Kald oppstart | < 1,5 s (åpne database, første kort) | UI-test på referanseenhet |
 
@@ -132,9 +132,8 @@ fjell/
     crates/fjell-cli/    testsele, perf, filsystemadapter
     testdata/            golden-korpus + generator
   app/ios/               SwiftUI, bruker xcframework
-  app/android/           Compose, bruker AAR med .so
   desktop/               tomt i MVP (Tauri senere)
-  i18n/                  nb.json, en.json, nn.json (stub)
+  i18n/                  nb.json, en.json
   tools/                 gen-i18n, gen-bindings, check-layers
   docs/                  spesifikasjon, docs/mvp/
   justfile
@@ -143,7 +142,7 @@ fjell/
 
 **Bygg**
 - `just check` = fmt + clippy (`-D warnings`) + test + check-layers. `just bench`, `just bindings`, `just i18n`.
-- Android: `cargo-ndk` (arm64-v8a, x86_64 for emulator) til AAR. iOS: `cargo` for arm64 og simulator til xcframework.
+- iOS: `cargo` for arm64 og simulator til xcframework.
 - Bindinger genereres av UniFFI ved bygg og sjekkes ikke inn.
 - Én `Cargo.lock`. Avhengigheter holdes få: `rusqlite`, `blake3`, `rayon`, `uniffi`, `thiserror`, `proptest` (dev), `criterion` (dev).
 
@@ -153,7 +152,6 @@ fjell/
 |---|---|---|
 | `core` | endring i `core/` eller `i18n/` | `just check`, golden-porter, migrering, `cargo-deny` (lisens og sårbarheter) |
 | `layers` | som `core` | `tools/check-layers` feiler på `use` mot høyere lag eller på syklus |
-| `android` | endring i `app/android/` eller `core/` | bygg AAR, enhetstester, a11y-lint |
 | `ios` | endring i `app/ios/` eller `core/` | bygg xcframework (macOS-runner), enhetstester |
 | `i18n` | endring i `i18n/` eller `app/` | nøkkelparitet, hardkodet-tekst-lint, pseudo-lokale |
 | `nightly` | tidsplan | 10 000-bilders indekseringsbudsjett, 50 000-bilders handlings-p95 |
@@ -165,6 +163,9 @@ fjell/
 
 ## Åpne punkter (avklares før kode)
 - Kalibrering av terskler (Hamming, uskarphet) mot golden-korpus. Startverdier: Hamming ≤ 6 på både dHash og pHash, uskarphet ved laveste 10 % av normalisert score.
-- Referanseenheter for ytelsestester (én iOS, én Android mellomklasse).
+- Referanseenheter for ytelsestester (én iPhone, iOS 17+).
 - Hvordan «Tøm» skal presenteres siden plattformdialogen styrer sletteflyten (UX, ikke arkitektur). Løst i PLAN-UX-I18N 3.6.
-- Er nynorsk lanseringskrav (CLAUDE.md) eller kan `nn` være stub med fallback i MVP?
+
+## Etter MVP
+- Android (Kotlin, Jetpack Compose, `cargo-ndk`/AAR, TalkBack, Android 11+ som sannsynlig minimum for «Tøm») er utenfor MVP (avklart 2026-11-11). Kjernen holdes plattformnøytral (Rust + UniFFI, `AssetSource`-trait, ingen plattformkode i `core/`) slik at en Android-adapter og UI kan legges til uten endringer i kjernen.
+- Nynorsk (`nn.json`) legges til etter MVP. Nøkkelstruktur og nøkkelvis fallback til nb er allerede på plass.

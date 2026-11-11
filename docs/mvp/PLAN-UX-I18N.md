@@ -21,7 +21,7 @@ Avvik fra PRODUKT.md (begrunnet): «Slett» heter «Flytt til papirkurv» overal
 ## 2. Designregler som gjelder alle skjermer
 
 - Én primærhandling per skjerm, aksentfarge bare der. Bildet er hovedperson, fullskjerm der det er plass.
-- Ingen auto-forhåndsvalg bortsett fra: eksakte duplikater og visuelle duplikater (alt unntatt keeper), men aldri beskyttede bilder (TRYGGHET 4.2). Forhåndsmerking er UI-valg (kjernen setter aldri `accepted`); produkteier bekrefter (MVP-PLAN åpent spørsmål 2). Uskarpe og skjermbilder er **aldri** forhåndsvalgt, de krever eget valg eller swipe.
+- Ingen auto-forhåndsvalg bortsett fra: eksakte duplikater og visuelle duplikater (alt unntatt keeper), men aldri beskyttede bilder (TRYGGHET 4.2). Forhåndsmerking er UI-valg (kjernen setter aldri `accepted`); avklart av produkteier 2026-11-11. Uskarpe og skjermbilder er **aldri** forhåndsvalgt, de krever eget valg eller swipe.
 - Keeper kan ikke velges for papirkurv i samme gruppe (UI hindrer at alle i en gruppe trashes).
 - Alle handlinger er optimistiske: UI oppdateres umiddelbart, kjernekall går på én seriell bakgrunnskø (rekkefølgen bevares), feil gir tilbakerulling og melding.
 - Angre er alltid synlig etter en handling (knapp, ikke bare snackbar). Angre = `undo()` = siste batch.
@@ -44,7 +44,7 @@ Avvik fra PRODUKT.md (begrunnet): «Slett» heter «Flytt til papirkurv» overal
 Regler og kantsaker:
 - Hvis rask skann ikke er ferdig etter 45 s: vis «Foreløpig resultat» med det som er funnet, fortsett i bakgrunnen.
 - 0 eksakte duplikater: «Ingen eksakte duplikater. Vi leter videre etter like bilder i bakgrunnen.» → Hjem med fremdrift. Ingen kunstig seier.
-- Begrenset tilgang (iOS «Utvalgte bilder», Android 14 delvis mediatilgang): fungerer som vanlig på utvalget. Banner på Hjem: «Du har gitt tilgang til noen bilder» + knapp for å endre.
+- Begrenset tilgang (iOS «Utvalgte bilder»): fungerer som vanlig på utvalget. Banner på Hjem: «Du har gitt tilgang til noen bilder» + knapp for å endre.
 - Tilgang avslått: egen tilstand med forklaring og «Åpne innstillinger». Appen krasjer eller tømmes aldri.
 - Avbrutt skann (app lukket): gjenopptas via `mod_token`. Onboarding vises ikke på nytt.
 - Merk: «Flytt til papirkurv» krever ingen systemdialog (tilstand i indeksen). Systemdialog kommer først ved «Tøm».
@@ -123,20 +123,20 @@ Hver skjerm = én fil med en `ViewState`-type (sealed/enum) og én ren funksjon 
 | Swipe | loading, card(top, nextN), dragging(dir, progress), deckEmpty(stats), error |
 | Papirkurv | empty, list(sections, selection), confirmPurge, purging, purged(bytes), error |
 
-Filstruktur (begge plattformer, speilet): `Features/{Onboarding,Home,Review,Group,Swipe,Trash,Settings}`, `Design/` (tokens, komponenter), `CoreBridge/` (mapper UniFFI-typer til ViewState), `Strings/` (generert). Ingen forretningslogikk utenfor `CoreBridge`. Hver fil ≤ ca. 300 linjer.
+Filstruktur (iOS): `Features/{Onboarding,Home,Review,Group,Swipe,Trash,Settings}`, `Design/` (tokens, komponenter), `CoreBridge/` (mapper UniFFI-typer til ViewState), `Strings/` (generert). Ingen forretningslogikk utenfor `CoreBridge`. Hver fil ≤ ca. 300 linjer.
 
-## 5. i18n (nb, nn, en)
+## 5. i18n (nb, en)
 
 ### 5.1 Regler
 
-- Kilde: `i18n/nb.json` (kildespråk), `en.json`, `nn.json`. Generert til `.xcstrings` og `strings.xml` av `tools/gen-i18n`. Ingen manuell redigering av genererte filer.
+- Kilde: `i18n/nb.json` (kildespråk), `en.json` (`nn.json` etter MVP). Generert til `.xcstrings` av `tools/gen-i18n`. Ingen manuell redigering av genererte filer.
 - Ingen tekst i kjernen. Kjernen leverer `ReasonCode` + parametre. UI mapper kode → nøkkel `reason.<kode>`.
 - Ingen strengsammenstilling i kode. Hele setninger med navngitte plassholdere: `{count}`, `{size}`, `{days}`. Datoer, tall og størrelser formateres med plattformens locale og sendes inn ferdig formatert.
-- Flertall med ICU-delmengde: `{count, plural, one {# bilde} other {# bilder}}`. gen-i18n støtter bare `plural`, `select` og enkle plassholdere, og feiler på resten. (nb, nn og en har kategoriene `one` og `other`.)
+- Flertall med ICU-delmengde: `{count, plural, one {# bilde} other {# bilder}}`. gen-i18n støtter bare `plural`, `select` og enkle plassholdere, og feiler på resten. (nb og en har kategoriene `one` og `other`.)
 - Nøkkelnavn: `<område>.<element>.<tilstand>`, små bokstaver, punktum. Eks. `home.ring.caption`, `trash.purge.confirm.title`.
 - Hver nøkkel har valgfri `"ctx"` (beskrivelse til oversetter) og `"len": "short"` for knapper, faner og merker (kort plass).
-- Bruk språkets egne typografiregler: hard mellomrom før `%` og mellom tall og enhet i nb/nn (`82 %`, `1,2 GB`). Formateres av plattformen, ikke i JSON.
-- Språkvalg: følger systemspråk, kan overstyres i Innstillinger (`setting.language`). Nynorsk faller tilbake nøkkelvis til nb ved manglende oversettelse.
+- Bruk språkets egne typografiregler: hard mellomrom før `%` og mellom tall og enhet i nb (`82 %`, `1,2 GB`). Formateres av plattformen, ikke i JSON.
+- Språkvalg: følger systemspråk, kan overstyres i Innstillinger (`setting.language`). Språk uten oversettelse (nn etter MVP) faller tilbake nøkkelvis til nb.
 
 ### 5.2 Format
 
@@ -190,11 +190,11 @@ Merker vises som separate chips (maks 2 per kort), aldri sammensatt setning, sli
 - Pseudo-lokale: `gen-i18n` lager `pseudo` fra nb: hver streng forlenges 30 % (utfyll med «·»), omsluttes av `[ ]`, og aksenttegn brukes på noen bokstaver (æ, ø, å, ü) for å fange skrift- og kodingsfeil. Brukes i alle UI-skjermbildetester.
 - Layoutregler: ingen faste bredder på tekst, tekst bryter til 2+ linjer, knapper vokser i høyde. Merker og faner (`len: short`) kan avkortes med ellipsis **bare** hvis full tekst er tilgjengelig for skjermleser og i lang trykk-hjelp.
 - Bunnlinjen i Gjennomgang og de tre knappene i Swipe stables vertikalt ved lang tekst eller stor skrift.
-- Lint (CI `i18n`): nøkkelparitet nb/en (nn kan mangle, rapporteres), plassholderparitet, flertallsformer, ingen hardkodet tekst i `app/` (regex på strenglitteraler i SwiftUI `Text("…")` og Compose `Text("…")`), `en` ≤ 1,3 × lengden av nb for `len: short`.
+- Lint (CI `i18n`): nøkkelparitet nb/en, plassholderparitet, flertallsformer, ingen hardkodet tekst i `app/` (regex på strenglitteraler i SwiftUI `Text("…")`), `en` ≤ 1,3 × lengden av nb for `len: short`.
 
-### 5.6 Nynorsk (konflikt å avklare)
+### 5.6 Nynorsk (utsatt til etter MVP)
 
-PRODUKT.md krever nb/nn/en fra dag én. ARKITEKTUR #13 setter `nn` som tom mal med fallback til nb. UX-forslag: følg arkitekturen i MVP-bygg, men fyll `nn.json` med fagfellevurdert oversettelse like etter at nb-nøklene er frosset (fase UX-6), slik at den er klar til lansering. Beslutning trengs fra produkteier om nn er lanseringskrav.
+Avklart 2026-11-11: nn er ikke MVP-krav. MVP = nb + en. Nøkkelstruktur og nøkkelvis fallback til nb beholdes, slik at `nn.json` kan legges til etter MVP uten kodeendring.
 
 ## 6. Tilgjengelighet (WCAG 2.2 AA)
 
@@ -203,8 +203,8 @@ PRODUKT.md krever nb/nn/en fra dag én. ARKITEKTUR #13 setter `nn` som tom mal m
 | Område | Krav | Test |
 |---|---|---|
 | Kontrast | Tekst ≥ 4,5:1 (stor ≥ 3:1), ikoner og kontrollkanter ≥ 3:1, lys og mørk modus. Gjelder også overlegg på bilder (bruk skrimgradient eller bakgrunnsplate) | Enhetstest som beregner kontrast fra tokens + automatisk revisjon |
-| Trykkflater | ≥ 44 pt (iOS) / 48 dp (Android) | Revisjon |
-| Tekststørrelse | iOS Dynamic Type til AX5, Android `fontScale` 2,0 uten avkutting eller tap av funksjon | Skjermbildetest × skala |
+| Trykkflater | ≥ 44 pt (iOS) | Revisjon |
+| Tekststørrelse | iOS Dynamic Type til AX5 uten avkutting eller tap av funksjon | Skjermbildetest × skala |
 | Reflow | Brukbart på 320 pt bredde, stående og liggende | Skjermbildetest |
 | Ikke bare farge | Handling, valg, «Beste», feil og overlegg har ikon + tekst | Manuell + revisjon |
 | Gester | Alle gester har knapp- eller handlingsalternativ (WCAG 2.5.1). Ingen presisjonsdra | UI-test (3.5) |
@@ -214,10 +214,10 @@ PRODUKT.md krever nb/nn/en fra dag én. ARKITEKTUR #13 setter `nn` som tom mal m
 | Navn/rolle/verdi | Alle kontroller har etikett; valgt-tilstand eksponeres | Revisjon |
 | Tidsbegrensning | Ingen auto-forsvinnende angre. «Angre» ligger i UI til neste handling | UI-test |
 
-### 6.2 Skjermleser (VoiceOver / TalkBack)
+### 6.2 Skjermleser (VoiceOver)
 
 - Bilder har ingen innholdsbeskrivelse (ingen ML i MVP). Etikett er metadata: «Bilde 3 av 12. Tatt 14. juli 2025. 3,2 MB. Beste i gruppen. Uskarpt 82 %.» Nøkler i `a11y.photo.*`.
-- Swipe-kort: egendefinerte handlinger «Behold», «Flytt til papirkurv», «Hopp over», «Angre» (iOS `accessibilityCustomActions`, Android `customActions`). Gest-overlegg skjules fra skjermleser.
+- Swipe-kort: egendefinerte handlinger «Behold», «Flytt til papirkurv», «Hopp over», «Angre» (iOS `accessibilityCustomActions`). Gest-overlegg skjules fra skjermleser.
 - Gruppevisning: liste med ett element per bilde og handlingene «Gjør til beste», «Zoom». Karusellen er visuell.
 - Gjennomgang: valgknapp per rad med tilstand «valgt / ikke valgt». Bunnlinjen annonserer ny sum ved endring (med 300 ms demping).
 - Ring på Hjem er ett element med full tekst.
@@ -232,7 +232,7 @@ PRODUKT.md krever nb/nn/en fra dag én. ARKITEKTUR #13 setter `nn` som tom mal m
 
 | Mål | Budsjett | Måling |
 |---|---|---|
-| Slipp av kort → neste kort på plass (p95) | < 100 ms | `os_signpost` / Android `Trace`, UI-test på referanseenhet |
+| Slipp av kort → neste kort på plass (p95) | < 100 ms | `os_signpost`, UI-test på referanseenhet |
 | Trykk «Angre» → tilstand synlig | < 100 ms | Samme |
 | Bunnlinjesum ved valg | < 16 ms (én ramme) | UI-test |
 | Kald oppstart til første kort/Hjem | < 1,5 s | Samme (ARKITEKTUR del 4) |
@@ -250,8 +250,8 @@ Tiltak: forhåndslast og dekod neste kort på bakgrunnstråd, optimistisk oppdat
 | i18n | Nøkkelparitet, plassholdere, flertall, hardkodet tekst, lengdegrense `short`, ReasonCode uten nøkkel | `tools/gen-i18n --check` | Hver PR (`i18n/`, `app/`) |
 | Funksjon (UI) | Swipe og knapp gir lik batch (`action_log` lik). Angre gjenoppretter. Keeper kan ikke trashes. Onboarding-flyt inkl. avslått tilgang, begrenset tilgang, 0 treff, avbrutt | XCUITest, Compose UI Test + fake `AssetSource` fra `fjell-cli` | Hver PR (`app/`) |
 | Skjermbildetest | PR: hver skjerm × {nb, pseudo} × {lys, mørk} × {standard, AX5 / 2,0} × 320 pt uten avkutting. Full matrise (også en, liten skrift, stor telefon) i `nightly` | swift-snapshot-testing, Paparazzi/Roborazzi | Hver PR (`app/`) |
-| Tilgjengelighetsrevisjon | 0 brudd i automatisk revisjon: `performAccessibilityAudit` (iOS 17+), Accessibility Test Framework / `AccessibilityChecks` (Android). Kontrastenhetstest for tokens | Samme | Hver PR (`app/`), jobb `android` har a11y-lint |
-| Manuell skjermleser | Skript per skjerm i VoiceOver og TalkBack: fullfør onboarding, gå gjennom en gruppe, swipe 10 kort, tøm papirkurv. Dokumentert avkrysning | Manuell, referanseenheter | Før hver beta |
+| Tilgjengelighetsrevisjon | 0 brudd i automatisk revisjon: `performAccessibilityAudit` (iOS 17+). Kontrastenhetstest for tokens | Samme | Hver PR (`app/`) |
+| Manuell skjermleser | Skript per skjerm i VoiceOver: fullfør onboarding, gå gjennom en gruppe, swipe 10 kort, tøm papirkurv. Dokumentert avkrysning | Manuell, referanseenhet | Før hver beta |
 | Ytelse | Swipe/angre p95 < 100 ms, kald oppstart, rask skann-tider | Signpost/Trace + UI-test | `nightly` på referanseenhet |
 | Brukbarhet | 5 deltakere, onboarding fullført ≤ 60 s uten hjelp; forstår «Flytt til papirkurv» vs «Tøm» (spørsmål: «Er plassen frigjort nå?») | Observasjon | Før beta, og etter endring i tekst for 3.1/3.6 |
 | Nøytral kontroll | Appen skriver aldri til originaler (UI-testen sjekker sjekksum av testbibliotek etter hele flyten) | Fixture-sjekksum | Hver PR (`app/`) |
@@ -268,13 +268,13 @@ Akseptkriterier for MVP-UX:
 
 | Fase | Innhold | Avhenger av | Akseptkriterium |
 |---|---|---|---|
-| UX-0 | `tools/gen-i18n` (nb/en/nn/pseudo → xcstrings + strings.xml), lint, nøkkelkatalog 5.3 | Repo-skjelett | `just i18n` grønn, paritet, pseudo genereres |
+| UX-0 | `tools/gen-i18n` (nb/en/pseudo → xcstrings), lint, nøkkelkatalog 5.3 | Repo-skjelett | `just i18n` grønn, paritet, pseudo genereres |
 | UX-1 | Design tokens, kontrasttest, komponentbibliotek (kort, merke, bunnlinje, ring), `CoreBridge`-skall mot fake kjerne | UX-0, `api`-trait | Skjermbildetester for komponenter, kontrast OK |
 | UX-2 | Onboarding + Hjem | UX-1, rask skann i kjerne | Kriterium 1, flyt-tester |
 | UX-3 | Gjennomgang + Gruppevisning | UX-2, `decide_many`, `set_keeper` | Batch-tester, a11y-revisjon |
 | UX-4 | Swipe-modus + knapper + skjermleserhandlinger | UX-3 | Kriterium 2 og 5 |
-| UX-5 | Papirkurv, Tøm-flyt, utløp, historikk | UX-3, `purge`, plattformadapter | Kriterium 6, tømmeflyt på begge plattformer |
-| UX-6 | Hardening: AX5, ytelse, manuell skjermleser, nn-oversettelse, brukbarhetstest | Alle | Alle akseptkriterier |
+| UX-5 | Papirkurv, Tøm-flyt, utløp, historikk | UX-3, `purge`, plattformadapter | Kriterium 6, tømmeflyt på iPhone |
+| UX-6 | Hardening: AX5, ytelse, manuell skjermleser, brukbarhetstest | Alle | Alle akseptkriterier |
 
 Tokenøkonomi for agenter: leser bare del 3 (skjermen), del 4 (tilstand) og `CoreBridge`-filen for fasen. Nøkkelkatalogen leses ikke, men sjekkes av lint. Skjermbildetester er fasit for utseende, ikke prosa.
 
@@ -305,7 +305,7 @@ Antatte planer: Kjerne/API (arkitekt), Plattformadaptere, Bygg/CI, Kalibrering o
 | A1 | `AssetMeta.is_local` (iCloud / ikke nedlastet) slik at rask skann aldri utløser nedlasting |
 | A2 | Tilgangsstatus (`full`, `limited`, `denied`) og hendelse ved endring |
 | A3 | Bildelaster for skjermstørrelse (PhotoKit/Coil el.) med prefetch API og avbrudd; leveres til `Design/`-lagene, ikke gjennom kjernen |
-| A4 | Slettedialog (`PHPhotoLibrary.performChanges` / `MediaStore.createDeleteRequest`) som returnerer faktisk slettede ID-er; beskriv oppførsel «Nylig slettet» på iOS |
+| A4 | Slettedialog (`PHPhotoLibrary.performChanges`) som returnerer faktisk slettede ID-er; beskriv oppførsel «Nylig slettet» på iOS |
 | A5 | Systemspråk og regionformat tilgjengelig for UI (ikke for kjernen) |
 
 ### Krever fra Bygg/CI-planen
@@ -313,9 +313,9 @@ Antatte planer: Kjerne/API (arkitekt), Plattformadaptere, Bygg/CI, Kalibrering o
 | # | Krav |
 |---|---|
 | C1 | `just i18n` kjører `tools/gen-i18n --check` og generering; jobb `i18n` utløses av `i18n/` og `app/` (finnes) |
-| C2 | Skjermbildetester og a11y-revisjon i jobbene `ios`/`android`; referanseskjermbilder lagres som artefakter, ikke som store filer i git uten LFS-avklaring |
+| C2 | Skjermbildetester og a11y-revisjon i jobben `ios`; referanseskjermbilder lagres som artefakter, ikke som store filer i git uten LFS-avklaring |
 | C3 | `nightly` utvides med UI-ytelsestester (swipe/angre p95, kald oppstart, rask skann) på referanseenhet |
-| C4 | Hardkodet-tekst-lint som del av `ios`/`android`-jobbene, kjørbar lokalt via `just` |
+| C4 | Hardkodet-tekst-lint som del av `ios`-jobben, kjørbar lokalt via `just` |
 
 ### Krever fra Kalibrering/golden-plan
 
@@ -328,9 +328,9 @@ Antatte planer: Kjerne/API (arkitekt), Plattformadaptere, Bygg/CI, Kalibrering o
 
 | # | Leveranse | Til |
 |---|---|---|
-| L1 | `i18n/nb.json`, `en.json`, `nn.json` (stub → fagfellevurdert) og `tools/gen-i18n` med spesifikasjon i 5 | Bygg/CI, alle UI |
+| L1 | `i18n/nb.json`, `en.json`, og `tools/gen-i18n` med spesifikasjon i 5 | Bygg/CI, alle UI |
 | L2 | Ferdig kjørbar mock av `api` i `CoreBridge` (fake kjerne) slik at UI utvikles parallelt med kjernen | Kjerne |
 | L3 | Kravlisten K1–K11 og A1–A5 over som bindende ønsker; avvik avklares i `ARKITEKTUR.md` først | Arkitekt |
 | L4 | ViewState-kontrakter (del 4) og skjermspesifikasjoner (del 3) som akseptgrunnlag for UI-PR-er | Alle |
 | L5 | UI-ytelsesmål og målemetode (del 7) | Bygg/CI nightly |
-| L6 | Åpne beslutninger: (1) nn som lanseringskrav, (2) «Hopp over» i stedet for «album» på høyre sveip, (3) iOS «Nylig slettet»-oppførsel verifiseres, (4) om lokale varsler om utløp skal være med i MVP | Produkteier/arkitekt |
+| L6 | Åpne beslutninger: (1) «Hopp over» i stedet for «album» på høyre sveip, (2) iOS «Nylig slettet»-oppførsel verifiseres, (3) om lokale varsler om utløp skal være med i MVP | Produkteier/arkitekt |

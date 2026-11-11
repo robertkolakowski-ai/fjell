@@ -7,8 +7,9 @@
 - Appen «foreslår», den «dømmer» ikke. Hvert forslag har et begrunnelsesmerke. Ingen automatisk sletting.
 - On-device først: ingen bilder forlater enheten i standardmodus. Ingen eksterne CDN-er eller fonter.
 - Handlinger < 100 ms (p95), kald oppstart < 1,5 s.
-- WCAG AA, VoiceOver/TalkBack, alle gester har knappealternativ.
-- Norsk (bokmål, nynorsk) og engelsk fra dag én. Test med `nb` (15–30 % lengre tekst).
+- WCAG AA, VoiceOver (og TalkBack når Android kommer), alle gester har knappealternativ.
+- MVP: norsk bokmål og engelsk. Nynorsk kommer etter MVP (nn er stub med fallback til nb). Test med `nb` (15–30 % lengre tekst).
+- MVP er kun iPhone (iOS 17+). Android kommer etter MVP; hold kjernen plattformnøytral, men bygg ingen Android-kode i MVP.
 - Én fase = én gren og én PR. Ikke rør filer utenfor fasens omfang.
 
 ## Spesifikasjon
