@@ -1,0 +1,12 @@
+[package]
+name = "fjell-shell"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+fjell-core = { path = "../../../core/crates/fjell-core" }
+serde = { version = "1", features = ["derive"] }

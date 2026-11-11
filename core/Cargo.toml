@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/fjell-core", "crates/fjell-ffi", "crates/fjell-cli"]
+members = ["crates/fjell-core", "crates/fjell-ffi", "crates/fjell-fs", "crates/fjell-cli"]
 
 [workspace.package]
 version = "0.0.0"

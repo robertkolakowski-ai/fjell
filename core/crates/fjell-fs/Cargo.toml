@@ -1,0 +1,22 @@
+[package]
+name = "fjell-fs"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# `unsafe` er forbudt overalt unntatt i `windows`-modulen (FFI mot Papirkurv); der er det eneste unntaket.
+[lints.rust]
+unsafe_code = "deny"
+
+[dependencies]
+fjell-core = { path = "../fjell-core" }
+# Dekoding (beslutning 6): bare JPEG og PNG i denne fasen; resten er Unavailable.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_UI_Shell", "Win32_Foundation", "Win32_Storage_FileSystem"] }
+
+[dev-dependencies]
+blake3 = "1"

@@ -1,0 +1,54 @@
+# Jobb `desktop`: fjell-fs (inkl. windows.rs) og Tauri-skallet på windows-latest (MVP-PLAN M5 DoD).
+# Det er eneste sted cfg(windows)-koden kompileres og testes. Ingen kodesignering: NSIS-pakken bygges usignert
+# (ingen sertifikat eller hemmeligheter kreves; signering er et åpent spørsmål, se MVP-PLAN M8).
+name: desktop
+on:
+  push:
+    branches: [main]
+    paths: &paths ["desktop/**", "core/**", ".github/workflows/desktop.yml"]
+  pull_request:
+    paths: *paths
+permissions:
+  contents: read
+jobs:
+  desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust-verktøy
+        run: rustup component add rustfmt clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            core
+            desktop/src-tauri
+      # Kjernen og fjell-fs: clippy og tester med Windows-koden (SHFileOperationW, GetDriveTypeW, \\?\-stier)
+      - name: clippy fjell-fs
+        run: cargo clippy --manifest-path core/Cargo.toml -p fjell-fs --all-targets --locked -- -D warnings
+      - name: test fjell-fs
+        run: cargo test --manifest-path core/Cargo.toml -p fjell-fs -p fjell-cli --locked
+      # Skallet: ren Rust-logikk, deretter selve Tauri-appen
+      - name: fmt, clippy og test fjell-shell
+        run: |
+          cargo fmt --manifest-path desktop/src-tauri/Cargo.toml -p fjell-shell -p fjell-desktop --check
+          cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings
+          cargo test --manifest-path desktop/src-tauri/Cargo.toml --workspace --locked
+      - name: Frontend (svelte-check og vite build)
+        working-directory: desktop
+        run: |
+          npm ci --no-audit --no-fund
+          npm run check
+          npm run build
+      - name: Bygg Tauri-appen (usignert NSIS)
+        working-directory: desktop
+        run: npx tauri build --bundles nsis
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fjell-desktop-nsis-unsigned
+          path: desktop/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error

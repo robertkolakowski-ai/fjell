@@ -1,0 +1,182 @@
+//! Serialiserbare typer for Tauri-grensen (frontend ser bare disse, aldri kjernetyper).
+//!
+//! Avhenger av: `fjell-core::api` (les-/beslutningstyper), serde.
+//! Grensesnitt: `StateDto`, `CardDto`, `CardPageDto`, `ErrorDto`, `DecisionDto`, `kind_code`.
+//! Kjernen returnerer koder, aldri tekst (ARKITEKTUR beslutning 13): alle strenger her er
+//! stabile koder (snake_case) som UI slår opp i nøkkelkatalogen.
+
+use fjell_core::api::{ApiError, Card, CardPage, HomeSummary, ScanPhase, Settings};
+use fjell_core::model::SuggestionKind;
+use serde::{Deserialize, Serialize};
+
+/// Stabil kode for forslagstype.
+pub fn kind_code(k: SuggestionKind) -> &'static str {
+    match k {
+        SuggestionKind::ExactDup => "exact_dup",
+        SuggestionKind::VisualDup => "visual_dup",
+        SuggestionKind::Blurry => "blurry",
+        SuggestionKind::Screenshot => "screenshot",
+    }
+}
+
+/// Motsatt vei; ukjent kode gir `None` (kommandoen svarer da med `bad_request`).
+pub fn parse_kind(code: &str) -> Option<SuggestionKind> {
+    SuggestionKind::ALL
+        .into_iter()
+        .find(|k| kind_code(*k) == code)
+}
+
+fn phase_code(p: ScanPhase) -> &'static str {
+    match p {
+        ScanPhase::Idle => "idle",
+        ScanPhase::Listing => "listing",
+        ScanPhase::Exact => "exact",
+        ScanPhase::ExactReady => "exact_ready",
+        ScanPhase::Analyzing => "analyzing",
+        ScanPhase::Done => "done",
+    }
+}
+
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct KindDto {
+    pub kind: &'static str,
+    pub count: u64,
+    pub bytes: u64,
+}
+
+/// Tilstandssiden: oppsummering av forslag, «Nylig slettet» og skanning.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StateDto {
+    /// `"mock"` eller `"core"`: hvilken `FjellApi` skallet er koblet til.
+    pub backend: &'static str,
+    pub per_kind: Vec<KindDto>,
+    pub reclaimable_bytes: u64,
+    pub trash_count: u64,
+    pub trash_bytes: u64,
+    pub trash_expired: u64,
+    pub freed_bytes: u64,
+    pub scan_phase: &'static str,
+    pub scan_done: u64,
+    pub scan_total: u64,
+    pub trash_days: u32,
+}
+
+impl StateDto {
+    pub fn from_core(backend: &'static str, h: &HomeSummary, s: &Settings) -> StateDto {
+        StateDto {
+            backend,
+            per_kind: h
+                .per_kind
+                .iter()
+                .map(|k| KindDto {
+                    kind: kind_code(k.kind),
+                    count: k.count,
+                    bytes: k.bytes,
+                })
+                .collect(),
+            reclaimable_bytes: h.reclaimable_bytes,
+            trash_count: h.trash.count,
+            trash_bytes: h.trash.bytes,
+            trash_expired: h.trash.expired,
+            freed_bytes: h.trash.freed_bytes,
+            scan_phase: phase_code(h.scan.phase),
+            scan_done: h.scan.done,
+            scan_total: h.scan.total,
+            trash_days: s.trash_days,
+        }
+    }
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CardDto {
+    pub id: u64,
+    pub kind: &'static str,
+    pub asset: u64,
+    pub group: Option<u64>,
+    pub keeper: Option<u64>,
+    /// Begrunnelseskode (variantnavn i kjernen, f.eks. `ExactCopy`).
+    pub reason: String,
+    pub confidence: f32,
+    pub bytes: u64,
+    pub protect_flags: u8,
+}
+
+impl From<&Card> for CardDto {
+    fn from(c: &Card) -> CardDto {
+        CardDto {
+            id: c.id.0,
+            kind: kind_code(c.kind),
+            asset: c.asset.0,
+            group: c.group.map(|g| g.0),
+            keeper: c.keeper.map(|a| a.0),
+            reason: format!("{:?}", c.reason),
+            confidence: c.confidence,
+            bytes: c.bytes,
+            protect_flags: c.protect_flags.0,
+        }
+    }
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CardPageDto {
+    pub cards: Vec<CardDto>,
+    pub next: Option<u64>,
+}
+
+impl From<&CardPage> for CardPageDto {
+    fn from(p: &CardPage) -> CardPageDto {
+        CardPageDto {
+            cards: p.cards.iter().map(CardDto::from).collect(),
+            next: p.next.map(|c| c.0),
+        }
+    }
+}
+
+/// Beslutning fra UI.
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionDto {
+    Trash,
+    Keep,
+}
+
+/// Feil på grensen: kode + valgfri detalj (aldri brukertekst).
+#[derive(Serialize, Debug, PartialEq, Eq)]
+pub struct ErrorDto {
+    pub code: &'static str,
+    pub detail: String,
+}
+
+impl ErrorDto {
+    pub fn bad_request(detail: impl Into<String>) -> ErrorDto {
+        ErrorDto {
+            code: "bad_request",
+            detail: detail.into(),
+        }
+    }
+}
+
+impl From<ApiError> for ErrorDto {
+    fn from(e: ApiError) -> ErrorDto {
+        let code = match &e {
+            ApiError::AckRequired(_) => "ack_required",
+            ApiError::UnknownCard(_) => "unknown_card",
+            ApiError::UnknownAsset(_) => "unknown_asset",
+            ApiError::NothingToUndo => "nothing_to_undo",
+            ApiError::NotUndoable => "not_undoable",
+            ApiError::AlreadyPurged(_) => "already_purged",
+            ApiError::PurgeStale => "purge_stale",
+            ApiError::PlanStale => "plan_stale",
+            ApiError::NotTrashed(_) => "not_trashed",
+            _ => "core_error",
+        };
+        ErrorDto {
+            code,
+            detail: format!("{e:?}"),
+        }
+    }
+}

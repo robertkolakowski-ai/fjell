@@ -1,0 +1,9 @@
+/* Midlertidig minimal stil. Tokens (docs/design/tokens.css) kommer i M6; ingen eksterne fonter. */
+:root {
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light dark;
+}
+body {
+  margin: 0;
+  padding: 1rem 1.25rem;
+}
