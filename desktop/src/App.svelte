@@ -1,7 +1,8 @@
-<!-- Enkel tilstandsside: viser svaret fra Rust-kommandoen get_state. Ingen UI-komponenter (M6). -->
+<!-- Enkel tilstandsside: viser svaret fra Rust-kommandoen get_state. Ingen UI-komponenter (M6). All tekst via t() (tools/gen-i18n lint). -->
 <script lang="ts">
   import { onMount } from "svelte";
   import { getState } from "./bridge/bridge";
+  import { t } from "./lib/i18n";
   import type { AppState, BridgeError } from "./bridge/types";
 
   let appState: AppState | null = $state(null);
@@ -18,15 +19,15 @@
 </script>
 
 <main>
-  <h1>Fjell</h1>
+  <h1>{t("app.name")}</h1>
   {#if error}
-    <p role="alert">Feil: {error}</p>
+    <p role="alert">{t("err.generic")} ({error})</p>
   {:else if appState}
     <dl>
-      <dt>Kilde</dt><dd>{appState.backend}</dd>
-      <dt>Skanning</dt><dd>{appState.scanPhase}</dd>
-      <dt>Kan frigjøres (byte)</dt><dd>{appState.reclaimableBytes}</dd>
-      <dt>Nylig slettet</dt><dd>{appState.trashCount}</dd>
+      <dt>{t("dev.state.backend")}</dt><dd>{appState.backend}</dd>
+      <dt>{t("dev.state.scan")}</dt><dd>{appState.scanPhase}</dd>
+      <dt>{t("dev.state.reclaimable")}</dt><dd>{appState.reclaimableBytes}</dd>
+      <dt>{t("dev.state.trash")}</dt><dd>{appState.trashCount}</dd>
     </dl>
     <ul>
       {#each appState.perKind as k (k.kind)}
@@ -34,6 +35,6 @@
       {/each}
     </ul>
   {:else}
-    <p>Laster …</p>
+    <p>{t("common.loading")}</p>
   {/if}
 </main>

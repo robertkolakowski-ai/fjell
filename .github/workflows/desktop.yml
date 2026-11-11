@@ -38,10 +38,12 @@ jobs:
           cargo fmt --manifest-path desktop/src-tauri/Cargo.toml -p fjell-shell -p fjell-desktop --check
           cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings
           cargo test --manifest-path desktop/src-tauri/Cargo.toml --workspace --locked
-      - name: Frontend (svelte-check og vite build)
+      - name: Frontend (kontrast, vitest, svelte-check og vite build)
         working-directory: desktop
         run: |
           npm ci --no-audit --no-fund
+          npm run contrast
+          npm test
           npm run check
           npm run build
       - name: Bygg Tauri-appen (usignert NSIS)

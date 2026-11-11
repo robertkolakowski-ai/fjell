@@ -25,10 +25,15 @@ layers:
     python3 tools/check-layers/check_layers.py
     cd tools/check-layers && python3 -m unittest -q test_check_layers
 
-# Nøkkelparitet og plassholderparitet nb/en (generering til xcstrings: TODO UX-0)
+# i18n: paritet, ICU, kjernekoder, utdatert generert kode, hardkodet tekst i desktop/src, selvtester
 i18n:
     python3 tools/gen-i18n/gen_i18n.py --check
-    cd tools/gen-i18n && python3 -m unittest -q test_gen_i18n
+    python3 tools/gen-i18n/lint_hardcoded.py
+    cd tools/gen-i18n && python3 -m unittest -q test_gen_i18n test_lint_hardcoded
+
+# Generer desktop/src/lib/i18n/strings/*.ts (nb, en, pseudo) fra i18n/*.json. Filene sjekkes inn.
+i18n-gen:
+    python3 tools/gen-i18n/gen_i18n.py
 
 # Stub: criterion/perf kommer i M1 (docs/mvp/ARKITEKTUR.md del 4)
 bench:
@@ -43,10 +48,14 @@ bindings:
     @test -s core/target/bindings/swift/fjell_ffi.swift && test -s core/target/bindings/swift/fjell_ffiFFI.h
     @echo "bindings: Swift generert i core/target/bindings/swift"
 
+# WCAG AA-kontrast for alle fargepar i desktop/src/lib/tokens.css (lys, mørk, høykontrast)
+contrast:
+    cd desktop && npm run contrast
+
 # Desktop-skall (Tauri, eget workspace i desktop/src-tauri; IKKE del av `check`, krever npm og webkit/WebView2 for full bygg)
 desktop-check:
     cargo fmt --manifest-path desktop/src-tauri/Cargo.toml -p fjell-shell -p fjell-desktop --check
     cargo clippy --manifest-path desktop/src-tauri/Cargo.toml -p fjell-shell --all-targets --locked -- -D warnings
     cargo test --manifest-path desktop/src-tauri/Cargo.toml -p fjell-shell --locked
-    cd desktop && npm ci --no-audit --no-fund && npm run check && npm run build
+    cd desktop && npm ci --no-audit --no-fund && npm run contrast && npm test && npm run check && npm run build
     @if pkg-config --exists webkit2gtk-4.1 || [ "${OS:-}" = "Windows_NT" ]; then cargo clippy --manifest-path desktop/src-tauri/Cargo.toml -p fjell-desktop --locked -- -D warnings; else echo "desktop-check: hopper over fjell-desktop (mangler webkit2gtk-4.1); kjøres på windows-latest"; fi

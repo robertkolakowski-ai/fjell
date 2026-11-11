@@ -1,0 +1,44 @@
+/* Grunnstil som alle komponenter forutsetter. Importer etter tokens.css. Ingen fargeverdier her. */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-size: 100%; /* aldri px: følger OS/nettleser-skalering */ -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  overflow-wrap: anywhere; /* lang norsk tekst og pseudo-lokale skal bryte, ikke gi horisontal rulling */
+}
+
+/* Synlig tastaturfokus (WCAG 2.4.7/2.4.11). Outline overlever forced-colors, box-shadow gjør ikke. */
+:focus-visible {
+  outline: var(--focus-width) solid var(--c-focus);
+  outline-offset: var(--focus-offset);
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* Bare skjermleser */
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible { outline-color: Highlight; }
+}
