@@ -7,7 +7,7 @@ Fjell gjør tusenvis av ukurerte bilder om til et bibliotek du faktisk vil åpne
 **Kjerneløftet:** «Frigjør 30 GB og 4 000 bilder på 10 minutter, uten å miste ett eneste bilde du bryr deg om.»
 
 ## Målgrupper
-- **Hverdagsbrukeren:** 20 000+ bilder på mobilen, full lagring, ingen tid.
+- **Hverdagsbrukeren:** 20 000+ bilder, full lagring, ingen tid.
 - **Familiefotografen:** flere enheter, delt bibliotek, mange nesten like bilder.
 - **Hobby- og proffotografen:** culling av 2 000 RAW-filer etter en jobb.
 
@@ -22,9 +22,9 @@ Fjell gjør tusenvis av ukurerte bilder om til et bibliotek du faktisk vil åpne
 
 ## Struktur
 - `core/` – indeksering, hashing, embeddings, scoring (delt logikk)
-- `app/` – iOS og Android
-- `desktop/` – Electron/Tauri for filbaserte biblioteker, NAS og eksterne disker
+- `desktop/` – MVP: Windows-PC-app (Tauri 2) for filbaserte biblioteker, eksterne disker og nettverksstasjoner
+- `app/` – iPhone og Android (etter MVP; tom i MVP)
 - `docs/` – spesifikasjon
 
 ## Status
-Konseptfase. Ingen kode ennå.
+Konseptfase. Ingen kode ennå. **MVP-plattform: Windows-PC** (beslutning 2026-11-11, «PC erstatter iPhone i MVP»); iPhone og Android kommer etter MVP.
