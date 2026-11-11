@@ -9,6 +9,7 @@
 //!   (de har ingen Papirkurv, og Windows ville ellers slettet permanent).
 //! - `FOF_WANTNUKEWARNINGS` gjør at filer som ikke får plass i Papirkurv gir advarsel i stedet
 //!   for stille sletting; avbrutt gir `Cancelled`.
+//!
 //! Begrensning: `SHFileOperationW` støtter ikke `\\?\`; stier over MAX_PATH gir `Failed`.
 
 #![allow(unsafe_code)]
