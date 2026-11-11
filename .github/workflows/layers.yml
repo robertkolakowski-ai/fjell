@@ -1,0 +1,20 @@
+# Jobb `layers`: tools/check-layers feiler på `use` mot høyere lag og på syklus (+ selvtest).
+# Utløses av samme stier som `core`.
+name: layers
+on:
+  push:
+    branches: [main]
+    paths: &paths ["core/**", "i18n/**", "tools/**", "justfile", ".github/workflows/layers.yml"]
+  pull_request:
+    paths: *paths
+permissions:
+  contents: read
+jobs:
+  layers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - run: just layers

@@ -1,0 +1,8 @@
+{
+  "_meta": { "locale": "en", "version": 1 },
+  "onb.start.button": { "t": "Get started", "ctx": "Primary button on the first onboarding screen", "len": "short" },
+  "home.ring.caption": { "t": "{size} can be cleaned up", "ctx": "Under the ring on Home. {size} = formatted file size" },
+  "review.bar.trash": { "t": "{count, plural, one {Move # to trash} other {Move # to trash}} ({size})", "ctx": "Bottom bar in Review. {count} = number of photos, {size} = formatted file size", "len": "short" },
+  "reason.blurry": { "t": "Blurry ({pct})", "ctx": "Reason chip. {pct} = formatted percentage", "len": "short" },
+  "trash.freed.note": { "t": "Space is freed only when you empty the trash.", "ctx": "Info in Trash" }
+}

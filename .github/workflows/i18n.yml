@@ -1,0 +1,20 @@
+# Jobb `i18n`: nøkkelparitet og plassholderparitet nb/en. Hardkodet-tekst-lint og pseudo-lokale
+# kommer i UX-0 (docs/mvp/PLAN-UX-I18N.md 5.5).
+name: i18n
+on:
+  push:
+    branches: [main]
+    paths: &paths ["i18n/**", "app/**", "tools/gen-i18n/**", "justfile", ".github/workflows/i18n.yml"]
+  pull_request:
+    paths: *paths
+permissions:
+  contents: read
+jobs:
+  i18n:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - run: just i18n
