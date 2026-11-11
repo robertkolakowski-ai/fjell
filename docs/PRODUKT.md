@@ -28,7 +28,7 @@ Hver kategori har egen score og justerbar følsomhet.
 ## 3. Smart sortering og organisering
 - Automatiske samlinger: Personer, Steder, Hendelser, Dyr, Mat, Dokumenter, Natur, Skjermbilder
 - Tidslinjeopprydding («Hellas, juli 2025, 412 bilder»)
-- Swipe-modus: opp = slett, venstre = behold, høyre = album, lang trykk = sammenlign. Haptikk og lyd.
+- Kortmodus (swipe): opp = slett, venstre = behold, høyre = album, mellomrom = sammenlign. PC: piltaster og knapper (mus-dra valgfritt). Mobil (etter MVP): sveip og lang trykk, haptikk. Lyd valgfritt.
 - Regelmotor: «Skjermbilder eldre enn 90 dager kan arkiveres»
 - Søk med naturlig språk: «hund på stranden», «kvittering fra IKEA»
 - Mappestruktur for filbaserte bibliotek: `ÅÅÅÅ/ÅÅÅÅ-MM-DD_Hendelse/`
@@ -51,14 +51,14 @@ Hver kategori har egen score og justerbar følsomhet.
 - Rolig og tydelig. Aksentfarge bare til primærhandling.
 - Bildet er hovedperson. Fullskjerm som standard.
 - Én ting om gangen: guidede flyter.
-- WCAG AA, dynamisk tekststørrelse, VoiceOver/TalkBack, knappealternativ til alle gester.
+- WCAG AA, tekststørrelse/skalering (Windows 100–200 % og høykontrast; Dynamic Type på mobil), Narrator/NVDA (VoiceOver/TalkBack etter MVP), knappealternativ til alle gester og hurtigtaster.
 - Norsk (bokmål, nynorsk) og engelsk fra dag én.
 
 ## Hovedskjermer
 - **Hjem:** stor ring «X GB kan frigjøres», kategorikort, «Ukens opprydding» (2 min)
 - **Gjennomgang:** rutenett/kortstabel, fast bunnlinje «Slett 87 (1,2 GB)»
 - **Gruppevisning:** karusell, «Beste» markert, zoom for forskjeller
-- **Swipe-modus:** kortstabel med handlingsfarger og haptikk
+- **Kortmodus (swipe):** kortstabel med handlingsfarger, piltaster og knapper (haptikk på mobil)
 - **Sammenligning:** side om side, synkronisert zoom, skarphetsoverlegg
 - **Samlinger:** personer, steder, hendelser, albumforslag
 - **Papirkurv og historikk:** «Du har frigjort 42 GB siden mars», gjenopprett alt

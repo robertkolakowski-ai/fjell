@@ -103,7 +103,7 @@ Akseptkriterier:
 
 | ID | Kriterium | Test |
 |---|---|---|
-| K2a-1 | Bit-identisk resultat for samme miniatyr på macOS, Linux og Windows (CI-matrise) | Vektorfil |
+| K2a-1 | Bit-identisk resultat for samme miniatyr på Linux og Windows (CI-matrise; macOS er bonus) | Vektorfil |
 | K2a-2 | Samme bilde nedskalert, omkodet (q ≥ 30): Hamming ≤ 6 på **både** dHash og pHash for ≥ 95 % av parene | Golden |
 | K2a-3 | Utgått fra MVP (kryssplattform-gate hørte til Android; nummer beholdt) | - |
 | K2a-4 | Negative par: Hamming > 6 på minst én av hashene for ≥ 98 % | Golden |
@@ -169,8 +169,8 @@ Nedskalering til 256 px skjuler lett uskarphet (4000 px til 256 px krymper blur 
 
 ### Oppgaver
 1. `screenshot::signals(AssetMeta, Thumb) -> ShotSignals` (bitmaske, lagres i `fingerprint.shot_signals`).
-2. Fire signaler: **S1** plattformflagg eller album «Skjermbilder» (`platform_screenshot_hint`), **S2** oppløsning lik kjent skjermstørrelse (begge retninger), **S3** ingen kamera-EXIF (`has_camera_exif == Some(false)`; `None` teller ikke), **S4** `image/png`.
-3. Tabell med kjente skjermstørrelser i egen fil `screen_sizes.rs` (iPhone, iPad, desktop 1080p/1440p/4K/Retina). Endring i tabellen øker `ALGO_VER`.
+2. Fire signaler: **S1** plattformflagg eller mappe/album «Skjermbilder»/«Screenshots» (`platform_screenshot_hint`; på PC mappenavn), **S2** oppløsning lik kjent skjermstørrelse (begge retninger), **S3** ingen kamera-EXIF (`has_camera_exif == Some(false)`; `None` teller ikke), **S4** `image/png`.
+3. Tabell med kjente skjermstørrelser i egen fil `screen_sizes.rs` (desktop 1366×768, 1920×1080, 1920×1200, 2560×1440, 3840×2160, også etter vanlig skalering; mobilstørrelser legges til etter MVP). Endring i tabellen øker `ALGO_VER`.
 4. Forslag når minst to signaler. Konfidens: 2 → 0,70, 3 → 0,90, 4 → 0,99 (startverdier).
 5. Miniatyren brukes ikke i MVP (signaturen beholdes fra arkitekturen). Kandidat senere: ensfarget statuslinje.
 6. Konfigurerbart `require_strong` (minst S1 eller S2). Standard følger arkitekturen (to av fire). Skjerping foreslås, se del 9.
@@ -258,10 +258,10 @@ Flyt:
 Oppgaver (rekkefølge):
 1. `ScanReport`, `Progress` (trådsikker, maks 4 oppdateringer/s), `ScanConfig { mode: Quick|Full, priority: Foreground|Background, deadline: Option<Duration> }`. `Quick` = steg 1–2 (ingen dekoding, hopper over `!is_local`), `Full` = alle steg (UX K6).
 2. Steg 1 og 2 med `MemSource`.
-3. Steg 3 med feilinjeksjon: `catch_unwind` per bilde, `Unavailable` (f.eks. iCloud ikke lastet ned) hoppes over uten feiltelling, øvrige feil øker `fail_count`.
+3. Steg 3 med feilinjeksjon: `catch_unwind` per bilde, `Unavailable` (f.eks. OneDrive-plassholder, frakoblet disk, manglende HEIC-kodek) hoppes over uten feiltelling, øvrige feil øker `fail_count`.
 4. Avbrudd: `cancel()` (`AtomicBool`) sjekkes mellom bilder. Pågående batch committes. Gjenopptak skjer automatisk fordi `work_set` utledes fra databasen.
-5. `deadline` for bakgrunnsoppdrag (iOS `BGProcessingTask`): stopp ryddig før fristen.
-6. Prioritet: `Foreground` bruker alle kjerner, `Background` bruker 1–2 tråder (varme og batteri). Valg av lading/Wi-Fi tas av plattformen, ikke kjernen.
+5. `deadline` for tidsbegrensede kjøringer: stopp ryddig før fristen (PC: valgfritt; mobil etter MVP: bakgrunnsoppdrag).
+6. Prioritet: `Foreground` bruker alle kjerner, `Background` bruker 1–2 tråder med lav prioritet (på PC EcoQoS). Valg av når bakgrunnsskanning kjører (PC: valgfri pause på batteri; mobil: lading/Wi-Fi) tas av plattformen, ikke kjernen.
 7. Steg 4 koblet inn, deretter integrasjonstest i `fjell-cli` mot filsystemadapter.
 
 Akseptkriterier:
@@ -286,7 +286,7 @@ Akseptkriterier:
 | Mål | Budsjett | Måling |
 |---|---|---|
 | Kjerneberegning per bilde (uten dekoding) | ≤ 10 ms på CI-runner (stopper PR) | `fjell-cli perf` |
-| Første indeksering 10 000 bilder | < 10 min på referanseenhet (< 60 ms per bilde) | Nattlig |
+| Første indeksering 10 000 bilder | < 10 min på referansemaskin (Windows, lokal SSD; < 60 ms per bilde) | Nattlig |
 | Rask fase (eksakt), 10 000 filer, 10 % størrelseskollisjon, filsystemadapter | < 10 s kjernetid (startverdi) | `criterion` |
 | Skanning uten endringer, 10 000 bilder | < 2 s kjernetid (startverdi) | Perf |
 | Inkrementell skanning, 100 endrede av 10 000 | < 3 s kjernetid (startverdi) | Perf |
@@ -300,7 +300,7 @@ Oppgaver:
 1. Kjør korpus, sveip Hamming-terskel (4–8) og lag presisjon/recall-tabell. Oppdater `ARKITEKTUR.md` med valgt verdi.
 2. Sett `ABS_MAX` for uskarphet og sjekk P10-regelen på skarpt og uskarpt bibliotek.
 3. Verifiser `require_strong` for skjermbilde (K4-3) og bestem standard.
-4. Mål mot golden-korpus på iPhone og sett tolerance.
+4. Mål mot golden-korpus med Windows-dekoding på referansemaskinen og sett tolerance.
 5. Aktiver ytelsesgater i CI (`nightly` og PR-proxy).
 6. Frys `ALGO_VER = 1` og vektorfil.
 
@@ -311,7 +311,7 @@ Akseptkriterium: alle porter fra ARKITEKTUR del 4 (visuelt dup. presisjon ≥ 0,
 | Risiko | Konsekvens | Tiltak |
 |---|---|---|
 | Beskjæring 5 % bryter pHash-avstand | Recall under 0,90 | K2b-4 måler separat. Fallback: beskjæringsrobust ekstra hash først etter MVP, eller portjustering i dokumentet |
-| Ulik plattformdekoding gir hashdrift | Falske negativer | Måling på iPhone i K8, krav til miniatyr (del 11) |
+| Ulik plattformdekoding gir hashdrift | Falske negativer | Deterministisk `image`-sti for vanlige formater; måling med Windows-dekoding (WIC for HEIC/RAW) i K8, krav til miniatyr (del 11) |
 | Nedskalering skjuler uskarphet | Lav recall for lett uskarphet | Kjent begrensning, relativ σ i korpus, utsnitt i full oppløsning etter MVP |
 | Degenererte hasher gir enorme bøtter/kjeder | Treg klynging, falske grupper | `low_info`, bøttekapp, kjedevern |
 | Syntetisk korpus er for enkelt | Porter grønne, virkelighet dårligere | ca. 20 ekte lisensfrie foto, beta-test mot eget bibliotek utenfor CI |
@@ -334,10 +334,10 @@ Status etter review: 1, 2, 3 og 6 er besluttet i ARKITEKTUR (beslutning 18, 19).
 
 | Fra | Krav |
 |---|---|
-| Plattform (iOS, filsystemadapter) | Implementerer `AssetSource`. `thumbnail(id)`: lengste side 256 px, bildeforhold bevart, EXIF-orientering **brukt**, sRGB, Gray8 eller RGBA8, samme nedskalering (høy kvalitet, area/Lanczos, ikke nærmeste nabo). Feil som `Unavailable` (ikke lastet ned) skilles fra `Corrupt`. |
-| Plattform | `AssetMeta` fylt ut: `mod_token` stabil og endres ved redigering, `mime`, `bytes`, `width/height` etter orientering, `platform_screenshot_hint`, `has_camera_exif`. `read_bytes` strømmende. |
-| Plattform | Bakgrunnsplanlegging (lading, Wi-Fi, `BGProcessingTask`), kall `start_scan` med `deadline`, kall `cancel()` ved utløp. |
-| Repo/CI | Workspace, `just check`, `check-layers`, `cargo-deny`, `nightly`-jobb med 10 000/50 000-bibliotek, kjøring på referanseenhet. Matrise macOS/Linux/Windows for hashdeterminisme. |
+| Plattform (Windows/filsystemadapter) | Implementerer `AssetSource`. `thumbnail(id)`: lengste side 256 px, bildeforhold bevart, EXIF-orientering **brukt**, sRGB, Gray8 eller RGBA8, samme nedskalering (høy kvalitet, area/Lanczos, ikke nærmeste nabo). Feil som `Unavailable` (ikke lastet ned, frakoblet, mangler kodek) skilles fra `Corrupt`. |
+| Plattform | `AssetMeta` fylt ut: `mod_token` stabil og endres ved redigering, `mime`, `bytes`, `width/height` etter orientering, `platform_screenshot_hint`, `has_camera_exif`. `read_bytes` strømmende. `list_changes` melder `removed` bare for kilder under en tilgjengelig rot (frakoblet disk/nettverksrot gir `Unavailable`, aldri `removed`). |
+| Plattform | Bakgrunnsplanlegging (PC: lav prioritet og valgfri pause på batteri; mobil etter MVP: lading, Wi-Fi, bakgrunnsoppdrag), kall `start_scan` med `deadline`, kall `cancel()` ved utløp. |
+| Repo/CI | Workspace, `just check`, `check-layers`, `cargo-deny`, `nightly`-jobb med 10 000/50 000-bibliotek, kjøring på referansemaskinen (Windows). Matrise Linux/Windows for hashdeterminisme (macOS bonus). |
 | Handlinger (papirkurv/angre) | Eier `action_log` og tilstandsendringer. Etter `trash/restore/purge` kaller `api` `pipeline::refresh_groups(affected)` (actions kan ikke kalle pipeline, lag L2 mot L3). Bare `state = active` deltar i klynging. |
 | i18n | Nøkler for alle `ReasonCode` (se under) i `nb` og `en`. Paritetstest. |
 | UI/UX | Bekrefter at ett kort kan vise forklaring fra `reason_code` og konfidens, og at ingenting forhåndsvelges. |
