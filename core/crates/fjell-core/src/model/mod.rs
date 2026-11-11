@@ -6,13 +6,19 @@
 //! - ID-er: `AssetId`, `SourceId`, `CardId`, `GroupId`, `BatchId`, `ChangeToken`.
 //! - Verdier: `Hash64`, `Thumb`, `Kind`, `State`, `ReasonCode`, `SuggestionKind`, `ProtectFlags`, `AlgoVer`.
 //! - Aggregat: `AssetMeta`, `Asset`, `Album`, `ChangeSet`, `Confirmed`, `PurgeTicket`.
+//! - Trygghet (undermodul `plan`): `Plan`, `ConsequenceSummary`, `ConsequenceCode`, `Acks`, `PurgeOffer`.
 //!
 //! Kjernen returnerer koder, aldri tekst (beslutning 13).
 
 pub mod mem;
+pub mod plan;
 pub mod traits;
 
 pub use mem::{FakeClock, MemSource};
+pub use plan::{
+    Acks, AlbumCount, BackupSummary, ConsequenceCode, ConsequenceSummary, ExpiryNotice, KindCounts,
+    MassAck, Plan, PlannedItem, ProtectCounts, ProtectedAck, PurgeOffer,
+};
 pub use traits::{AssetSource, Clock, DeleteOutcome, PlatformDelete, SourceError};
 
 use std::fmt;
@@ -176,16 +182,6 @@ impl ReasonCode {
             Self::ShotPng => "shot_png",
         }
     }
-}
-
-/// Konsekvenskode som krever bekreftelse (startsett; utvides av TRYGGHET/actions i M3).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ConsequenceCode {
-    ProtectedFavorite,
-    ProtectedSharedAlbum,
-    ProtectedEdited,
-    MassDelete,
-    NotBackedUp,
 }
 
 /// Beskyttelsesflagg (`asset.protect_flags`, bitmaske).
