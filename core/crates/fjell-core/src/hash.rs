@@ -98,9 +98,12 @@ fn luma(t: &Thumb) -> Option<Vec<f64>> {
     Some(match t.fmt {
         ThumbFmt::Gray8 => t.data.iter().map(|&v| v as f64).collect(),
         // Alfa ignoreres. Grå RGBA (r=g=b=v) gir nøyaktig v, så Gray8 og RGBA gir lik hash.
+        // Lengden er sjekket over (bredde × høyde × 4), så resten etter 4-delingen er alltid tom.
         ThumbFmt::Rgba8 => t
             .data
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|p| ((77 * p[0] as u32 + 150 * p[1] as u32 + 29 * p[2] as u32) >> 8) as f64)
             .collect(),
     })
