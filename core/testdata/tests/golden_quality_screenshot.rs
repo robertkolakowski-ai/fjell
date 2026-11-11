@@ -168,12 +168,16 @@ fn meta(e: &Entry) -> AssetMeta {
     }
 }
 
-fn precision_recall(require_strong: bool) -> (f32, f32, usize, usize) {
+/// `None` = standardregelen (`suggest_default`); `Some(b)` = eksplisitt `require_strong`.
+fn precision_recall(rule: Option<bool>) -> (f32, f32, usize, usize) {
     let (mut tp, mut fp, mut fneg) = (0usize, 0usize, 0usize);
     for e in corpus().1.entries.iter().filter(|e| e.screenshot.is_some()) {
-        let flagged = signals(&meta(e), &corpus_thumb(e))
-            .suggestion(require_strong)
-            .is_some();
+        let s = signals(&meta(e), &corpus_thumb(e));
+        let flagged = match rule {
+            None => s.suggest_default(),
+            Some(strong) => s.suggestion(strong),
+        }
+        .is_some();
         match (e.screenshot.unwrap(), flagged) {
             (true, true) => tp += 1,
             (true, false) => fneg += 1,
@@ -189,20 +193,26 @@ fn precision_recall(require_strong: bool) -> (f32, f32, usize, usize) {
     )
 }
 
-/// K4-2: presisjon ≥ 0,95 over skjermbilder og negativer (med `require_strong`; to-av-fire er rapportert).
+/// K4-2: presisjon ≥ 0,95 med standardkonfigurasjonen (`suggest_default`). Rå to-av-fire rapporteres
+/// og dokumenterer hvorfor standarden er streng (presisjon under porten).
 #[test]
 fn k4_2_screenshot_precision() {
-    let (p_default, r_default, _, fp_default) = precision_recall(false);
-    let (p_strong, r_strong, tp, fp) = precision_recall(true);
-    eprintln!("K4-2 to av fire: presisjon {p_default:.3}, recall {r_default:.3} (fp {fp_default})");
+    assert!(fjell_core::screenshot::DEFAULT_REQUIRE_STRONG);
+    let (p_raw, r_raw, _, fp_raw) = precision_recall(Some(false));
+    let (p, r, tp, fp) = precision_recall(None);
     eprintln!(
-        "K4-2 require_strong: presisjon {p_strong:.3}, recall {r_strong:.3} (tp {tp}, fp {fp})"
+        "K4-2 to av fire (ikke standard): presisjon {p_raw:.3}, recall {r_raw:.3} (fp {fp_raw})"
     );
-    assert!(p_strong >= 0.95, "presisjon {p_strong}");
-    assert!(r_strong >= 0.95, "recall {r_strong}");
+    eprintln!("K4-2 standard: presisjon {p:.3}, recall {r:.3} (tp {tp}, fp {fp})");
+    assert!(p >= 0.95, "presisjon {p}");
+    assert!(r >= 0.95, "recall {r}");
+    assert!(
+        p_raw < 0.95,
+        "to-av-fire skulle ligge under porten: {p_raw}"
+    );
 }
 
-/// K4-3: PNG uten EXIF i vilkårlig størrelse flagges ikke med `require_strong`; tallet uten rapporteres.
+/// K4-3: PNG uten EXIF i vilkårlig størrelse flagges ikke med standardregelen; tallet uten rapporteres.
 #[test]
 fn k4_3_arbitrary_size_png_not_flagged_when_strong() {
     let neg: Vec<_> = entries("screenshot_neg")
@@ -210,16 +220,19 @@ fn k4_3_arbitrary_size_png_not_flagged_when_strong() {
         .filter(|e| e.mime == "image/png")
         .collect();
     assert_eq!(neg.len(), 10);
-    let count = |strong| {
+    let count = |strong: Option<bool>| {
         neg.iter()
             .filter(|e| {
-                signals(&meta(e), &corpus_thumb(e))
-                    .suggestion(strong)
-                    .is_some()
+                let s = signals(&meta(e), &corpus_thumb(e));
+                match strong {
+                    None => s.suggest_default(),
+                    Some(b) => s.suggestion(b),
+                }
+                .is_some()
             })
             .count()
     };
-    let (without, with) = (count(false), count(true));
-    eprintln!("K4-3: PNG uten EXIF i vilkårlig størrelse flagget: {without} av 10 uten require_strong, {with} med");
+    let (without, with) = (count(Some(false)), count(None));
+    eprintln!("K4-3: PNG uten EXIF i vilkårlig størrelse flagget: {without} av 10 med to-av-fire, {with} med standardregelen");
     assert_eq!(with, 0);
 }

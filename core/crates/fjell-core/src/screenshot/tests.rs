@@ -62,6 +62,11 @@ fn all_sixteen_combinations() {
         if strong {
             assert_eq!(sig.suggestion(true), expect_conf);
         }
+        assert_eq!(
+            sig.suggest_default(),
+            sig.suggestion(true),
+            "standard = streng"
+        );
     }
 }
 

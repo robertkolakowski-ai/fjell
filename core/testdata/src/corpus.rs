@@ -199,13 +199,15 @@ pub fn generate(out: &Path, seed: u64) -> io::Result<Manifest> {
         )?;
     }
     for (i, m) in motifs.iter().enumerate() {
-        // Siste ti er lav kontrast (hvit vegg, himmel); skal fortsatt være skarpe.
+        // Siste ti er lav kontrast (hvit vegg, himmel); skal fortsatt være skarpe. Det er samme
+        // motiv som `blurry`-variantene (dempet kontrast endrer ikke pHash/dHash), så de hører til
+        // samme visuelle gruppe 100+i som alle andre varianter av motivet.
         let img = if i >= 30 {
             lowcontrast(m, 0.15 + 0.03 * (i - 30) as f32)
         } else {
             m.clone()
         };
-        let vg = if i >= 30 { None } else { Some(100 + i as u32) };
+        let vg = Some(100 + i as u32);
         b.add(
             "sharp",
             &format!("s{i:02}"),

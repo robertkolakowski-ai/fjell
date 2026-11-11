@@ -237,8 +237,16 @@ pub fn blurry_suggestion(score: f32, threshold: f32) -> Option<f32> {
     Some((pct / 5 * 5) as f32 / 100.0)
 }
 
-/// Skjermbildeforslag (konfidens fra signalantall). Standard bør være `require_strong = true`
-/// (K4-3, PLAN-KJERNE del 9); valget tas av kalleren.
+/// Skjermbildeforslag (konfidens fra signalantall). Standard er `require_strong = true`
+/// (`screenshot::DEFAULT_REQUIRE_STRONG`, K4-3); bruk `screenshot_suggestion_default` for den.
+pub fn screenshot_suggestion_default(
+    asset_id: AssetId,
+    signals: ShotSignals,
+) -> Option<Suggestion> {
+    screenshot_suggestion(asset_id, signals, crate::screenshot::DEFAULT_REQUIRE_STRONG)
+}
+
+/// Som `screenshot_suggestion` med eksplisitt `require_strong`.
 pub fn screenshot_suggestion(
     asset_id: AssetId,
     signals: ShotSignals,

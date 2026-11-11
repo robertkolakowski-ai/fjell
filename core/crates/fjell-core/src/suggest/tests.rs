@@ -261,6 +261,7 @@ fn screenshot_suggestion_uses_signals() {
         (SuggestionKind::Screenshot, None, 0.70)
     );
     assert!(screenshot_suggestion(AssetId(1), s, true).is_none());
+    assert!(screenshot_suggestion_default(AssetId(1), s).is_none());
 }
 
 #[test]

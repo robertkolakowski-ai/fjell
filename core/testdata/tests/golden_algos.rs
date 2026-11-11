@@ -132,15 +132,12 @@ fn k2a_4_negative_pairs_are_separated() {
 }
 
 /// Én representant (lavest id) per eksakt gruppe og uten lavinformasjon, som pipeline gjør.
-///
-/// Lavkontrast-variantene av `sharp` (visual_group = None) utelates: de er laget av samme motiv som
-/// `blurry`/`sharp` i gruppe 100+i, så de er (riktig) visuelle duplikater selv om manifestet sier
-/// «ingen gruppe». Fasiten i generatoren (K0) er altså for snever for disse ti; algoritmen er ikke feil.
+/// Alle korpusbilder tas med (også lavkontrast-skarpe s30–s39, som i manifestet hører til
+/// visuell gruppe 100+i); kun lavinformasjon og eksakte kopier utelates, som pipeline gjør.
 fn eligible<'a>(items: &'a [Item], skip: &[&str]) -> Vec<&'a Item> {
     let mut seen = BTreeSet::new();
     items
         .iter()
-        .filter(|i| !(i.e.group == "sharp" && i.e.visual_group.is_none()))
         .filter(|i| !skip.contains(&i.e.group.as_str()) && !i.low && seen.insert(i.content))
         .collect()
 }

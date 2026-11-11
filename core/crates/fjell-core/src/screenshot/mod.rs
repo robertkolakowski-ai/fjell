@@ -9,12 +9,23 @@
 //!
 //! Signaler: S1 plattformflagg, S2 kjent skjermstørrelse (begge retninger), S3 ingen kamera-EXIF
 //! (`Some(false)`; `None` teller ikke), S4 `image/png`. Forslag fra to signaler.
+//!
+//! Standardregel (K4-3, PLAN-KJERNE del 9): minst to signaler OG minst én av S1/S2
+//! (`DEFAULT_REQUIRE_STRONG = true`, brukes av `ShotSignals::suggest_default`). Begrunnelse: S3
+//! (ingen kamera-EXIF) og S4 (PNG) alene er svake; eksport, nedlasting og redigerte PNG-er har
+//! begge uten å være skjermbilder. Regelen er satt ut fra denne logikken, ikke tunet mot korpuset:
+//! to-av-fire ga presisjon 0,75 (10 PNG uten EXIF i vilkårlig størrelse var falske positive),
+//! den strenge regelen 1,0 (port ≥ 0,95). Rå «to av fire» er fortsatt tilgjengelig via
+//! `suggestion(false)`.
 
 mod screen_sizes;
 
 pub use screen_sizes::{is_known_screen_size, SCREEN_SIZES};
 
 use crate::model::{AssetMeta, ReasonCode, Thumb};
+
+/// Standard for `require_strong`: forslag krever minst én av S1/S2 i tillegg til to signaler.
+pub const DEFAULT_REQUIRE_STRONG: bool = true;
 
 /// Bitmaske over de fire signalene.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
@@ -64,7 +75,7 @@ impl ShotSignals {
     }
 
     /// Forslag (konfidens) når minst to signaler slår til. Med `require_strong` kreves i tillegg
-    /// minst én av S1/S2 (standard i `signals`-bruk er `false`, som arkitekturen: to av fire).
+    /// minst én av S1/S2 (standard er `DEFAULT_REQUIRE_STRONG`, se `suggest_default`).
     pub fn suggestion(self, require_strong: bool) -> Option<f32> {
         if self.count() < 2 {
             return None;
@@ -73,6 +84,11 @@ impl ShotSignals {
             return None;
         }
         Some(self.confidence())
+    }
+
+    /// Forslag med standardregelen (`DEFAULT_REQUIRE_STRONG`).
+    pub fn suggest_default(self) -> Option<f32> {
+        self.suggestion(DEFAULT_REQUIRE_STRONG)
     }
 }
 

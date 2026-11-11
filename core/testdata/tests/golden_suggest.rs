@@ -35,7 +35,12 @@ fn k5_6_original_kept_over_downscaled() {
         .map(|(i, e)| (i as u64 + 1, e))
         .collect();
     let (mut pairs, mut kept) = (0, 0);
-    for (i, e) in m.entries.iter().enumerate().filter(|(_, e)| e.group == "downscaled") {
+    for (i, e) in m
+        .entries
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| e.group == "downscaled")
+    {
         let (oid, o) = originals
             .iter()
             .find(|(_, o)| o.visual_group == e.visual_group)
