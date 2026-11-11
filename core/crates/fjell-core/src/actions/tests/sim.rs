@@ -13,7 +13,7 @@ use std::collections::HashSet;
 const N: usize = 8;
 
 #[derive(Clone, Debug)]
-enum Op {
+pub(super) enum Op {
     Trash(Vec<bool>),
     Restore(Vec<bool>),
     Keep(Vec<bool>),
@@ -34,7 +34,7 @@ fn mask() -> impl Strategy<Value = Vec<bool>> {
     prop::collection::vec(any::<bool>(), N)
 }
 
-fn op() -> impl Strategy<Value = Op> {
+pub(super) fn op() -> impl Strategy<Value = Op> {
     prop_oneof![
         3 => mask().prop_map(Op::Trash),
         2 => mask().prop_map(Op::Restore),
@@ -68,14 +68,14 @@ struct Batch {
     has_purge: bool,
 }
 
-struct Sim {
-    fx: Fx,
-    ids: Vec<AssetId>,
+pub(super) struct Sim {
+    pub(super) fx: Fx,
+    pub(super) ids: Vec<AssetId>,
     st: Vec<State>,
     sg: Vec<Sg>,
     stack: Vec<Batch>,
     gone: Vec<usize>,
-    plat: FakePlatform,
+    pub(super) plat: FakePlatform,
     confirmed: HashSet<u64>,
 }
 
@@ -88,7 +88,7 @@ fn sg_of(s: &str) -> Sg {
 }
 
 impl Sim {
-    fn new() -> Sim {
+    pub(super) fn new() -> Sim {
         let fx = Fx::new();
         let ids = fx.assets(N as u64);
         for id in &ids {
@@ -120,7 +120,7 @@ impl Sim {
         }
     }
 
-    fn apply(&mut self, op: &Op) {
+    pub(super) fn apply(&mut self, op: &Op) {
         match op {
             Op::Trash(m) => {
                 let ix = self.sel(m);

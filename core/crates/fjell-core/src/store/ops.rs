@@ -5,14 +5,14 @@
 //! Grensesnitt (skriving; lesing ligger i `ops_read`):
 //! - `apply_batch(BatchSpec)`: alle rader i én transaksjon med nytt `batch_id`, alt eller ingenting (I4).
 //! - `undo_top(ts, trash_secs)`: inverterer siste ikke-angrede brukerbatch (I5, I11, T13, T14).
-//! - `reconcile_removed(removed, ts)`: borte kilder til `purged` med `cause=external` (beslutning 18).
+//! - `reconcile_removed` ligger i `reconcile` (egen fil, 400-linjersgrensen).
 //!
 //! Skriving går per id med cachet setning og lesing av mengder via `json_each` (se `ops_read`),
 //! så SQLites variabelgrense aldri nås (T18) og 50 000 id-er går i én transaksjon.
 
 use super::ops_read::row_of;
 use super::{Store, StoreError};
-use crate::model::{AssetId, BatchId, SourceId, State, SuggestionKind};
+use crate::model::{AssetId, BatchId, State, SuggestionKind};
 use rusqlite::{params, OptionalExtension, Transaction};
 
 /// Hvorfor en rad ble skrevet (`action_log.cause`).
@@ -80,7 +80,7 @@ pub enum UndoResult {
     },
 }
 
-fn next_batch_id(conn: &rusqlite::Connection) -> Result<i64, StoreError> {
+pub(super) fn next_batch_id(conn: &rusqlite::Connection) -> Result<i64, StoreError> {
     Ok(conn.query_row(
         "SELECT COALESCE(MAX(batch_id), 0) + 1 FROM action_log",
         [],
@@ -90,7 +90,7 @@ fn next_batch_id(conn: &rusqlite::Connection) -> Result<i64, StoreError> {
 
 /// Skriver én loggrad og returnerer dens id.
 #[allow(clippy::too_many_arguments)]
-fn log_row(
+pub(super) fn log_row(
     tx: &Transaction,
     batch: i64,
     ts: i64,
@@ -272,51 +272,6 @@ impl Store {
             applied,
             skipped,
         })
-    }
-
-    /// Avstemmer borte kilder til `purged` (`cause=external`) i én batch. Ukjente og allerede purgede
-    /// kilder hoppes over. Aktive bilder går via `trashed` inne i transaksjonen fordi triggeren
-    /// (I2) blokkerer `active -> purged` direkte; intet logges for mellomtrinnet.
-    pub fn reconcile_removed(
-        &mut self,
-        removed: &[SourceId],
-        ts: i64,
-    ) -> Result<Vec<AssetId>, StoreError> {
-        let tx = self.conn.transaction()?;
-        let batch = next_batch_id(&tx)?;
-        let mut purged = Vec::new();
-        for src in removed {
-            let found: Option<i64> = tx
-                .prepare_cached("SELECT id FROM asset WHERE source_id = ?1")?
-                .query_row([&src.0], |r| r.get(0))
-                .optional()?;
-            let Some(aid) = found else { continue };
-            let id = AssetId(aid as u64);
-            let Some(row) = row_of(&tx, id)? else {
-                continue;
-            };
-            if row.state == State::Purged {
-                continue;
-            }
-            if row.state == State::Active {
-                tx.execute("UPDATE asset SET state = 1 WHERE id = ?1", [aid])?;
-            }
-            tx.execute("UPDATE asset SET state = 2 WHERE id = ?1", [aid])?;
-            log_row(
-                &tx,
-                batch,
-                ts,
-                "purge",
-                id,
-                row.state,
-                None,
-                None,
-                Cause::External,
-            )?;
-            purged.push(id);
-        }
-        tx.commit()?;
-        Ok(purged)
     }
 }
 

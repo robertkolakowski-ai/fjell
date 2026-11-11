@@ -18,6 +18,7 @@ mod ops;
 mod ops_read;
 #[cfg(test)]
 mod ops_tests;
+mod reconcile;
 
 use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};

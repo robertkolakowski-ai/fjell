@@ -7,6 +7,7 @@
 
 mod perf;
 mod props;
+mod purge_props;
 mod scenarios;
 mod scenarios2;
 mod sim;

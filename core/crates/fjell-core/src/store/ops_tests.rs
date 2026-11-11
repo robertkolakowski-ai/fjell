@@ -167,3 +167,33 @@ fn i16_schema_has_no_image_data_or_free_text() {
         }
     }
 }
+
+/// Avstemming logger hvert tilstandsskifte: aktiv gir `trash` + `purge`, trashed gir bare `purge`,
+/// begge `cause=external`, og ingen rader slettes.
+#[test]
+fn reconcile_logs_every_transition_and_deletes_nothing() {
+    let mut s = store_with(3);
+    s.apply_batch(&trash_spec(&[2])).unwrap().unwrap();
+    s.reconcile_removed(&[SourceId("s1".into()), SourceId("s2".into())], 200)
+        .unwrap();
+    let rows: Vec<(i64, String, i64, String)> = s
+        .conn()
+        .prepare(
+            "SELECT asset_id, op, prev_state, cause FROM action_log WHERE ts = 200 ORDER BY id",
+        )
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    let e = |a: i64, op: &str, p: i64| (a, op.to_string(), p, "external".to_string());
+    assert_eq!(
+        rows,
+        vec![e(1, "trash", 0), e(1, "purge", 1), e(2, "purge", 1)]
+    );
+    let n: i64 = s
+        .conn()
+        .query_row("SELECT COUNT(*) FROM asset", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(n, 3);
+}
