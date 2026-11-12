@@ -1,0 +1,28 @@
+[package]
+name = "fjell-testdata"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Eget workspace: berører verken core/Cargo.toml, core/Cargo.lock eller fjell-core.
+# `image` er bare her (PLAN-KJERNE del 2 punkt 4), aldri i fjell-core.
+[workspace]
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[[bin]]
+name = "fjell-gen-golden"
+path = "src/main.rs"
+
+# Bildebehandling er tregt i debug; generatoren og testene kjører optimalisert.
+[profile.dev]
+opt-level = 3
+
+[profile.test]
+opt-level = 3

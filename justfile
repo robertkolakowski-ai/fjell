@@ -5,7 +5,7 @@ default:
     @just --list
 
 # fmt + clippy (-D warnings) + test + check-layers
-check: fmt clippy test layers
+check: fmt clippy test testdata layers
 
 fmt:
     cargo fmt --manifest-path core/Cargo.toml --all --check
@@ -15,6 +15,10 @@ clippy:
 
 test:
     cargo test --manifest-path core/Cargo.toml --workspace --locked
+
+# Golden-korpus og generator (egen crate, ikke i workspace)
+testdata:
+    cargo test --manifest-path core/testdata/Cargo.toml --locked
 
 # Lagregler og syklus i fjell-core, pluss selvtest med bevisste brudd
 layers:
