@@ -83,7 +83,8 @@ describe("frontend: ingen nettverkskall (desktop/src)", () => {
     const pkg = JSON.parse(readFileSync(join(desktop, "package.json"), "utf8")) as { dependencies?: Record<string, string> };
     const deps = Object.keys(pkg.dependencies ?? {});
     expect(deps.filter((d) => /^(axios|got|node-fetch|ky|superagent|socket\.io|ws|undici|@tauri-apps\/plugin-(http|shell|fs|opener|updater|websocket))/.test(d))).toEqual([]);
-    expect(deps.sort()).toEqual(["@tauri-apps/api"]); // eneste kjøretidsavhengighet; ny avhengighet krever oppdatering her og i THIRD_PARTY.md
+    // kjøretidsavhengigheter; ny avhengighet krever oppdatering her og i THIRD_PARTY.md. plugin-dialog = «Bla …» (mappevalg, ingen nettverk)
+    expect(deps.sort()).toEqual(["@tauri-apps/api", "@tauri-apps/plugin-dialog"]);
   });
 
   test("bygget dist (hvis det finnes) har ingen eksterne URL-er eller fetch-kall fra appkode", () => {
@@ -143,13 +144,16 @@ describe("CSP og Tauri-rettigheter", () => {
     expect(csp).not.toMatch(/unsafe-eval/);
   });
 
+  // Eneste unntak fra «bare core:»: mappevalg (`dialog:allow-open`). Ikke `dialog:default`, ingen save/message/ask/confirm.
+  const DIALOG_OPEN = "dialog:allow-open";
+
   test("capabilities: ingen http-, shell-, fs-, opener- eller updater-rettigheter", () => {
     const dir = join(desktop, "src-tauri", "capabilities");
     for (const f of readdirSync(dir).filter((n) => n.endsWith(".json"))) {
       const cap = JSON.parse(readFileSync(join(dir, f), "utf8")) as { permissions: (string | { identifier: string })[] };
       const ids = cap.permissions.map((p) => (typeof p === "string" ? p : p.identifier));
-      expect(ids.filter((i) => /^(http|shell|fs|opener|updater|websocket|process|os|dialog)\b|:allow-(fetch|open|spawn|execute)/.test(i)), f).toEqual([]);
-      expect(ids.every((i) => i.startsWith("core:")), `${f}: ${ids.join(",")}`).toBe(true);
+      expect(ids.filter((i) => i !== DIALOG_OPEN).filter((i) => /^(http|shell|fs|opener|updater|websocket|process|os|dialog)\b|:allow-(fetch|open|spawn|execute)/.test(i)), f).toEqual([]);
+      expect(ids.every((i) => i.startsWith("core:") || i === DIALOG_OPEN), `${f}: ${ids.join(",")}`).toBe(true);
     }
   });
 

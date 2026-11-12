@@ -23,8 +23,8 @@ async function start(page: Page, lang: Lang = "nb", query = CLOUD): Promise<void
   await open(page, "#/", lang, 0, query);
   // Uavhengig av språk (pseudo har andre ord): knappene i onboarding finnes på samme sted.
   await go(page, "#/onboarding");
-  await page.locator(".onb .row .btn.primary").click();
-  await page.locator(".onb .row .btn.primary").click();
+  await page.locator(".onb > .row .btn.primary").click();
+  await page.locator(".onb > .row .btn.primary").click();
   await page.locator(".onb .btn.primary").filter({ hasText: /\d/ }).waitFor({ timeout: 15_000 }); // resultatsteget: skannet er ferdig
   await go(page, "#/");
 }

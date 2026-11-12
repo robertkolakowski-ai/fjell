@@ -18,9 +18,9 @@ async function tour(page: Page, lang: Lang, scheme: "light" | "dark", only?: str
   await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
   await open(page, "#/onboarding", lang);
   if (want("onboarding-velkommen")) await shot(page, `onboarding-velkommen-${tag}`);
-  await page.locator(".onb .row button").first().click();
+  await page.locator(".onb > .row button").first().click();
   if (want("onboarding-mapper")) await shot(page, `onboarding-mapper-${tag}`);
-  await page.locator(".onb .row button").first().click();
+  await page.locator(".onb > .row button").first().click();
   await page.locator("h1").filter({ hasText: /\d/ }).waitFor({ timeout: 15_000 });
   if (want("onboarding-resultat")) await shot(page, `onboarding-resultat-${tag}`);
   await go(page, "#/");

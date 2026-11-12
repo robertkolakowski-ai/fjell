@@ -40,3 +40,19 @@ export async function addFolder(b: CoreBridge, raw: string, scan = true): Promis
   }
   return { ok: true, path };
 }
+
+export type BrowseResult = { kind: "picked"; path: string } | { kind: "cancelled" } | { kind: "failed" };
+
+/**
+ * «Bla …»: åpner systemets mappevalg. Endrer ikke biblioteket (brukeren bekrefter med «Legg til»).
+ * Avbrutt gir `cancelled` (feltet urørt); feil eller manglende mappevalg gir `failed` (aldri stille svikt).
+ */
+export async function browseFolder(b: CoreBridge, title?: string): Promise<BrowseResult> {
+  if (!b.canPickFolder) return { kind: "failed" };
+  try {
+    const p = await b.pickFolder(title);
+    return p === null || p.trim() === "" ? { kind: "cancelled" } : { kind: "picked", path: p };
+  } catch {
+    return { kind: "failed" };
+  }
+}

@@ -7,8 +7,19 @@ import type {
 
 export type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 
+/** Åpner systemets mappevalg (tauri-plugin-dialog). Plugin lastes først ved bruk. null = avbrutt. */
+export type PickDirectory = (title?: string) => Promise<string | null>;
+
+const pickDirectory: PickDirectory = async (title) => {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const r = await open({ directory: true, multiple: false, title });
+  return typeof r === "string" ? r : null;
+};
+
 export class TauriBridge implements CoreBridge {
-  constructor(private readonly call: Invoke = invoke) {}
+  readonly canPickFolder = true;
+
+  constructor(private readonly call: Invoke = invoke, private readonly pick: PickDirectory = pickDirectory) {}
 
   getState(): Promise<AppState> {
     return this.call<AppState>("get_state");
@@ -56,6 +67,9 @@ export class TauriBridge implements CoreBridge {
   }
   getLibrary(): Promise<string | null> {
     return this.call<string | null>("get_library");
+  }
+  pickFolder(title?: string): Promise<string | null> {
+    return this.pick(title);
   }
   async setLibrary(path: string): Promise<void> {
     await this.call("set_library", { path });

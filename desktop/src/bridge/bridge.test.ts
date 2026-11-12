@@ -18,8 +18,8 @@ describe("identisk grensesnitt", () => {
       Object.getOwnPropertyNames(Object.getPrototypeOf(o)).filter((n) => n !== "constructor" && !n.startsWith("wait")).sort();
     const pub = [
       "cancelScan", "completeOnboarding", "decide", "emptyTrash", "getFirstRun", "getLanguage", "getLibrary", "getSettings",
-      "getState", "listCards", "listTrashed", "pauseScan", "purge", "restore", "restoreAll", "resumeScan", "setKeeper",
-      "setLanguage", "setLibrary", "setTrashDays", "startScan", "undo",
+      "getState", "listCards", "listTrashed", "pauseScan", "pickFolder", "purge", "restore", "restoreAll", "resumeScan",
+      "setKeeper", "setLanguage", "setLibrary", "setTrashDays", "startScan", "undo",
     ];
     expect(names(new TauriBridge())).toEqual(pub);
     expect(names(new MockBridge()).filter((n) => pub.includes(n))).toEqual(pub);
@@ -52,6 +52,31 @@ describe("TauriBridge", () => {
     const call = vi.fn().mockResolvedValue({ purged: 3, keptTrashed: 0 });
     expect(await new TauriBridge(call).purge()).toBe(3);
     expect(call.mock.calls).toEqual([["empty_trash"]]);
+  });
+});
+
+describe("mappevalg (pickFolder)", () => {
+  it("TauriBridge: ingen invoke-kommando; delegerer til plugin-funksjonen med tittel, null = avbrutt", async () => {
+    const call = vi.fn();
+    const pick = vi.fn().mockResolvedValueOnce("D:\\Ferie").mockResolvedValueOnce(null);
+    const b = new TauriBridge(call, pick);
+    expect(b.canPickFolder).toBe(true);
+    expect(await b.pickFolder("Velg")).toBe("D:\\Ferie");
+    expect(await b.pickFolder("Velg")).toBeNull();
+    expect(pick.mock.calls).toEqual([["Velg"], ["Velg"]]);
+    expect(call).not.toHaveBeenCalled();
+  });
+  it("MockBridge: sti, avbrutt og utilgjengelig (standard) er tre ulike utfall", async () => {
+    expect(await new MockBridge({ pick: "C:\\Bilder\\Ferie" }).pickFolder()).toBe("C:\\Bilder\\Ferie");
+    expect(await new MockBridge({ pick: null }).pickFolder()).toBeNull();
+    const off = new MockBridge();
+    expect(off.canPickFolder).toBe(false);
+    await expect(off.pickFolder()).rejects.toMatchObject({ code: "unsupported" });
+  });
+  it("pickFolder setter ikke biblioteket", async () => {
+    const b = new MockBridge({ pick: "D:\\Annet", library: "C:\\Bilder" });
+    await b.pickFolder();
+    expect(await b.getLibrary()).toBe("C:\\Bilder");
   });
 });
 

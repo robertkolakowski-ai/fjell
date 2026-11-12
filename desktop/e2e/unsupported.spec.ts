@@ -43,9 +43,9 @@ async function toUnsupported(page: Page, lang: Lang, unsupported: number | "all"
   await page.goto(`/?mockDelay=0&mockUnsupported=${unsupported}#/onboarding`);
   if (lang === "pseudo") {
     await page.locator("h1").first().waitFor();
-    await page.locator(".onb .row button").first().click();
+    await page.locator(".onb > .row button").first().click();
     await page.waitForTimeout(250);
-    await page.locator(".onb .row button").last().click(); // «Start skanning» er siste knapp
+    await page.locator(".onb > .row button").last().click(); // «Start skanning» er siste knapp
   } else {
     await page.getByRole("button", { name: t.start }).click();
     await page.getByRole("button", { name: t.scan }).click();
