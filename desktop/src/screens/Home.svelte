@@ -146,7 +146,7 @@
       <Button onclick={() => (folderOpen = true)}>{$tr("home.folder.add")}</Button>
     </div>
   {/if}
-  <FolderDialog open={folderOpen} onSubmit={chooseFolder} onClose={() => (folderOpen = false)} />
+  <FolderDialog bridge={b} open={folderOpen} onSubmit={chooseFolder} onClose={() => (folderOpen = false)} />
 </section>
 
 <style>

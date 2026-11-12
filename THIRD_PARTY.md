@@ -9,15 +9,15 @@ Omfang:
 - **npm:** kjøretidsavhengigheter som bundles i frontend (`@tauri-apps/api`, `svelte` og deres avhengigheter). Utviklingsverktøy (vite, vitest, playwright, axe-core, typescript) leveres ikke.
 - **Ikke med:** systemkomponenter fra Windows (WebView2, Segoe UI). Appen bundler ingen fonter, ingen bilder fra tredjepart og ingen modeller. Appikonet er et eget plassholderikon.
 
-Antall komponenter: **264** (Rust 244, npm 20).
+Antall komponenter: **267** (Rust 247, npm 20).
 
 ## Lisenser i bruk
 
 | Lisens (SPDX-uttrykk) | Komponenter |
 |---|---:|
 | MIT OR Apache-2.0 | 126 |
-| MIT | 56 |
-| Apache-2.0 OR MIT | 23 |
+| MIT | 57 |
+| Apache-2.0 OR MIT | 25 |
 | Unicode-3.0 | 18 |
 | Unlicense OR MIT | 11 |
 | MPL-2.0 | 5 |
@@ -183,6 +183,7 @@ Antall komponenter: **264** (Rust 244, npm 20).
 | regex | 1.13.1 | MIT OR Apache-2.0 | https://github.com/rust-lang/regex |
 | regex-automata | 0.4.18 | MIT OR Apache-2.0 | https://github.com/rust-lang/regex |
 | regex-syntax | 0.8.11 | MIT OR Apache-2.0 | https://github.com/rust-lang/regex |
+| rfd | 0.17.2 | MIT | https://github.com/PolyMeilex/rfd |
 | rusqlite | 0.42.0 | MIT | https://github.com/rusqlite/rusqlite |
 | rustc-hash | 2.1.3 | Apache-2.0 OR MIT | https://github.com/rust-lang/rustc-hash |
 | same-file | 1.0.6 | Unlicense OR MIT | https://github.com/BurntSushi/same-file |
@@ -222,6 +223,8 @@ Antall komponenter: **264** (Rust 244, npm 20).
 | tauri | 2.12.5 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | tauri-codegen | 2.7.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | tauri-macros | 2.7.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| tauri-plugin-dialog | 2.8.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
+| tauri-plugin-fs | 2.7.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | tauri-runtime | 2.12.2 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | tauri-runtime-wry | 2.12.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | tauri-utils | 2.10.2 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
@@ -523,9 +526,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 2 (43 komponenter)
+### Tekst 2 (45 komponenter)
 
-Gjelder: @tauri-apps/api 2.12.4, anyhow 1.0.104, constant_time_eq 0.4.2, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.11, fdeflate 0.3.7, image 0.25.10, itoa 1.0.19, libc 0.2.191, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, proc-macro2 1.0.107, quote 1.0.47, raw-window-handle 0.6.2, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, semver 1.0.28, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.154, serde_repr 0.1.21, syn 2.0.119, syn 3.0.10, tauri 2.12.5, tauri-codegen 2.7.4, tauri-macros 2.7.4, tauri-runtime 2.12.2, tauri-runtime-wry 2.12.3, tauri-utils 2.10.2, thiserror 2.0.21, thiserror-impl 2.0.21, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, typeid 1.0.3, unicode-ident 1.0.27
+Gjelder: @tauri-apps/api 2.12.4, anyhow 1.0.104, constant_time_eq 0.4.2, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.11, fdeflate 0.3.7, image 0.25.10, itoa 1.0.19, libc 0.2.191, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, proc-macro2 1.0.107, quote 1.0.47, raw-window-handle 0.6.2, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, semver 1.0.28, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.154, serde_repr 0.1.21, syn 2.0.119, syn 3.0.10, tauri 2.12.5, tauri-codegen 2.7.4, tauri-macros 2.7.4, tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1, tauri-runtime 2.12.2, tauri-runtime-wry 2.12.3, tauri-utils 2.10.2, thiserror 2.0.21, thiserror-impl 2.0.21, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, typeid 1.0.3, unicode-ident 1.0.27
 
 ```text
                               Apache License
@@ -1094,7 +1097,35 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 10 (8 komponenter)
+### Tekst 10 (9 komponenter)
+
+Gjelder: @tauri-apps/api 2.12.4, tauri 2.12.5, tauri-codegen 2.7.4, tauri-macros 2.7.4, tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1, tauri-runtime 2.12.2, tauri-runtime-wry 2.12.3, tauri-utils 2.10.2
+
+```text
+MIT License
+
+Copyright (c) 2017 - Present Tauri Apps Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Tekst 11 (8 komponenter)
 
 Gjelder: crc32fast 1.5.5, ctor 1.0.13, dpi 0.1.2, fallible-iterator 0.3.0, fallible-streaming-iterator 0.1.9, hex 0.4.3, json-patch 4.2.0, tao 0.37.2
 
@@ -1302,7 +1333,7 @@ Gjelder: crc32fast 1.5.5, ctor 1.0.13, dpi 0.1.2, fallible-iterator 0.3.0, falli
    limitations under the License.
 ```
 
-### Tekst 11 (7 komponenter)
+### Tekst 12 (7 komponenter)
 
 Gjelder: bitflags 2.13.2, glob 0.3.4, log 0.4.35, num-traits 0.2.19, regex 1.13.1, regex-automata 0.4.18, regex-syntax 0.8.11
 
@@ -1332,34 +1363,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-```
-
-### Tekst 12 (7 komponenter)
-
-Gjelder: @tauri-apps/api 2.12.4, tauri 2.12.5, tauri-codegen 2.7.4, tauri-macros 2.7.4, tauri-runtime 2.12.2, tauri-runtime-wry 2.12.3, tauri-utils 2.10.2
-
-```text
-MIT License
-
-Copyright (c) 2017 - Present Tauri Apps Contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 ```
 
 ### Tekst 13 (5 komponenter)
@@ -3603,6 +3606,33 @@ SOFTWARE.
 
 ### Tekst 51 (2 komponenter)
 
+Gjelder: tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1
+
+```text
+SPDXVersion: SPDX-2.1
+DataLicense: CC0-1.0
+PackageName: tauri
+DataFormat: SPDXRef-1
+PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
+PackageHomePage: https://tauri.app
+PackageLicenseDeclared: Apache-2.0
+PackageLicenseDeclared: MIT
+PackageCopyrightText: 2019-2022, The Tauri Programme in the Commons Conservancy
+PackageSummary: <text>Tauri is a rust project that enables developers to make secure
+and small desktop applications using a web frontend.
+                </text>
+PackageComment: <text>The package includes the following libraries; see
+Relationship information.
+                </text>
+Created: 2019-05-20T09:00:00Z
+PackageDownloadLocation: git://github.com/tauri-apps/tauri
+PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
+PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
+Creator: Person: Daniel Thompson-Yvetot
+```
+
+### Tekst 52 (2 komponenter)
+
 Gjelder: adler2 2.0.1, cargo-platform 0.1.9
 
 ```text
@@ -3809,7 +3839,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 52 (2 komponenter)
+### Tekst 53 (2 komponenter)
 
 Gjelder: moxcms 0.8.1, pxfm 0.1.30
 
@@ -4017,7 +4047,7 @@ Gjelder: moxcms 0.8.1, pxfm 0.1.30
    limitations under the License.
 ```
 
-### Tekst 53 (2 komponenter)
+### Tekst 54 (2 komponenter)
 
 Gjelder: libsqlite3-sys 0.40.0, rusqlite 0.42.0
 
@@ -4043,7 +4073,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 54 (1 komponenter)
+### Tekst 55 (1 komponenter)
 
 Gjelder: cpufeatures 0.2.17
 
@@ -4075,7 +4105,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 55 (1 komponenter)
+### Tekst 56 (1 komponenter)
 
 Gjelder: dpi 0.1.2
 
@@ -4133,7 +4163,7 @@ have been licensed under extremely permissive terms.
 ------------------------------------------------------------------------------
 ```
 
-### Tekst 56 (1 komponenter)
+### Tekst 57 (1 komponenter)
 
 Gjelder: softbuffer 0.4.8
 
@@ -4341,7 +4371,7 @@ Apache License
    limitations under the License.
 ```
 
-### Tekst 57 (1 komponenter)
+### Tekst 58 (1 komponenter)
 
 Gjelder: constant_time_eq 0.4.2
 
@@ -4362,7 +4392,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 58 (1 komponenter)
+### Tekst 59 (1 komponenter)
 
 Gjelder: hex 0.4.3
 
@@ -4389,7 +4419,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 59 (1 komponenter)
+### Tekst 60 (1 komponenter)
 
 Gjelder: cfb 0.14.0
 
@@ -4417,7 +4447,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 60 (1 komponenter)
+### Tekst 61 (1 komponenter)
 
 Gjelder: cookie 0.18.2
 
@@ -4626,7 +4656,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 61 (1 komponenter)
+### Tekst 62 (1 komponenter)
 
 Gjelder: bytemuck 1.25.2
 
@@ -4642,7 +4672,7 @@ The above copyright notice and this permission notice (including the next paragr
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 62 (1 komponenter)
+### Tekst 63 (1 komponenter)
 
 Gjelder: typenum 1.20.1
 
@@ -4850,7 +4880,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 63 (1 komponenter)
+### Tekst 64 (1 komponenter)
 
 Gjelder: zlib-rs 0.6.8
 
@@ -4876,7 +4906,7 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Tekst 64 (1 komponenter)
+### Tekst 65 (1 komponenter)
 
 Gjelder: @jridgewell/resolve-uri 3.1.2
 
@@ -4902,7 +4932,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 65 (1 komponenter)
+### Tekst 66 (1 komponenter)
 
 Gjelder: foldhash 0.2.0
 
@@ -4928,7 +4958,35 @@ the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Tekst 66 (1 komponenter)
+### Tekst 67 (1 komponenter)
+
+Gjelder: rfd 0.17.2
+
+```text
+MIT License
+
+Copyright (c) 2022 Bartłomiej Maryńczak
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Tekst 68 (1 komponenter)
 
 Gjelder: mio 1.2.4
 
@@ -4954,7 +5012,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 67 (1 komponenter)
+### Tekst 69 (1 komponenter)
 
 Gjelder: tendril 0.5.1
 
@@ -4986,7 +5044,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 68 (1 komponenter)
+### Tekst 70 (1 komponenter)
 
 Gjelder: typenum 1.20.1
 
@@ -5014,7 +5072,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 69 (1 komponenter)
+### Tekst 71 (1 komponenter)
 
 Gjelder: equivalent 1.0.3
 
@@ -5046,7 +5104,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 70 (1 komponenter)
+### Tekst 72 (1 komponenter)
 
 Gjelder: deranged 0.5.9
 
@@ -5072,7 +5130,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 71 (1 komponenter)
+### Tekst 73 (1 komponenter)
 
 Gjelder: keyboard-types 0.8.3
 
@@ -5098,7 +5156,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 72 (1 komponenter)
+### Tekst 74 (1 komponenter)
 
 Gjelder: json-patch 4.2.0
 
@@ -5126,7 +5184,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 73 (1 komponenter)
+### Tekst 75 (1 komponenter)
 
 Gjelder: cpufeatures 0.3.1
 
@@ -5158,7 +5216,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 74 (1 komponenter)
+### Tekst 76 (1 komponenter)
 
 Gjelder: cookie 0.18.2
 
@@ -5191,7 +5249,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 75 (1 komponenter)
+### Tekst 77 (1 komponenter)
 
 Gjelder: mime 0.3.18
 
@@ -5217,7 +5275,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 76 (1 komponenter)
+### Tekst 78 (1 komponenter)
 
 Gjelder: getrandom 0.3.4
 
@@ -5250,7 +5308,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 77 (1 komponenter)
+### Tekst 79 (1 komponenter)
 
 Gjelder: siphasher 1.0.4
 
@@ -5264,7 +5322,7 @@ http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 option.
 ```
 
-### Tekst 78 (1 komponenter)
+### Tekst 80 (1 komponenter)
 
 Gjelder: utf_types 1.0.0
 
@@ -5291,7 +5349,7 @@ Test code is dedicated to the Public Domain when so designated (see
 the individual files for PD/CC0-dedicated sections).
 ```
 
-### Tekst 79 (1 komponenter)
+### Tekst 81 (1 komponenter)
 
 Gjelder: unicode-segmentation 1.13.3
 
@@ -5305,7 +5363,7 @@ notice may not be copied, modified, or distributed except
 according to those terms.
 ```
 
-### Tekst 80 (1 komponenter)
+### Tekst 82 (1 komponenter)
 
 Gjelder: window-vibrancy 0.8.1
 
@@ -5331,7 +5389,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/window-vibrancy.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 81 (1 komponenter)
+### Tekst 83 (1 komponenter)
 
 Gjelder: blake3 1.8.7
 
@@ -5539,7 +5597,7 @@ Gjelder: blake3 1.8.7
    limitations under the License.
 ```
 
-### Tekst 82 (1 komponenter)
+### Tekst 84 (1 komponenter)
 
 Gjelder: plist 1.10.3
 
@@ -5565,7 +5623,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 83 (1 komponenter)
+### Tekst 85 (1 komponenter)
 
 Gjelder: quick-xml 0.42.0
 
@@ -5595,7 +5653,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 84 (1 komponenter)
+### Tekst 86 (1 komponenter)
 
 Gjelder: bs58 0.5.1
 
@@ -5622,7 +5680,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 85 (1 komponenter)
+### Tekst 87 (1 komponenter)
 
 Gjelder: fallible-iterator 0.3.0
 
@@ -5648,7 +5706,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 86 (1 komponenter)
+### Tekst 88 (1 komponenter)
 
 Gjelder: fallible-streaming-iterator 0.1.9
 
@@ -5674,7 +5732,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 87 (1 komponenter)
+### Tekst 89 (1 komponenter)
 
 Gjelder: smallvec 1.16.5
 
@@ -5706,7 +5764,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 88 (1 komponenter)
+### Tekst 90 (1 komponenter)
 
 Gjelder: base64 0.23.1
 
@@ -5734,7 +5792,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 89 (1 komponenter)
+### Tekst 91 (1 komponenter)
 
 Gjelder: adler2 2.0.1
 
@@ -5753,7 +5811,7 @@ AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
 OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Tekst 90 (1 komponenter)
+### Tekst 92 (1 komponenter)
 
 Gjelder: web-time 1.1.0
 
@@ -5961,7 +6019,7 @@ Gjelder: web-time 1.1.0
    limitations under the License.
 ```
 
-### Tekst 91 (1 komponenter)
+### Tekst 93 (1 komponenter)
 
 Gjelder: digest 0.10.7
 
@@ -5993,7 +6051,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 92 (1 komponenter)
+### Tekst 94 (1 komponenter)
 
 Gjelder: powerfmt 0.2.1
 
@@ -6019,7 +6077,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 93 (1 komponenter)
+### Tekst 95 (1 komponenter)
 
 Gjelder: stable_deref_trait 1.2.1
 
@@ -6051,7 +6109,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 94 (1 komponenter)
+### Tekst 96 (1 komponenter)
 
 Gjelder: @sveltejs/acorn-typescript 1.0.13
 
@@ -6080,7 +6138,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 95 (1 komponenter)
+### Tekst 97 (1 komponenter)
 
 Gjelder: softbuffer 0.4.8
 
@@ -6106,7 +6164,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 96 (1 komponenter)
+### Tekst 98 (1 komponenter)
 
 Gjelder: svelte 5.57.3
 
@@ -6120,7 +6178,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 97 (1 komponenter)
+### Tekst 99 (1 komponenter)
 
 Gjelder: devalue 5.9.4
 
@@ -6134,7 +6192,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 98 (1 komponenter)
+### Tekst 100 (1 komponenter)
 
 Gjelder: tray-icon 0.25.1
 
@@ -6160,7 +6218,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tray-icon.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 99 (1 komponenter)
+### Tekst 101 (1 komponenter)
 
 Gjelder: urlpattern 0.6.0
 
@@ -6188,7 +6246,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 100 (1 komponenter)
+### Tekst 102 (1 komponenter)
 
 Gjelder: hashlink 0.12.2
 
@@ -6221,7 +6279,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 101 (1 komponenter)
+### Tekst 103 (1 komponenter)
 
 Gjelder: crypto-common 0.1.7
 
@@ -6253,7 +6311,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 102 (1 komponenter)
+### Tekst 104 (1 komponenter)
 
 Gjelder: flate2 1.1.11
 
@@ -6285,7 +6343,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 103 (1 komponenter)
+### Tekst 105 (1 komponenter)
 
 Gjelder: raw-window-handle 0.6.2
 
@@ -6313,7 +6371,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 104 (1 komponenter)
+### Tekst 106 (1 komponenter)
 
 Gjelder: jsonptr 0.7.1
 
@@ -6341,7 +6399,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 105 (1 komponenter)
+### Tekst 107 (1 komponenter)
 
 Gjelder: new_debug_unreachable 1.0.6
 
@@ -6373,7 +6431,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 106 (1 komponenter)
+### Tekst 108 (1 komponenter)
 
 Gjelder: wry 0.57.2
 
@@ -6400,7 +6458,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/wry.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 107 (1 komponenter)
+### Tekst 109 (1 komponenter)
 
 Gjelder: getrandom 0.4.3
 
@@ -6433,7 +6491,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 108 (1 komponenter)
+### Tekst 110 (1 komponenter)
 
 Gjelder: brotli 9.1.1
 
@@ -6459,7 +6517,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 109 (1 komponenter)
+### Tekst 111 (1 komponenter)
 
 Gjelder: unicode-ident 1.0.27
 
@@ -6505,7 +6563,7 @@ dealings in these Data Files or Software without prior written
 authorization of the copyright holder.
 ```
 
-### Tekst 110 (1 komponenter)
+### Tekst 112 (1 komponenter)
 
 Gjelder: magic-string 0.30.21
 
@@ -6519,7 +6577,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 111 (1 komponenter)
+### Tekst 113 (1 komponenter)
 
 Gjelder: http 1.5.0
 
@@ -6551,7 +6609,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 112 (1 komponenter)
+### Tekst 114 (1 komponenter)
 
 Gjelder: deranged 0.5.9
 
@@ -6759,7 +6817,7 @@ Gjelder: deranged 0.5.9
    limitations under the License.
 ```
 
-### Tekst 113 (1 komponenter)
+### Tekst 115 (1 komponenter)
 
 Gjelder: esm-env 1.2.2
 
@@ -6773,7 +6831,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 114 (1 komponenter)
+### Tekst 116 (1 komponenter)
 
 Gjelder: strsim 0.11.1
 
@@ -6803,7 +6861,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 115 (1 komponenter)
+### Tekst 117 (1 komponenter)
 
 Gjelder: scopeguard 1.2.0
 
@@ -6835,7 +6893,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 116 (1 komponenter)
+### Tekst 118 (1 komponenter)
 
 Gjelder: crc32fast 1.5.5
 
@@ -6863,7 +6921,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 117 (1 komponenter)
+### Tekst 119 (1 komponenter)
 
 Gjelder: string_cache 0.9.0
 
@@ -6895,7 +6953,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 118 (1 komponenter)
+### Tekst 120 (1 komponenter)
 
 Gjelder: libc 0.2.191
 
@@ -6927,7 +6985,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 119 (1 komponenter)
+### Tekst 121 (1 komponenter)
 
 Gjelder: simd-adler32 0.3.10
 
@@ -6955,7 +7013,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 120 (1 komponenter)
+### Tekst 122 (1 komponenter)
 
 Gjelder: blake3 1.8.7
 
@@ -7180,7 +7238,7 @@ the License, but only in their entirety and only with respect to the Combined
 Software.
 ```
 
-### Tekst 121 (1 komponenter)
+### Tekst 123 (1 komponenter)
 
 Gjelder: utf8_iter 1.1.0
 
@@ -7229,7 +7287,7 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 <LICENSE-MIT> or <http://opensource.org/licenses/MIT>, at your option.
 ```
 
-### Tekst 122 (1 komponenter)
+### Tekst 124 (1 komponenter)
 
 Gjelder: web-time 1.1.0
 
@@ -7257,7 +7315,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 123 (1 komponenter)
+### Tekst 125 (1 komponenter)
 
 Gjelder: @tauri-apps/api 2.12.4
 
@@ -7284,7 +7342,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 124 (1 komponenter)
+### Tekst 126 (1 komponenter)
 
 Gjelder: form_urlencoded 1.2.2
 
@@ -7316,7 +7374,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 125 (1 komponenter)
+### Tekst 127 (1 komponenter)
 
 Gjelder: typenum 1.20.1
 
@@ -7324,7 +7382,7 @@ Gjelder: typenum 1.20.1
 MIT OR Apache-2.0
 ```
 
-### Tekst 126 (1 komponenter)
+### Tekst 128 (1 komponenter)
 
 Gjelder: dom_query 0.28.0
 
@@ -7358,7 +7416,7 @@ derived from the "nipper" project (https://github.com/importcjj/nipper),
 developed by Chen Jiaju, licensed under the MIT License and the Apache License 2.0 (dual licensed).
 ```
 
-### Tekst 127 (1 komponenter)
+### Tekst 129 (1 komponenter)
 
 Gjelder: tokio 1.54.1
 
@@ -7386,7 +7444,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 128 (1 komponenter)
+### Tekst 130 (1 komponenter)
 
 Gjelder: synstructure 0.14.0
 
@@ -7400,7 +7458,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 129 (1 komponenter)
+### Tekst 131 (1 komponenter)
 
 Gjelder: window-vibrancy 0.8.1
 
@@ -7428,7 +7486,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 130 (1 komponenter)
+### Tekst 132 (1 komponenter)
 
 Gjelder: muda 0.20.0
 
@@ -7454,7 +7512,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/muda.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 131 (1 komponenter)
+### Tekst 133 (1 komponenter)
 
 Gjelder: zimmerframe 1.1.5
 
@@ -7482,7 +7540,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 132 (1 komponenter)
+### Tekst 134 (1 komponenter)
 
 Gjelder: clsx 2.1.1
 
@@ -7498,7 +7556,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 133 (1 komponenter)
+### Tekst 135 (1 komponenter)
 
 Gjelder: ico 0.6.0
 
@@ -7526,7 +7584,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 134 (1 komponenter)
+### Tekst 136 (1 komponenter)
 
 Gjelder: raw-window-handle 0.6.2
 
@@ -7544,7 +7602,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Tekst 135 (1 komponenter)
+### Tekst 137 (1 komponenter)
 
 Gjelder: sha2 0.10.9
 
@@ -7578,7 +7636,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 136 (1 komponenter)
+### Tekst 138 (1 komponenter)
 
 Gjelder: infer 0.22.0
 
@@ -7606,7 +7664,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 137 (1 komponenter)
+### Tekst 139 (1 komponenter)
 
 Gjelder: powerfmt 0.2.1
 
@@ -7814,7 +7872,7 @@ Gjelder: powerfmt 0.2.1
    limitations under the License.
 ```
 
-### Tekst 138 (1 komponenter)
+### Tekst 140 (1 komponenter)
 
 Gjelder: tao 0.37.2
 
@@ -7839,7 +7897,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tao.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 139 (1 komponenter)
+### Tekst 141 (1 komponenter)
 
 Gjelder: num-conv 0.2.2
 
@@ -7865,7 +7923,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 140 (1 komponenter)
+### Tekst 142 (1 komponenter)
 
 Gjelder: uuid 1.29.2
 
@@ -7898,7 +7956,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 141 (1 komponenter)
+### Tekst 143 (1 komponenter)
 
 Gjelder: option-ext 0.2.0
 
@@ -8278,7 +8336,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### Tekst 142 (1 komponenter)
+### Tekst 144 (1 komponenter)
 
 Gjelder: esrap 2.4.0
 
@@ -8292,7 +8350,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 143 (1 komponenter)
+### Tekst 145 (1 komponenter)
 
 Gjelder: precomputed-hash 0.1.1
 
@@ -8320,7 +8378,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 144 (1 komponenter)
+### Tekst 146 (1 komponenter)
 
 Gjelder: chrono 0.4.45
 
@@ -8566,7 +8624,7 @@ limitations under the License.
 ~~~~
 ```
 
-### Tekst 145 (1 komponenter)
+### Tekst 147 (1 komponenter)
 
 Gjelder: bytes 1.12.1
 
@@ -8598,7 +8656,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 146 (1 komponenter)
+### Tekst 148 (1 komponenter)
 
 Gjelder: arrayvec 0.7.8
 
@@ -8630,7 +8688,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 147 (1 komponenter)
+### Tekst 149 (1 komponenter)
 
 Gjelder: http 1.5.0
 
@@ -8838,7 +8896,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 148 (1 komponenter)
+### Tekst 150 (1 komponenter)
 
 Gjelder: png 0.18.1
 
@@ -8870,7 +8928,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 149 (1 komponenter)
+### Tekst 151 (1 komponenter)
 
 Gjelder: block-buffer 0.10.4
 
@@ -8902,7 +8960,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 150 (1 komponenter)
+### Tekst 152 (1 komponenter)
 
 Gjelder: fnv 1.0.7
 
@@ -8934,7 +8992,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 151 (1 komponenter)
+### Tekst 153 (1 komponenter)
 
 Gjelder: jsonptr 0.7.1
 
@@ -9142,7 +9200,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 152 (1 komponenter)
+### Tekst 154 (1 komponenter)
 
 Gjelder: crossbeam-channel 0.5.17
 
@@ -9742,7 +9800,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 153 (1 komponenter)
+### Tekst 155 (1 komponenter)
 
 Gjelder: idna_adapter 1.2.2
 
@@ -9774,7 +9832,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 154 (1 komponenter)
+### Tekst 156 (1 komponenter)
 
 Gjelder: acorn 8.19.0
 
@@ -9802,7 +9860,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 155 (1 komponenter)
+### Tekst 157 (1 komponenter)
 
 Gjelder: generic-array 0.14.7
 
@@ -9830,7 +9888,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 156 (1 komponenter)
+### Tekst 158 (1 komponenter)
 
 Gjelder: wry 0.57.2
 

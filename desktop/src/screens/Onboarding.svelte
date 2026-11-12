@@ -117,7 +117,7 @@
       <Button onclick={() => (folderOpen = true)}>{$tr("onb.folders.add")}</Button>
       <Button variant="primary" onclick={start}>{$tr("onb.folders.start")}</Button>
     </div>
-    <FolderDialog open={folderOpen} onSubmit={chooseFolder} onClose={() => (folderOpen = false)} />
+    <FolderDialog bridge={b} open={folderOpen} onSubmit={chooseFolder} onClose={() => (folderOpen = false)} />
   {:else if view.kind === "noAccess"}
     <h1 tabindex="-1">{$tr("onb.noaccess.title")}</h1>
     <p>{$tr("onb.noaccess.body")}</p>

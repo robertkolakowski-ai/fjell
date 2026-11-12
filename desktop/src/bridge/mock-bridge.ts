@@ -20,6 +20,8 @@ export interface MockOptions {
   firstRun?: boolean;
   /** Antall `getState`-kall skannet blir stående i «analyserer» før det er ferdig (tester av pause/fortsett/avbryt). Standard 0 = straks ferdig. */
   scanPolls?: number;
+  /** Mappevalg («Bla …»): en sti = valgt mappe, `null` = bruker avbryter, `undefined` (standard) = ikke tilgjengelig (som i nettleser). */
+  pick?: string | null;
 }
 
 const DAY = 86_400;
@@ -73,7 +75,12 @@ export class MockBridge implements CoreBridge {
   /** Sekunder siden epoch når bildet (`asset`) ble flyttet til «Nylig slettet». */
   private trashedAt = new Map<number, number>();
 
+  readonly canPickFolder: boolean;
+  private readonly pick: string | null;
+
   constructor(opts: MockOptions = {}) {
+    this.canPickFolder = opts.pick !== undefined;
+    this.pick = opts.pick ?? null;
     this.delayMs = opts.delayMs ?? 0;
     this.days = opts.trashDays ?? 30;
     this.noBin = opts.noBin ?? false;
@@ -230,6 +237,12 @@ export class MockBridge implements CoreBridge {
   async getLibrary(): Promise<string | null> {
     await this.wait();
     return this.library;
+  }
+
+  async pickFolder(_title?: string): Promise<string | null> {
+    await this.wait();
+    if (!this.canPickFolder) throw err("unsupported", "pickFolder");
+    return this.pick;
   }
 
   async setLibrary(path: string): Promise<void> {

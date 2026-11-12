@@ -208,6 +208,10 @@ export interface MessageParams {
   "home.folder.note": Record<never, never>;
   "home.folder.submit": Record<never, never>;
   "home.folder.error": Record<never, never>;
+  "home.folder.browse": Record<never, never>;
+  "home.folder.browse.title": Record<never, never>;
+  "home.folder.browse.unavailable": Record<never, never>;
+  "home.folder.browse.picked": { path: string | number };
   "home.folder.current": { path: string | number };
   "home.folder.none": Record<never, never>;
   "home.idle.body": Record<never, never>;
@@ -370,6 +374,7 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "restore.selected",
   "home.folder.add",
   "home.folder.submit",
+  "home.folder.browse",
   "home.scan.start",
   "home.scan.resume",
   "home.scan.controls",
