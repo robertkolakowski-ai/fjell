@@ -1,0 +1,211 @@
+/*
+ * Design tokens for Fjell (desktop). ENESTE kilde for farge, radius, skygge, font-size og spacing.
+ * Komponenter bruker bare var(--...). Ingen heksverdier utenfor denne filen.
+ * Kontrast sjekkes av `npm run contrast` (scripts/contrast.mjs) som leser blokkene merket «theme:<navn>».
+ * Systemfonter, ingen eksterne fonter. Størrelser i rem slik at Windows-skalering (opptil 200 %) og
+ * nettleserens skriftstørrelse slår igjennom.
+ */
+
+/* ---------- Tema-uavhengige tokens ---------- */
+:root {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+
+  --fs-xs: 0.8125rem;
+  --fs-sm: 0.9375rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.625rem;
+  --fs-display: 2.25rem;
+  --lh-tight: 1.2;
+  --lh-body: 1.5;
+  --fw-regular: 400;
+  --fw-semibold: 600;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+  --radius-pill: 999px;
+
+  --target-min: 2.75rem; /* 44 px ved 100 %; langt over WCAG 2.5.8 (24 px) */
+  --focus-width: 3px;
+  --focus-offset: 2px;
+  --border-width: 1px;
+
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+}
+
+/* ---------- Lys (standard) ---------- */
+/* theme:light */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --c-bg: #f4f6f8;
+  --c-surface: #ffffff;
+  --c-surface-sunken: #e9edf1;
+  --c-text: #14181d;
+  --c-text-muted: #444d59;
+  --c-border: #c3cad3;
+  --c-border-strong: #6b7685;
+  --c-accent: #0b5cad;
+  --c-accent-hover: #084a8c;
+  --c-on-accent: #ffffff;
+  --c-focus: #0b5cad;
+  --c-ring-track: #7a8798;
+  --c-ring-fill: #0b5cad;
+  --c-badge-bg: #e3e9f1;
+  --c-badge-text: #1d2733;
+  --c-badge-warn-bg: #fbe9c8;
+  --c-badge-warn-text: #4a3000;
+  --c-selected: #0b5cad;
+  --c-danger: #a5231b;
+  --c-inverse-bg: #1d2530;
+  --c-inverse-text: #f4f6f8;
+  --c-inverse-action: #9cc9ff;
+  --c-scrim: rgb(20 24 29 / 0.5);
+  --shadow-sm: 0 1px 2px rgb(20 24 29 / 0.14);
+  --shadow-md: 0 4px 12px rgb(20 24 29 / 0.16);
+  --shadow-lg: 0 -6px 20px rgb(20 24 29 / 0.18);
+}
+
+/* ---------- Mørk ---------- */
+/* theme:dark */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --c-bg: #101419;
+    --c-surface: #1a2028;
+    --c-surface-sunken: #0b0e12;
+    --c-text: #eef1f5;
+    --c-text-muted: #b3bcc8;
+    --c-border: #35404d;
+    --c-border-strong: #8a96a6;
+    --c-accent: #7ab7ff;
+    --c-accent-hover: #9cc9ff;
+    --c-on-accent: #07213f;
+    --c-focus: #9cc9ff;
+    --c-ring-track: #67748a;
+    --c-ring-fill: #7ab7ff;
+    --c-badge-bg: #2a3441;
+    --c-badge-text: #e6ebf2;
+    --c-badge-warn-bg: #4a3a12;
+    --c-badge-warn-text: #ffe2a0;
+    --c-selected: #7ab7ff;
+    --c-danger: #ff9b92;
+    --c-inverse-bg: #eef1f5;
+    --c-inverse-text: #14181d;
+    --c-inverse-action: #0b4f96;
+    --c-scrim: rgb(0 0 0 / 0.6);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.55);
+    --shadow-lg: 0 -6px 20px rgb(0 0 0 / 0.55);
+  }
+}
+/* theme:dark */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --c-bg: #101419;
+  --c-surface: #1a2028;
+  --c-surface-sunken: #0b0e12;
+  --c-text: #eef1f5;
+  --c-text-muted: #b3bcc8;
+  --c-border: #35404d;
+  --c-border-strong: #8a96a6;
+  --c-accent: #7ab7ff;
+  --c-accent-hover: #9cc9ff;
+  --c-on-accent: #07213f;
+  --c-focus: #9cc9ff;
+  --c-ring-track: #67748a;
+  --c-ring-fill: #7ab7ff;
+  --c-badge-bg: #2a3441;
+  --c-badge-text: #e6ebf2;
+  --c-badge-warn-bg: #4a3a12;
+  --c-badge-warn-text: #ffe2a0;
+  --c-selected: #7ab7ff;
+  --c-danger: #ff9b92;
+  --c-inverse-bg: #eef1f5;
+  --c-inverse-text: #14181d;
+  --c-inverse-action: #0b4f96;
+  --c-scrim: rgb(0 0 0 / 0.6);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 -6px 20px rgb(0 0 0 / 0.55);
+}
+
+/* ---------- Høykontrast (valgfritt tema, AAA der det er mulig) ---------- */
+/* theme:hc */
+:root[data-theme="hc"] {
+  color-scheme: dark;
+  --c-bg: #000000;
+  --c-surface: #000000;
+  --c-surface-sunken: #000000;
+  --c-text: #ffffff;
+  --c-text-muted: #ffffff;
+  --c-border: #ffffff;
+  --c-border-strong: #ffffff;
+  --c-accent: #ffe14d;
+  --c-accent-hover: #ffffff;
+  --c-on-accent: #000000;
+  --c-focus: #4dd2ff;
+  --c-ring-track: #ffffff;
+  --c-ring-fill: #ffe14d;
+  --c-badge-bg: #000000;
+  --c-badge-text: #ffffff;
+  --c-badge-warn-bg: #000000;
+  --c-badge-warn-text: #ffe14d;
+  --c-selected: #ffe14d;
+  --c-danger: #ff8080;
+  --c-inverse-bg: #ffffff;
+  --c-inverse-text: #000000;
+  --c-inverse-action: #0000cc;
+  --c-scrim: rgb(0 0 0 / 0.85);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --border-width: 2px;
+}
+
+/* theme:forced (hoppes over av kontrasttesten) */
+/* ---------- Windows høykontrast / forced-colors: systemfarger overstyrer ----------
+ * Her brukes CSS-systemfarger. Kontrasten bestemmes av brukerens Windows-tema og kan ikke regnes ut
+ * av kontrasttesten; komponentene må derfor ikke stole på farge alene (kantlinjer, ikoner, tekst). */
+@media (forced-colors: active) {
+  :root {
+    --c-bg: Canvas;
+    --c-surface: Canvas;
+    --c-surface-sunken: Canvas;
+    --c-text: CanvasText;
+    --c-text-muted: CanvasText;
+    --c-border: CanvasText;
+    --c-border-strong: CanvasText;
+    --c-accent: ButtonFace;
+    --c-accent-hover: ButtonFace;
+    --c-on-accent: ButtonText;
+    --c-focus: Highlight;
+    --c-ring-track: GrayText;
+    --c-ring-fill: Highlight;
+    --c-badge-bg: Canvas;
+    --c-badge-text: CanvasText;
+    --c-badge-warn-bg: Canvas;
+    --c-badge-warn-text: CanvasText;
+    --c-selected: Highlight;
+    --c-danger: CanvasText;
+    --c-inverse-bg: Canvas;
+    --c-inverse-text: CanvasText;
+    --c-inverse-action: LinkText;
+    --c-scrim: Canvas;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --border-width: 2px;
+  }
+}
