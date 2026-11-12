@@ -31,6 +31,10 @@ export interface CoreBridge {
   cancelScan(): Promise<void>;
   /** Valgt biblioteksmappe, eller null. */
   getLibrary(): Promise<string | null>;
+  /** Finnes et system-mappevalg («Bla …»)? Bare i Tauri (eller mock med testalternativ). Ellers skjules/deaktiveres knappen med forklaring. */
+  readonly canPickFolder: boolean;
+  /** Åpner systemets mappevalg. Returnerer valgt sti, eller null hvis brukeren avbrøt. Setter ikke biblioteket: kall `setLibrary` etter bekreftelse. Avvises med `unsupported` uten mappevalg. */
+  pickFolder(title?: string): Promise<string | null>;
   /** Velger mappe (sti). Kjernen skanner én mappe om gangen: en ny mappe erstatter den forrige. */
   setLibrary(path: string): Promise<void>;
   /** Første gang appen kjøres: onboarding skal vises. */
@@ -51,4 +55,8 @@ export interface CoreBridge {
   /** «Sjekk automatisk ved oppstart». Standard av. */
   getAutoUpdate(): Promise<boolean>;
   setAutoUpdate(on: boolean): Promise<boolean>;
+  /** Lagret språkvalg i skallet («system», «nb», «en»), eller null = aldri valgt (frontend migrerer sitt eget). */
+  getLanguage(): Promise<string | null>;
+  /** Lagrer språkvalget i skallet. Returnerer lagret verdi. «pseudo» avvises av skallet. */
+  setLanguage(language: string): Promise<string>;
 }

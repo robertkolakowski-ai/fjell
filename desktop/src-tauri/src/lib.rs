@@ -1,17 +1,18 @@
 //! Tauri-limet for Fjell desktop: registrerer kommandoer som delegerer til `fjell-shell`.
 //!
-//! Avhenger av: `tauri`, `fjell-shell`.
+//! Avhenger av: `tauri`, `tauri-plugin-dialog`, `tauri-plugin-process`, `tauri-plugin-updater`, `fjell-shell`.
 //! Grensesnitt: `run()` (kalles fra `main.rs`). Kommandoer: `get_state`, `start_scan`,
 //! `cancel_scan`, `list_cards`, `decide_cards`, `set_keeper`, `undo`, `trash_summary`,
 //! `empty_trash`, `set_library`, `get_library`, `pause_scan`, `resume_scan`, `list_trashed`,
 //! `restore_trashed`, `restore_all_trashed`, `get_settings`, `set_trash_days`, `get_first_run`,
-//! `complete_onboarding`, `get_auto_update`, `set_auto_update`. Plugins: `updater` (bare
-//! skrivebord) og `process` (omstart etter oppdatering); sjekk/installasjon kalles fra frontend. Ingen logikk her; ingen sletting utenom
+//! `complete_onboarding`, `get_auto_update`, `set_auto_update`, `get_language`, `set_language`. Plugins: `dialog` (mappevalg),
+//! `updater` (bare skrivebord) og `process` (omstart etter oppdatering); sjekk/installasjon kalles fra frontend. Ingen logikk her; ingen sletting utenom
 //! `Shell::empty` (Papirkurv som standard, beslutning 17).
 //!
 //! Alle kommandoer er `async` slik at filarbeid ikke kjører på hovedtråden (< 100 ms-målet);
 //! de tyngste (`set_library`, `empty_trash`) kjører i `spawn_blocking`.
-//! Mappevelger (tauri-plugin-dialog) er ikke koblet på ennå: `set_library` tar en sti.
+//! Mappevelger: `tauri-plugin-dialog` (bare `dialog:allow-open`, se capabilities/default.json) kalles fra
+//! frontend (`pickFolder`) og fyller bare stifeltet; `set_library` tar fortsatt en sti, og brukeren bekrefter.
 //! IKKE bygget eller kjørt i utviklingsmiljøet (krever webkit2gtk/WebView2).
 
 use fjell_shell::dto::{
@@ -168,8 +169,19 @@ async fn set_auto_update(shell: State<'_, Arc<Shell>>, on: bool) -> Res<bool> {
     shell.set_auto_update(on)
 }
 
+#[tauri::command]
+async fn get_language(shell: State<'_, Arc<Shell>>) -> Res<Option<String>> {
+    Ok(shell.language())
+}
+
+#[tauri::command]
+async fn set_language(shell: State<'_, Arc<Shell>>, language: String) -> Res<String> {
+    shell.set_language(&language)
+}
+
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             #[cfg(desktop)]
@@ -201,7 +213,9 @@ pub fn run() {
             get_first_run,
             complete_onboarding,
             get_auto_update,
-            set_auto_update
+            set_auto_update,
+            get_language,
+            set_language
         ])
         .run(tauri::generate_context!())
         .expect("kunne ikke starte Fjell");

@@ -152,13 +152,18 @@ export interface MessageParams {
   "trash.purge.summary": { count: number; size: string | number };
   "trash.purge.mode.recycle": Record<never, never>;
   "trash.purge.mode.permanent": Record<never, never>;
-  "trash.purge.nobin": Record<never, never>;
   "trash.permanent.title": Record<never, never>;
   "trash.permanent.ack": Record<never, never>;
   "trash.permanent.go": { count: number };
   "trash.purged.recycle": Record<never, never>;
   "trash.purged.permanent": { size: string | number };
   "trash.purge.marked": { count: number };
+  "trash.unsupported.title": Record<never, never>;
+  "trash.unsupported.body": { count: number };
+  "trash.unsupported.options": Record<never, never>;
+  "trash.unsupported.keep": Record<never, never>;
+  "trash.unsupported.delete": Record<never, never>;
+  "trash.purged.kept": { count: number };
   "trash.history": { date: string | number; size: string | number };
   "trash.error.body": Record<never, never>;
   "consequence.protected_favorite": Record<never, never>;
@@ -208,6 +213,10 @@ export interface MessageParams {
   "home.folder.note": Record<never, never>;
   "home.folder.submit": Record<never, never>;
   "home.folder.error": Record<never, never>;
+  "home.folder.browse": Record<never, never>;
+  "home.folder.browse.title": Record<never, never>;
+  "home.folder.browse.unavailable": Record<never, never>;
+  "home.folder.browse.picked": { path: string | number };
   "home.folder.current": { path: string | number };
   "home.folder.none": Record<never, never>;
   "home.idle.body": Record<never, never>;
@@ -297,6 +306,12 @@ export interface MessageParams {
   "update.auto.note": Record<never, never>;
   "update.auto.error": Record<never, never>;
   "home.update.banner": { version: string | number };
+  "cloud.title": { provider: string };
+  "cloud.body": Record<never, never>;
+  "cloud.tip": Record<never, never>;
+  "cloud.caveat": Record<never, never>;
+  "cloud.key.blocked": Record<never, never>;
+  "cloud.error.blocked": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;
@@ -384,6 +399,8 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "trash.restore.all",
   "trash.empty.button",
   "trash.permanent.go",
+  "trash.unsupported.keep",
+  "trash.unsupported.delete",
   "folders.title",
   "settings.title",
   "setting.language",
@@ -392,6 +409,7 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "restore.selected",
   "home.folder.add",
   "home.folder.submit",
+  "home.folder.browse",
   "home.scan.start",
   "home.scan.resume",
   "home.scan.controls",

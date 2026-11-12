@@ -32,6 +32,9 @@ export interface TrashSummary {
   days: number;
 }
 
+/** Kjent skyleverandør (speiler fjell-fs `CloudProvider::code`). */
+export type CloudCode = "icloud" | "onedrive" | "dropbox";
+
 export interface AppState {
   backend: "mock" | "core";
   perKind: KindSummary[];
@@ -48,6 +51,8 @@ export interface AppState {
   scanPaused?: boolean;
   /** Tidspunkt (ms siden epoch) for første permanente sletting, til historikklinjen. Kjernen leverer det ikke ennå. */
   freedSince?: number | null;
+  /** Gjeldende bibliotek ligger i en skysynket mappe (etter mappenavn, ikke en garanti). Papirkurv-valg gir `cloud_synced_readonly`. Mangler/null = ikke skysynket. */
+  cloudSync?: CloudCode | null;
 }
 
 /** Brukerens ekstra bekreftelse for permanent sletting (avkrysning + antallet på knappen). Speiler PermanentAckDto. */
@@ -98,7 +103,7 @@ export type Decision = "trash" | "keep";
 export type BridgeErrorCode =
   | "ack_required" | "unknown_card" | "unknown_asset" | "nothing_to_undo" | "not_undoable"
   | "already_purged" | "purge_stale" | "plan_stale" | "not_trashed" | "core_error"
-  | "bad_request" | "unsupported";
+  | "bad_request" | "unsupported" | "cloud_synced_readonly";
 
 export interface BridgeError {
   code: BridgeErrorCode | string;

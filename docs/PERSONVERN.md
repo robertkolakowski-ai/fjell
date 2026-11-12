@@ -13,12 +13,14 @@ Sist oppdatert: 2026-11-12 (versjon for Windows-beta). Dette er en åpen, teknis
 
 ## Hva Fjell leser
 
-Bare mappene du selv velger (i oppstarten eller i Innstillinger), inkludert eksterne disker og nettverksstasjoner du legger til. Fjell leser filnavn, størrelse, endringstid, EXIF-metadata (f.eks. opptakstidspunkt) og bildeinnholdet for å regne ut:
+Bare mappene du selv velger (i oppstarten eller i Innstillinger), inkludert eksterne disker og nettverksstasjoner du legger til. Fjell leser filnavn, størrelse, endringstid, EXIF-metadata (f.eks. opptakstidspunkt) og bildeinnholdet for å regne ut: Mappevalget («Bla …») er Windows' egen mappedialog (`dialog:allow-open`, ingen nettverk): den gir bare tilbake stien du velger, og ingenting leses før du bekrefter.
 - en kontrollsum (BLAKE3) for å finne eksakte kopier,
 - korte visuelle fingeravtrykk (64-bit hasher) for å finne like bilder,
 - en uskarphetsscore og noen signaler for å gjenkjenne skjermbilder.
 
 Dette skjer på maskinen din, med vanlig kode (ingen KI-modell lastes ned, ingen bilder sendes til en tjeneste). Skyfiler som bare er plassholdere (f.eks. OneDrive «bare på nett») lastes **ikke** ned.
+
+**Skymapper (iCloud, OneDrive, Dropbox):** Fjell kjenner dem igjen på mappenavn og tillater skann og forslag, men flytter ikke filer til papirkurv der, så Fjell ikke utløser sletting i skyen. Fjell leser filene lokalt som i andre mapper; at synkprogrammet ditt laster dem opp eller ned er utenfor Fjell. Gjenkjenningen er en navneheuristikk, ikke bevis på synk, og er ikke testet mot ekte iCloud, OneDrive eller Dropbox.
 
 ## Hva Fjell lagrer lokalt
 
@@ -27,7 +29,7 @@ Dette skjer på maskinen din, med vanlig kode (ingen KI-modell lastes ned, ingen
 | Indeks | `%LOCALAPPDATA%\Fjell\index.db` (SQLite) | Stier, filstørrelse, endringstid, hasher, scorer, tilstand (aktiv / i papirkurv / tømt), handlingslogg for Angre, innstillinger (språk, papirkurvfrist) | Slett filen (appen bygger opp igjen ved neste skann), eller avinstaller og slett mappen |
 | Bildecache | `%LOCALAPPDATA%\Fjell\cache\` | Nedskalerte visningsbilder (miniatyrer) brukt av skjermen. Standard maks 1 GB, eldste fjernes først | Slett mappen uten tap |
 | Karantene | `<disk>\.fjell-karantene\<gruppe>\` på samme disk som bildet | Selve filene du har flyttet til «papirkurven» i Fjell (ikke kopier; samme innhold, bare flyttet), pluss `manifest.json` med opprinnelig sti, og en README som forklarer mappen | Gjenopprett i Fjell, eller tøm papirkurven i Fjell |
-| Språkvalg i grensesnittet | Nettleserlagring i appens WebView (`localStorage`, nøkkel `fjell.language`) | Bare «nb» eller «en» | Avinstaller / slett WebView2-data for appen |
+| Språkvalg i grensesnittet | Skallets innstillingsfil (`shell.json`) når appen kjører i Tauri; reserve og eldre verdi i WebView-lagring (`localStorage`, nøkkel `fjell.language`) | «system», «nb» eller «en» | Avinstaller og slett `%LOCALAPPDATA%\Fjell\` / WebView2-data. (Skallets lagring er testet på Linux; Tauri-kommandoene er ikke kjørt.) |
 
 Det lagres **ikke**: bilder i indeksen (bare hasher og metadata), konto- eller enhets-ID-er, IP-adresser, posisjon, kontakter, passord eller innhold fra andre apper. Fjell skriver ikke loggfiler med filstier ut over det som står over.
 
@@ -68,7 +70,7 @@ Fjell deler ikke data med noen. Det finnes ingen server å dele med. Du kan selv
 
 - Kildekoden er åpen. Tredjepartskomponenter og lisenser: [THIRD_PARTY.md](../THIRD_PARTY.md).
 - Automatiske tester som feiler hvis noen legger inn nettverkskall:
-  - `desktop/src/lib/nonet.test.ts`: ingen `fetch`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, eksterne URL-er, CDN eller eksterne fonter i frontend-koden; CSP har `connect-src` bare for `ipc:` og `http://ipc.localhost`; Tauri-rettigheter uten http/shell/fil-plugin (kun `updater:default` og `process:allow-restart` utover `core:*`); oppdaterings- og omstartspakkene bare i `tauri-bridge.ts` via dynamisk import; ingen nettverksbiblioteker i Fjells egne Rust-crates.
+  - `desktop/src/lib/nonet.test.ts`: ingen `fetch`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, eksterne URL-er, CDN eller eksterne fonter i frontend-koden; CSP har `connect-src` bare for `ipc:` og `http://ipc.localhost`; Tauri-rettigheter uten http/shell/fil-plugin (nøyaktig tre unntak utover `core:*`: `dialog:allow-open`, Windows mappevalg for «Bla …» som bare gir tilbake en sti, samt `updater:default` og `process:allow-restart` for oppdateringssjekken); oppdaterings- og omstartspakkene bare i `tauri-bridge.ts` via dynamisk import; ingen nettverksbiblioteker i Fjells egne Rust-crates.
   - `desktop/e2e/nonet.spec.ts`: kjører alle skjermer i en nettleser og feiler hvis siden gjør én eneste forespørsel utenfor appen.
 - Selv: følg med i Windows Ressursovervåking (Nettverk) mens du skanner og rydder, eller blokker `Fjell.exe` i Windows-brannmuren. Appen fungerer likt.
 

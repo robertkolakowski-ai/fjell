@@ -6,7 +6,7 @@
   import type { CoreBridge } from "../bridge/core-bridge";
   import { KIND_CODES, type BridgeError, type KindCode } from "../bridge/types";
   import { useBridge } from "../context";
-  import { Button, LiveRegion, Ring } from "../lib";
+  import { Button, CloudWarning, LiveRegion, Ring } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { formatHash, navigate } from "../router";
   import { pendingUpdate } from "./updateFlow";
@@ -80,6 +80,8 @@
     <p role="alert">{$tr("home.error.body")}</p>
     <Button onclick={retry}>{$tr("common.retry")}</Button>
   {:else if summary}
+    {#if summary.cloudSync}<CloudWarning provider={summary.cloudSync} />{/if}
+
     {#if $pendingUpdate}
       <div class="banner" role="status">
         <p>{$tr("home.update.banner", { version: $pendingUpdate.version })}</p>
@@ -153,7 +155,7 @@
       <Button onclick={() => (folderOpen = true)}>{$tr("home.folder.add")}</Button>
     </div>
   {/if}
-  <FolderDialog open={folderOpen} onSubmit={chooseFolder} onClose={() => (folderOpen = false)} />
+  <FolderDialog bridge={b} open={folderOpen} onSubmit={chooseFolder} onClose={() => (folderOpen = false)} />
 </section>
 
 <style>

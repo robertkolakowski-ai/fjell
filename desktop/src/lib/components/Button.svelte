@@ -10,16 +10,17 @@
     /** Synlig tekst er også tilgjengelig navn (WCAG 2.5.3). Sett kun aria-label hvis den inneholder den synlige teksten. */
     ariaLabel?: string;
     ariaKeyshortcuts?: string;
-    /** Ser deaktivert ut og kan leses, men beholder fokus (så forklaringen i `ariaDescribedby` nås med tastatur). Kallende kode må selv ignorere klikk. */
+    /** Synlig sperret, men fortsatt fokuserbar og med forklaring (`ariaDescribedby`): ingen skjult sperre. Klikk gjør ingenting. */
     ariaDisabled?: boolean;
+    /** id til elementet som forklarer hvorfor knappen er sperret. */
     ariaDescribedby?: string;
     children: Snippet;
   }
   let { variant = "secondary", type = "button", disabled = false, onclick, ariaLabel, ariaKeyshortcuts, ariaDisabled = false, ariaDescribedby, children }: Props = $props();
 </script>
 
-<button class="btn {variant}" {type} {disabled} {onclick} aria-label={ariaLabel} aria-keyshortcuts={ariaKeyshortcuts}
-  aria-disabled={ariaDisabled ? "true" : undefined} aria-describedby={ariaDescribedby}>
+<button class="btn {variant}" {type} {disabled} onclick={(e) => { if (!ariaDisabled) onclick?.(e); }} aria-label={ariaLabel}
+  aria-keyshortcuts={ariaKeyshortcuts} aria-disabled={ariaDisabled ? "true" : undefined} aria-describedby={ariaDescribedby}>
   {@render children()}
 </button>
 

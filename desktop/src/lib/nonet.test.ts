@@ -97,8 +97,9 @@ describe("frontend: ingen nettverkskall (desktop/src)", () => {
     const pkg = JSON.parse(readFileSync(join(desktop, "package.json"), "utf8")) as { dependencies?: Record<string, string> };
     const deps = Object.keys(pkg.dependencies ?? {});
     expect(deps.filter((d) => /^(axios|got|node-fetch|ky|superagent|socket\.io|ws|undici|@tauri-apps\/plugin-(http|shell|fs|opener|websocket))/.test(d))).toEqual([]);
-    // Kjøretidsavhengigheter: api, og oppdatering/omstart for beta-kanalen (M9). Ny avhengighet krever oppdatering her og i THIRD_PARTY.md.
-    expect(deps.sort()).toEqual(["@tauri-apps/api", "@tauri-apps/plugin-process", "@tauri-apps/plugin-updater"]);
+    // Kjøretidsavhengigheter, nøyaktig disse: api; plugin-dialog = «Bla …» (mappevalg, ingen nettverk); plugin-updater/-process = beta-kanalen (M9).
+    // Ny avhengighet krever oppdatering her og i THIRD_PARTY.md.
+    expect(deps.sort()).toEqual(["@tauri-apps/api", "@tauri-apps/plugin-dialog", "@tauri-apps/plugin-process", "@tauri-apps/plugin-updater"]);
   });
 
   test("bygget dist (hvis det finnes) har ingen eksterne URL-er eller fetch-kall fra appkode", () => {
@@ -158,14 +159,17 @@ describe("CSP og Tauri-rettigheter", () => {
     expect(csp).not.toMatch(/unsafe-eval/);
   });
 
-  // Beta-kanalen (M9): nøyaktig disse to rettighetene utover core:*, ingenting annet.
+  // Nøyaktig disse rettighetene utover core:*, ingenting annet: mappevalg (`dialog:allow-open`; ikke `dialog:default`, ingen
+  // save/message/ask/confirm) og beta-kanalen (M9): sjekk/installer og omstart.
+  const DIALOG_OPEN = "dialog:allow-open";
   const UPDATE_PERMISSIONS = ["updater:default", "process:allow-restart"];
-  test("capabilities: ingen http-, shell-, fs- eller opener-rettigheter; utover core:* bare sjekk/installer og omstart", () => {
+  const EXTRA_PERMISSIONS = [DIALOG_OPEN, ...UPDATE_PERMISSIONS];
+  test("capabilities: ingen http-, shell-, fs- eller opener-rettigheter; utover core:* bare mappevalg, sjekk/installer og omstart", () => {
     const dir = join(desktop, "src-tauri", "capabilities");
     for (const f of readdirSync(dir).filter((n) => n.endsWith(".json"))) {
       const cap = JSON.parse(readFileSync(join(dir, f), "utf8")) as { permissions: (string | { identifier: string })[] };
       const ids = cap.permissions.map((p) => (typeof p === "string" ? p : p.identifier));
-      const rest = ids.filter((i) => !UPDATE_PERMISSIONS.includes(i));
+      const rest = ids.filter((i) => !EXTRA_PERMISSIONS.includes(i));
       expect(rest.filter((i) => /^(http|shell|fs|opener|updater|websocket|process|os|dialog)\b|:allow-(fetch|open|spawn|execute)/.test(i)), f).toEqual([]);
       expect(rest.every((i) => i.startsWith("core:")), `${f}: ${ids.join(",")}`).toBe(true);
     }

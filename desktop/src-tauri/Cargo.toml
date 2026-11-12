@@ -31,6 +31,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 fjell-shell = { path = "shell" }
 tauri-plugin-process = "2"
 # tauri::generate_context! bygger plugin-konfigurasjonen (plugins.updater) med serde_json og krever den som direkte avhengighet.

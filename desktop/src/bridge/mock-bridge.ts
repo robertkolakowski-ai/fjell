@@ -1,4 +1,5 @@
 // MockBridge: deterministiske eksempeldata, samme grensesnitt. Forsinkelser kan slås av.
+import { cloudProvider } from "./cloud";
 import type { CoreBridge } from "./core-bridge";
 import {
   KIND_CODES, type AppState, type BridgeError, type Card, type CardPage, type Decision,
@@ -12,6 +13,8 @@ export interface MockOptions {
   trashDays?: number;
   /** Simuler volum uten Papirkurv (nettverksstasjon): Papirkurv-modus gir `unsupported`. */
   noBin?: boolean;
+  /** Antall filer (de siste i «Nylig slettet») som Papirkurv ikke kan ta: lang sti uten 8.3-navn, UNC. Resten flyttes. */
+  unsupportedCount?: number;
   /** Klokke (ms siden epoch). Tester styrer utløp med denne. */
   now?: () => number;
   /** Valgt mappe. Standard: en mappe er valgt. `null` = ingen (start av skann gir `no_library`). */
@@ -24,6 +27,10 @@ export interface MockOptions {
   update?: MockUpdate;
   /** «Sjekk automatisk ved oppstart». Standard: false. */
   autoUpdate?: boolean;
+  /** Mappevalg («Bla …»): en sti = valgt mappe, `null` = bruker avbryter, `undefined` (standard) = ikke tilgjengelig (som i nettleser). */
+  pick?: string | null;
+  /** Lagret språkvalg i «skallet» (system, nb, en). Standard null = aldri valgt (frontend migrerer localStorage). */
+  language?: string | null;
 }
 
 export type MockUpdate = "none" | "available" | "error" | "slow";
@@ -69,6 +76,7 @@ export class MockBridge implements CoreBridge {
   private freed = 0;
   private freedSince: number | null = null;
   private readonly noBin: boolean;
+  private readonly unsupportedCount: number;
   private readonly delayMs: number;
   private days: number;
   private readonly now: () => number;
@@ -77,21 +85,29 @@ export class MockBridge implements CoreBridge {
   private readonly scanPolls: number;
   private readonly update: MockUpdate;
   private auto: boolean;
+  private language: string | null;
   private pollsLeft = 0;
   private paused = false;
   /** Sekunder siden epoch når bildet (`asset`) ble flyttet til «Nylig slettet». */
   private trashedAt = new Map<number, number>();
 
+  readonly canPickFolder: boolean;
+  private readonly pick: string | null;
+
   constructor(opts: MockOptions = {}) {
+    this.canPickFolder = opts.pick !== undefined;
+    this.pick = opts.pick ?? null;
     this.delayMs = opts.delayMs ?? 0;
     this.days = opts.trashDays ?? 30;
     this.noBin = opts.noBin ?? false;
+    this.unsupportedCount = Math.max(0, Math.floor(opts.unsupportedCount ?? 0));
     this.now = opts.now ?? Date.now;
     this.library = opts.library === undefined ? "C:\\Bilder" : opts.library;
     this.firstRun = opts.firstRun ?? false;
     this.scanPolls = opts.scanPolls ?? 0;
     this.update = opts.update ?? "none";
     this.auto = opts.autoUpdate ?? false;
+    this.language = opts.language ?? null;
   }
 
 
@@ -116,7 +132,13 @@ export class MockBridge implements CoreBridge {
       scanPhase: this.phase, scanDone: this.phase === "done" ? 100 : this.phase === "idle" ? 0 : 40,
       scanTotal: this.phase === "idle" ? 0 : 100, trashDays: this.days, freedSince: this.freedSince,
       scanPaused: this.paused,
+      cloudSync: this.cloud(),
     };
+  }
+
+  /** Skysynket bibliotek etter mappenavn (samme regler som kjernen). */
+  private cloud() {
+    return this.library === null ? null : cloudProvider(this.library);
   }
 
   async startScan(_full: boolean): Promise<void> {
@@ -164,6 +186,9 @@ export class MockBridge implements CoreBridge {
     await this.wait();
     const hit = ids.map((id) => this.cards.find((c) => c.id === id) ?? null);
     if (hit.some((c) => c === null)) throw err("unknown_card");
+    // Som skallet: papirkurv i skysynket bibliotek nektes FØR noe endres. Behold er tillatt.
+    const cloud = decision === "trash" ? this.cloud() : null;
+    if (cloud) throw err("cloud_synced_readonly", cloud);
     const batch = this.nextBatch++;
     this.cards = this.cards.filter((c) => !ids.includes(c.id));
     if (decision === "trash") {
@@ -243,6 +268,12 @@ export class MockBridge implements CoreBridge {
     return this.library;
   }
 
+  async pickFolder(_title?: string): Promise<string | null> {
+    await this.wait();
+    if (!this.canPickFolder) throw err("unsupported", "pickFolder");
+    return this.pick;
+  }
+
   async setLibrary(path: string): Promise<void> {
     await this.wait();
     if (path.trim() === "" || path.includes("\0")) throw err("not_a_folder", path);
@@ -272,6 +303,19 @@ export class MockBridge implements CoreBridge {
     return this.settings();
   }
 
+  async getLanguage(): Promise<string | null> {
+    await this.wait();
+    return this.language;
+  }
+
+  /** Som skallet: bare system, nb og en er gyldige («pseudo» avvises). */
+  async setLanguage(language: string): Promise<string> {
+    await this.wait();
+    if (language !== "system" && language !== "nb" && language !== "en") throw err("bad_request", "language");
+    this.language = language;
+    return language;
+  }
+
   private settings(): AppSettings {
     const sep = this.library?.includes("\\") ? "\\" : "/";
     return {
@@ -295,11 +339,13 @@ export class MockBridge implements CoreBridge {
     const bytes = this.trashed.reduce((sum, c) => sum + c.bytes, 0);
     const none: EmptyResult = { purged: 0, keptTrashed: 0, unsupported: 0, cancelled: 0, unavailable: 0, freedBytes: 0 };
     if (permanent === null) {
-      // Papirkurv-modus: filene forlater karantenen, men plassen er ikke frigjort ennå.
-      if (this.noBin) return { ...none, unsupported: n, keptTrashed: n };
-      this.trashed = [];
-      this.batches = this.batches.filter((b) => b.decision !== "trash");
-      return { ...none, purged: n };
+      // Papirkurv-modus: filer Papirkurv ikke kan ta (`Unsupported`) blir liggende i karantenen, urørt. Aldri stille sletting.
+      const stay = this.noBin ? n : Math.min(n, this.unsupportedCount);
+      const moved = this.trashed.slice(0, n - stay);
+      const ids = new Set(moved.map((c) => c.id));
+      this.trashed = this.trashed.slice(n - stay);
+      this.batches = this.batches.filter((b) => b.decision !== "trash" || !b.ids.every((i) => ids.has(i)));
+      return { ...none, purged: moved.length, keptTrashed: stay, unsupported: stay };
     }
     // Permanent krever avkrysning og riktig antall (PermanentAck). Aldri uten.
     if (!permanent.checked || permanent.count !== n) throw err("ack_required", "permanent");

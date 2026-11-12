@@ -6,9 +6,10 @@
   import type { CoreBridge } from "../bridge/core-bridge";
   import type { Card, KindCode } from "../bridge/types";
   import { useBridge } from "../context";
-  import { Badge, Button, LiveRegion } from "../lib";
+  import { Badge, Button, CloudWarning, LiveRegion } from "../lib";
   import { fmt, reasonLabel, tr as tx } from "../lib/i18n";
   import { formatHash } from "../router";
+  import { cloudFromError, loadCloud } from "./cloud";
   import { CardsSession } from "./cardsFlow";
   import {
     ariaKeys, CARD_KEYS, cardKey, dragIntent, initialCards, type CardAction, type CardsState,
@@ -27,6 +28,11 @@
 
   let view: CardsState = $state(initialCards);
   let helpOpen = $state(false);
+  /** Skysynket bibliotek (leverandørkode): papirkurv er sperret synlig, med forklaring. */
+  let cloud: string | null = $state(null);
+  /** Papirkurv-tast/knapp/dra opp er trykket i sperret tilstand: forklaring vises og annonseres. */
+  let blockedShown = $state(false);
+  let blockedSeq = $state(0);
   let help: HTMLDialogElement | undefined = $state();
   let deck: HTMLElement | undefined = $state();
   let summary: HTMLElement | undefined = $state();
@@ -48,6 +54,7 @@
   });
   // Lik melding to ganger på rad (to «Hoppet over» med samme antall igjen) må bli et nytt innhold: veksle et usynlig tegn.
   const live = $derived.by(() => {
+    if (blockedShown) return $tx("cloud.key.blocked") + (blockedSeq % 2 ? " " : "");
     if (!view.live) return "";
     const k = view.live.kind;
     const text = k === "undone" ? $tx("a11y.live.undone") : $tx(`a11y.live.${k}`, { left });
@@ -56,9 +63,13 @@
 
   const act = (a: CardAction): void => {
     if (a === "trash" && !top) return;
+    if (a === "trash" && cloud) { blockedShown = true; blockedSeq++; return; } // sperret: gjør ingenting, men forklarer
+    blockedShown = false;
     void session.act(a);
   };
-  const undo = (): void => void session.undo();
+  const undo = (): void => { blockedShown = false; void session.undo(); };
+  // Skallet kan nekte papirkurv selv om UI ikke visste at mappen er skysynket: sperr da også her.
+  $effect(() => { cloud = cloudFromError(view.error) ?? cloud; });
   const label = (c: Card): string =>
     `${$tx("cards.photo.alt", { n: total - left + 1, total })}. ${fmt.bytes(c.bytes)}. ${reasonLabel(reasonSnake(c.reason), { pct: fmt.percent(c.confidence) })}.`;
 
@@ -110,7 +121,10 @@
   $effect(() => {
     if (view.phase === "deckEmpty") void tick().then(() => summary?.focus());
   });
-  onMount(() => void session.load());
+  onMount(() => {
+    void session.load();
+    void loadCloud(b).then((c) => { if (c) cloud = c; });
+  });
   onDestroy(() => session.dispose());
 
   const keyName = (id: string): string => (id === "zoom" ? $tx("cards.key.space") : (CARD_KEYS.find((k) => k.id === id)?.label ?? id));
@@ -124,6 +138,7 @@
 <section class="cards">
   <h1 tabindex="-1">{$tx("cards.title")}</h1>
   <p><a href={formatHash({ name: "home" })}>{$tx("common.back")}</a></p>
+  {#if cloud}<CloudWarning provider={cloud} />{/if}
   <LiveRegion message={live} />
 
   {#if view.phase === "loading"}
@@ -138,7 +153,8 @@
     </div>
     {#if view.history.length > 0}<Button onclick={undo} ariaKeyshortcuts={ariaKeys("undo")}>{$tx("cards.undo.last")}</Button>{/if}
   {:else if top}
-    {#if view.error}<p role="alert">{$tx("review.error.body")}</p>{/if}
+    {#if view.error}<p role="alert">{$tx(cloudFromError(view.error) ? "cloud.error.blocked" : "review.error.body")}</p>{/if}
+    {#if blockedShown}<p class="note">{$tx("cloud.key.blocked")}</p>{/if}
     <p class="muted" aria-hidden="true">{$tx("cards.remaining", { count: left })}</p>
     <p class="sr-only">{$tx("a11y.keys.focusmode")}</p>
 
@@ -167,7 +183,7 @@
 
     <div class="actions">
       <Button onclick={() => act("keep")} ariaKeyshortcuts={ariaKeys("keep")}>{$tx("cards.keep")}</Button>
-      <Button onclick={() => act("trash")} ariaKeyshortcuts={ariaKeys("trash")}>{$tx("cards.trash")}</Button>
+      <Button onclick={() => act("trash")} ariaKeyshortcuts={ariaKeys("trash")} ariaDisabled={!!cloud} ariaDescribedby="cloud-why">{$tx("cards.trash")}</Button>
       <Button onclick={() => act("skip")} disabled={left < 2} ariaKeyshortcuts={ariaKeys("skip")}>{$tx("cards.skip")}</Button>
       <Button onclick={() => session.send({ type: "toggleZoom" })} ariaKeyshortcuts={ariaKeys("zoom")}>{$tx("common.zoom")}</Button>
       <Button onclick={undo} disabled={view.history.length === 0} ariaKeyshortcuts={ariaKeys("undo")}>{$tx("common.undo")}</Button>
@@ -194,6 +210,7 @@
   h1 { margin-block: 0 var(--space-3); font-size: var(--fs-xl); line-height: var(--lh-tight); }
   h1:focus, .end:focus { outline: none; }
   .muted { color: var(--c-text-muted); }
+  .note { margin-block: 0 var(--space-3); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md); }
   .hint { font-size: var(--fs-sm, 0.875rem); }
   .deck { position: relative; display: grid; min-block-size: 20rem; margin-block: var(--space-3); touch-action: none; cursor: grab; border-radius: var(--radius-lg); }
   .deck.zoom { min-block-size: min(32rem, 70vh); }
