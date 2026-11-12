@@ -642,3 +642,25 @@ fn local_library_has_no_cloud_sync_flag() {
     assert_eq!(e.sh.state().cloud_sync, None);
     assert_eq!(Shell::mock().state().cloud_sync, None);
 }
+
+/// Første oppstart på ekte Windows: app-data-mappen finnes ikke ennå. Tauri gir bare stien.
+/// Feilen var at indeksen åpnes før mappen opprettes (SQLite lager ikke mapper).
+#[test]
+fn set_library_works_when_app_data_dir_does_not_exist_yet() {
+    let root = std::env::temp_dir().join(format!("fjell-shell-forste-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    let (lib, data) = (
+        root.join("bibliotek"),
+        root.join("ikke").join("opprettet").join("ennå"),
+    );
+    fs::create_dir_all(&lib).unwrap();
+    fs::write(lib.join("a.jpg"), b"x").unwrap();
+    assert!(!data.exists());
+    let bin = Arc::new(FakeRecycleBin::default());
+    let sh = Shell::with_data_dir(&data, bin as Arc<dyn RecycleBin>);
+    let r = sh.set_library(lib.to_str().unwrap());
+    assert!(r.is_ok(), "set_library feilet på første oppstart: {r:?}");
+    assert!(data.is_dir(), "app-data-mappen skal opprettes");
+    assert_eq!(sh.library().as_deref(), lib.to_str());
+    let _ = fs::remove_dir_all(&root);
+}

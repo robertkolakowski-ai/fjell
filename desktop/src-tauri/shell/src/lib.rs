@@ -175,6 +175,13 @@ impl Shell {
             .as_ref()
             .ok_or_else(|| ErrorDto::bad_request("ingen app-data-mappe"))?;
         let lib = lib.to_path_buf();
+        // Første oppstart: app-data-mappen finnes ikke ennå, og SQLite oppretter ikke mapper.
+        std::fs::create_dir_all(dir).map_err(|e| {
+            ErrorDto::new(
+                "internal",
+                format!("kan ikke opprette {}: {e}", dir.display()),
+            )
+        })?;
         let core = Core::open(
             &lib,
             &config::db_path(dir, &lib),
