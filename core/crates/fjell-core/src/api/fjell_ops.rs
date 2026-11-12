@@ -63,6 +63,14 @@ fn needs_ack(c: ConsequenceCode) -> bool {
 }
 
 impl Fjell {
+    /// Gjenoppretter bilder fra «Nylig slettet» (én batch, ett angre). Aktive bilder hoppes over;
+    /// `None` hvis ingenting ble endret. Filflytting ut av karantenen gjør kalleren (skallet).
+    pub fn restore_assets(&self, ids: &[AssetId]) -> Result<Option<BatchId>, ApiError> {
+        let batch = self.actions().restore(ids).map_err(act_err)?;
+        self.refresh()?;
+        Ok(batch)
+    }
+
     fn decide(
         &self,
         decisions: Vec<(CardId, Decision)>,

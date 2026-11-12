@@ -194,6 +194,52 @@ export interface MessageParams {
   "setting.sound": Record<never, never>;
   "setting.sound.note": Record<never, never>;
   "setting.notify.expired": Record<never, never>;
+  "restore.done": { count: number };
+  "restore.failed": Record<never, never>;
+  "restore.where": Record<never, never>;
+  "restore.list.label": Record<never, never>;
+  "restore.row.select": { name: string | number };
+  "restore.selected": { count: number };
+  "restore.none": Record<never, never>;
+  "home.folder.add": Record<never, never>;
+  "home.folder.title": Record<never, never>;
+  "home.folder.path": Record<never, never>;
+  "home.folder.example": Record<never, never>;
+  "home.folder.note": Record<never, never>;
+  "home.folder.submit": Record<never, never>;
+  "home.folder.error": Record<never, never>;
+  "home.folder.current": { path: string | number };
+  "home.folder.none": Record<never, never>;
+  "home.idle.body": Record<never, never>;
+  "home.scan.start": Record<never, never>;
+  "home.scan.paused": Record<never, never>;
+  "home.scan.resume": Record<never, never>;
+  "home.scan.cancelled": Record<never, never>;
+  "home.scan.error": Record<never, never>;
+  "home.scan.controls": Record<never, never>;
+  "settings.language.note": Record<never, never>;
+  "settings.trash.hint": Record<never, never>;
+  "settings.quarantine.title": Record<never, never>;
+  "settings.quarantine.body": Record<never, never>;
+  "settings.quarantine.path": { path: string | number };
+  "settings.quarantine.none": Record<never, never>;
+  "settings.empty.title": Record<never, never>;
+  "settings.empty.default": Record<never, never>;
+  "settings.saved": Record<never, never>;
+  "settings.error": Record<never, never>;
+  "help.for": { screen: string | number };
+  "help.screen.onboarding": Record<never, never>;
+  "help.screen.group": Record<never, never>;
+  "help.screen.cards": Record<never, never>;
+  "help.section.everywhere": Record<never, never>;
+  "help.section.screen": Record<never, never>;
+  "help.action.help": Record<never, never>;
+  "help.action.close": Record<never, never>;
+  "help.action.toggle": Record<never, never>;
+  "help.action.trash_selected": Record<never, never>;
+  "help.action.best": Record<never, never>;
+  "help.action.tab": Record<never, never>;
+  "help.action.activate": Record<never, never>;
   "a11y.photo.label": { date: string | number; n: string | number; size: string | number; total: string | number };
   "a11y.photo.best": Record<never, never>;
   "a11y.photo.reason": { reason: string | number };
@@ -321,6 +367,19 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "setting.language",
   "setting.language.system",
   "setting.sound",
+  "restore.selected",
+  "home.folder.add",
+  "home.folder.submit",
+  "home.scan.start",
+  "home.scan.resume",
+  "home.scan.controls",
+  "settings.quarantine.title",
+  "settings.empty.title",
+  "settings.saved",
+  "help.screen.onboarding",
+  "help.screen.group",
+  "help.screen.cards",
+  "help.section.everywhere",
   "a11y.skip.main",
   "a11y.dialog.close",
   "ui.card.suggestion",

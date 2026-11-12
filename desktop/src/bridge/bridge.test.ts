@@ -16,7 +16,11 @@ describe("identisk grensesnitt", () => {
   it("samme offentlige metoder", () => {
     const names = (o: object) =>
       Object.getOwnPropertyNames(Object.getPrototypeOf(o)).filter((n) => n !== "constructor" && !n.startsWith("wait")).sort();
-    const pub = ["decide", "emptyTrash", "getState", "listCards", "purge", "setKeeper", "startScan", "undo"];
+    const pub = [
+      "cancelScan", "completeOnboarding", "decide", "emptyTrash", "getFirstRun", "getLibrary", "getSettings", "getState",
+      "listCards", "listTrashed", "pauseScan", "purge", "restore", "restoreAll", "resumeScan", "setKeeper", "setLibrary",
+      "setTrashDays", "startScan", "undo",
+    ];
     expect(names(new TauriBridge())).toEqual(pub);
     expect(names(new MockBridge()).filter((n) => pub.includes(n))).toEqual(pub);
   });
@@ -98,5 +102,72 @@ describe("MockBridge", () => {
     const g = groupCards((await m.listCards("exact_dup", 50)).cards);
     expect(g).toHaveLength(3);
     expect(g[0].cards).toHaveLength(2);
+  });
+});
+
+describe("TauriBridge: M7-hull", () => {
+  it("kaller riktige kommandoer med riktige argumenter", async () => {
+    const call = vi.fn().mockResolvedValue(undefined);
+    const b = new TauriBridge(call);
+    await b.listTrashed();
+    await b.restore([4, 5]);
+    await b.restoreAll();
+    await b.pauseScan();
+    await b.resumeScan();
+    await b.cancelScan();
+    await b.getLibrary();
+    await b.setLibrary("D:\\Bilder");
+    await b.getFirstRun();
+    await b.completeOnboarding();
+    await b.getSettings();
+    await b.setTrashDays(14);
+    expect(call.mock.calls).toEqual([
+      ["list_trashed"], ["restore_trashed", { ids: [4, 5] }], ["restore_all_trashed"], ["pause_scan"], ["resume_scan"],
+      ["cancel_scan"], ["get_library"], ["set_library", { path: "D:\\Bilder" }], ["get_first_run"], ["complete_onboarding"],
+      ["get_settings"], ["set_trash_days", { days: 14 }],
+    ]);
+  });
+});
+
+describe("MockBridge: papirkurvliste og gjenoppretting", () => {
+  it("restore tar bildet ut av listen, uten å lage nytt forslag, og angre treffer ikke gjenopprettede", async () => {
+    const m = new MockBridge();
+    await m.startScan(false);
+    const ids = (await m.listCards("blurry", 3)).cards.map((c) => c.id);
+    await m.decide(ids, "trash");
+    const [a, ...rest] = await m.listTrashed();
+    expect(rest).toHaveLength(2);
+    expect(await m.restore([a.asset, 99999])).toEqual({ restored: 1 });
+    expect((await m.listTrashed()).map((i) => i.asset)).toEqual(rest.map((i) => i.asset));
+    expect((await m.getState()).trashCount).toBe(2);
+    expect(await m.restore([a.asset])).toEqual({ restored: 0 });
+    // Angre tar de to som ligger igjen (batchen er justert), ikke det gjenopprettede.
+    await m.undo();
+    expect((await m.getState()).trashCount).toBe(0);
+  });
+  it("restoreAll tømmer listen", async () => {
+    const m = new MockBridge();
+    await m.startScan(false);
+    await m.decide((await m.listCards("screenshot", 4)).cards.map((c) => c.id), "trash");
+    expect(await m.restoreAll()).toEqual({ restored: 4 });
+    expect(await m.listTrashed()).toEqual([]);
+    expect(await m.restoreAll()).toEqual({ restored: 0 });
+  });
+  it("utløpt vises i state og liste, men bildene finnes fortsatt (aldri stille slettet)", async () => {
+    let t = 0;
+    const m = new MockBridge({ now: () => t, trashDays: 1 });
+    await m.startScan(false);
+    await m.decide([(await m.listCards("blurry", 1)).cards[0].id], "trash");
+    t = 2 * 86_400_000;
+    expect((await m.getState()).trashExpired).toBe(1);
+    expect((await m.listTrashed())[0].expired).toBe(true);
+    expect((await m.getState()).trashCount).toBe(1);
+  });
+  it("tøm fjerner fra listen", async () => {
+    const m = new MockBridge();
+    await m.startScan(false);
+    await m.decide([(await m.listCards("blurry", 1)).cards[0].id], "trash");
+    await m.emptyTrash();
+    expect(await m.listTrashed()).toEqual([]);
   });
 });

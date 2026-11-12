@@ -14,16 +14,19 @@
 //! Visuell klynging tar én representant per eksakt gruppe (keeperen) og hopper over lavinformasjon.
 
 use super::{PipelineError, StoreHandle};
-use crate::cluster::{exact_groups, visual_groups, Params};
+use crate::cluster::{exact_groups, Params, VisualIndex};
 use crate::model::{AssetId, Clock, Hash64, Kind, ReasonCode, SuggestionKind};
 use crate::quality::LOW_CONTRAST;
 use crate::screenshot::ShotSignals;
-use crate::store::{GroupSpec, GroupingStats, IndexRow, LoneSuggestion};
+use crate::store::{
+    index_rows_on, plan_grouping, GroupSpec, GroupingStats, IndexRow, LoneSuggestion,
+};
 use crate::suggest::{
     blur_threshold, blurry_for, group_suggestions, screenshot_suggestion_default, GroupKind,
     GroupResult, Member,
 };
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Mutex;
 
 /// Bit i `fingerprint.shot_signals` for lavinformasjon (signalene bruker de fire laveste).
 pub const LOW_INFO_BIT: u8 = 0x10;
@@ -73,6 +76,7 @@ fn spec(
         exact,
         members,
         keeper: res.keeper,
+        keeper_reason: res.keeper_reason,
         kind,
         reason,
         confidence,
@@ -90,7 +94,43 @@ fn max_hamming(ids: &[AssetId], h: &BTreeMap<AssetId, (Hash64, Hash64)>) -> u32 
     m
 }
 
+/// Hurtigbuffer for visuell klynging mellom utregninger: `VisualIndex` bygger bare om komponentene som
+/// berøres, så en ny utregning etter trash/angre koster omtrent diffen, ikke hele biblioteket.
+pub struct GroupEngine {
+    vis: VisualIndex,
+    indexed: BTreeMap<AssetId, (u64, u64)>,
+    rows: usize,
+}
+
+impl Default for GroupEngine {
+    fn default() -> Self {
+        GroupEngine {
+            vis: VisualIndex::new(Params::default()),
+            indexed: BTreeMap::new(),
+            rows: 0,
+        }
+    }
+}
+
+impl GroupEngine {
+    pub fn new() -> GroupEngine {
+        GroupEngine::default()
+    }
+
+    /// Antall aktive bilder med fingeravtrykk i siste utregning (0 før første).
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+}
+
+/// Ren utregning uten buffer (full bygging hver gang). Gir samme resultat som `compute_with`.
 pub fn compute(rows: &[IndexRow]) -> Grouping {
+    compute_with(rows, &mut GroupEngine::new())
+}
+
+/// Utregning med inkrementell visuell klynging via `engine`.
+pub fn compute_with(rows: &[IndexRow], engine: &mut GroupEngine) -> Grouping {
+    engine.rows = rows.len();
     let by_id: BTreeMap<AssetId, &IndexRow> = rows.iter().map(|r| (r.id, r)).collect();
     let mut groups = Vec::new();
     // Eksakte grupper.
@@ -130,9 +170,24 @@ pub fn compute(rows: &[IndexRow]) -> Grouping {
         .filter(|r| reps.contains(&r.id))
         .filter_map(|r| Some((r.id, (Hash64(r.dhash?), Hash64(r.phash?)))))
         .collect();
-    let items: Vec<(AssetId, Hash64, Hash64)> =
-        hashes.iter().map(|(id, (d, p))| (*id, *d, *p)).collect();
-    for g in visual_groups(&items, &Params::default()) {
+    let wanted: BTreeMap<AssetId, (u64, u64)> = hashes
+        .iter()
+        .map(|(id, (d, p))| (*id, (d.0, p.0)))
+        .collect();
+    let removed: Vec<AssetId> = engine
+        .indexed
+        .keys()
+        .filter(|id| !wanted.contains_key(id))
+        .copied()
+        .collect();
+    let upserts: Vec<(AssetId, Hash64, Hash64)> = hashes
+        .iter()
+        .filter(|(id, (d, p))| engine.indexed.get(id) != Some(&(d.0, p.0)))
+        .map(|(id, (d, p))| (*id, *d, *p))
+        .collect();
+    engine.vis.update(&upserts, &removed);
+    engine.indexed = wanted;
+    for g in engine.vis.groups() {
         let members: Vec<Member> = g.members.iter().map(|id| member(by_id[id])).collect();
         let max_hamming = max_hamming(&g.members, &hashes);
         let kind = GroupKind::Visual { max_hamming };
@@ -180,13 +235,39 @@ pub fn compute(rows: &[IndexRow]) -> Grouping {
 }
 
 /// Regner gruppene på nytt og skriver endringene. Se modulhodet.
+///
+/// Med filbasert indeks skjer lesing (fingeravtrykk, dagens grupper), utregning og diff på en egen
+/// lesetilkobling utenfor skrivelåsen; låsen tas bare for å sjekke at ingenting er skrevet imens
+/// (`Store::change_counter`) og for å skrive de endrede radene. Er noe skrevet imens, forkastes
+/// resultatet og utregningen gjentas; etter `TRIES` forsøk regnes det under låsen, så resultatet
+/// alltid er riktig. Minnedatabaser (ingen lesetilkobling) regner alltid under låsen.
 pub fn refresh_groups<H: StoreHandle>(
     store: &H,
     clock: &dyn Clock,
 ) -> Result<GroupingStats, PipelineError> {
+    const TRIES: usize = 3;
+    let local = Mutex::new(GroupEngine::new());
+    let engine = store.engine().unwrap_or(&local);
+    for _ in 0..TRIES {
+        let (reader, stamp) = store.with_store(|s| (s.reader(), s.change_counter()));
+        let Some(conn) = reader? else { break };
+        let rows = index_rows_on(&conn)?;
+        let g = compute_with(&rows, &mut engine.lock().unwrap_or_else(|e| e.into_inner()));
+        let plan = plan_grouping(&conn, &g.groups, &g.lone, clock.now())?;
+        drop(conn);
+        let applied = store.with_store(|s| {
+            if s.change_counter() != stamp {
+                return Ok(None);
+            }
+            s.apply_plan(&plan).map(Some)
+        })?;
+        if let Some(stats) = applied {
+            return Ok(stats);
+        }
+    }
     store.with_store(|s| {
         let rows = s.index_rows()?;
-        let g = compute(&rows);
+        let g = compute_with(&rows, &mut engine.lock().unwrap_or_else(|e| e.into_inner()));
         Ok(s.apply_grouping(&g.groups, &g.lone, clock.now())?)
     })
 }

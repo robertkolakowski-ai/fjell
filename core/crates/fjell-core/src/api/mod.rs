@@ -13,6 +13,8 @@ mod fjell;
 mod fjell_ops;
 #[cfg(test)]
 mod fjell_tests;
+#[cfg(test)]
+mod hardening_tests;
 pub mod mock;
 pub mod types;
 

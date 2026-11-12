@@ -272,3 +272,19 @@ fn trashed_images_stay_trashed_through_a_rescan_and_settings_roundtrip() {
     f.set_settings(Settings { trash_days: 7 });
     assert_eq!(f.settings().trash_days, 7);
 }
+
+#[test]
+fn restore_assets_brings_trashed_back_and_is_one_undoable_batch() {
+    let (f, _src) = scanned();
+    let c = all(&f, SuggestionKind::ExactDup)[0].clone();
+    f.decide_many(vec![(c.id, Decision::Trash)]).unwrap();
+    assert_eq!(state(&f, c.asset), State::Trashed);
+    let b = f.restore_assets(&[c.asset]).unwrap();
+    assert!(b.is_some());
+    assert_eq!(state(&f, c.asset), State::Active);
+    // Allerede aktiv: ingen ny batch.
+    assert_eq!(f.restore_assets(&[c.asset]).unwrap(), None);
+    // Gjenoppretting kan angres (tilbake i «Nylig slettet»).
+    f.undo().unwrap();
+    assert_eq!(state(&f, c.asset), State::Trashed);
+}

@@ -8,8 +8,12 @@
 //! - Skyplassholdere: `is_local = false`; innholdet leses aldri (`Unavailable`).
 //! - JPEG/PNG (hvis dekoding er på, standard): dimensjoner og miniatyr etter EXIF-orientering; andre formater har bredde/høyde 0
 //!   og `thumbnail` gir `Unavailable`. Ødelagt JPEG/PNG gir `Corrupt`.
-//! - Inkrementelt token er `fs1:<maks mtime>`; fjernede filer meldes bare via kjernens diff mot
-//!   full listing (`since = None`).
+//! - Inkrementelt token er `fs1:<maks mtime>`. Fjernede filer (T11) meldes ved inkrementell
+//!   skanning som de kjente id-ene (`with_known_ids`: indeksens AKTIVE bilder, aldri de i papirkurven,
+//!   siden de ligger i karantenemappen med vilje) som ikke finnes i en vellykket, full gjennomgang av
+//!   mappen. Uten `with_known_ids` meldes ingen fjerninger. Frakoblet rot er `Unavailable`, aldri
+//!   fjernet, og en tom gjennomgang når det finnes kjente filer regnes som frakoblet (tom
+//!   monteringsmappe), også `Unavailable`. Ved `since = None` meldes ingen fjerninger.
 
 use crate::locality::{default_probe, LocalProbe};
 use crate::path::{os_path, resolve, strip_extended};
@@ -19,15 +23,20 @@ use fjell_core::model::{
     AssetMeta, AssetSource, ChangeSet, ChangeToken, Kind, ProtectFlags, SourceError, SourceId,
     Thumb,
 };
+use std::collections::BTreeSet;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
+/// Henter id-ene til indeksens aktive bilder, til fjerningsdeteksjon.
+pub type KnownIds = Box<dyn Fn() -> Vec<SourceId> + Send + Sync>;
+
 pub struct FsSource {
     root: PathBuf,
     local: LocalProbe,
     decode: bool,
+    known: Option<KnownIds>,
 }
 
 fn mime_and_kind(path: &Path) -> Option<(&'static str, Kind)> {
@@ -55,7 +64,14 @@ impl FsSource {
             root: root.into(),
             local: default_probe(),
             decode: true,
+            known: None,
         }
+    }
+
+    /// Gir adapteren indeksens kjente id-er, så fjernede filer også oppdages etter omstart.
+    pub fn with_known_ids(mut self, f: KnownIds) -> FsSource {
+        self.known = Some(f);
+        self
     }
 
     /// Bytter sjekken for skyplassholdere (til tester og til plattformspesifikke varianter).
@@ -150,6 +166,25 @@ impl FsSource {
     }
 }
 
+impl FsSource {
+    /// Fjernede filer: kjente id-er som ikke er med i `current`. Tom gjennomgang med kjente filer er
+    /// mistenkelig (tom monteringsmappe) og gir `Unavailable`.
+    fn removed_since(
+        &self,
+        incremental: bool,
+        current: &BTreeSet<SourceId>,
+    ) -> Result<Vec<SourceId>, SourceError> {
+        let (Some(f), true) = (&self.known, incremental) else {
+            return Ok(Vec::new());
+        };
+        let known: BTreeSet<SourceId> = f().into_iter().collect();
+        if current.is_empty() && !known.is_empty() {
+            return Err(SourceError::Unavailable);
+        }
+        Ok(known.difference(current).cloned().collect())
+    }
+}
+
 impl AssetSource for FsSource {
     fn list_changes(&self, since: Option<&ChangeToken>) -> Result<ChangeSet, SourceError> {
         let floor = match since {
@@ -167,7 +202,9 @@ impl AssetSource for FsSource {
         self.walk(&self.root, &mut paths)?;
         let mut changed = Vec::new();
         let mut max = floor.unwrap_or(0);
+        let mut current: BTreeSet<SourceId> = BTreeSet::new();
         for p in paths {
+            current.insert(self.id_of(&p));
             let (m, secs) = match self.meta(&p) {
                 Ok(x) => x,
                 // Forsvant mellom listing og stat: roten borte er `Unavailable`, ellers hopp over.
@@ -180,9 +217,10 @@ impl AssetSource for FsSource {
                 changed.push(m);
             }
         }
+        let removed = self.removed_since(floor.is_some(), &current)?;
         Ok(ChangeSet {
             changed,
-            removed: Vec::new(),
+            removed,
             next_token: ChangeToken(format!("fs1:{max}")),
         })
     }

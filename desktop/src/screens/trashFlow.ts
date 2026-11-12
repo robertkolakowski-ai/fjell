@@ -18,7 +18,8 @@ export class TrashSession {
 
   async load(): Promise<void> {
     try {
-      this.send({ type: "loaded", state: await this.b.getState() });
+      const [state, items] = await Promise.all([this.b.getState(), this.b.listTrashed()]);
+      this.send({ type: "loaded", state, items });
     } catch (e) {
       this.send({ type: "failed", error: e as BridgeError });
     }
@@ -36,6 +37,22 @@ export class TrashSession {
       await this.load();
     } catch (e) {
       this.send({ type: "purgeFailed", error: e as BridgeError });
+    }
+  }
+
+  /** «Gjenopprett» (valgte) eller «Gjenopprett alt». Umiddelbart, uten bekreftelse. Feil: ingenting er endret. */
+  async restore(all: boolean): Promise<void> {
+    const ids = [...this.state.selected];
+    if (!all && ids.length === 0) return;
+    // Bare én gjenoppretting om gangen (dobbelttrykk gir ett kall).
+    if (this.state.restoring || this.state.phase !== "list") return;
+    this.send({ type: "restoring" });
+    try {
+      const r = all ? await this.b.restoreAll() : await this.b.restore(ids);
+      this.send({ type: "restoredOk", count: r.restored });
+      await this.load();
+    } catch {
+      this.send({ type: "restoreFailed" });
     }
   }
 }

@@ -1,6 +1,8 @@
 <!-- Toast med Angre. Forsvinner ALDRI av seg selv (PLAN-UX-I18N 6.1 «Tidsbegrensning»): ligger til neste handling
      eller til brukeren lukker. Angre er en ekte knapp. role="status" annonserer teksten uten fokusflytting. -->
 <script lang="ts">
+  import { onMount } from "svelte";
+
   interface Props {
     message: string;
     undoLabel: string;
@@ -10,10 +12,18 @@
     onDismiss?: () => void;
   }
   let { message, undoLabel, onUndo, dismissLabel, onDismiss }: Props = $props();
+
+  // Narrator og NVDA annonserer ikke pålitelig en live-region som settes inn i DOM sammen med teksten.
+  // Regionen finnes derfor først (tom), og teksten kommer ~100 ms senere. Knappene er med fra start.
+  let ready = $state(false);
+  onMount(() => {
+    const id = setTimeout(() => (ready = true), 100);
+    return () => clearTimeout(id);
+  });
 </script>
 
 <div class="toast" role="status" aria-live="polite">
-  <p class="msg">{message}</p>
+  {#if ready}<p class="msg">{message}</p>{:else}<p class="msg" aria-hidden="true">&nbsp;</p>{/if}
   <div class="actions">
     <button type="button" class="act undo" onclick={onUndo}>{undoLabel}</button>
     {#if dismissLabel}<button type="button" class="act" onclick={onDismiss}>{dismissLabel}</button>{/if}

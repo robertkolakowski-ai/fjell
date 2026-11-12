@@ -25,14 +25,19 @@ mod ops;
 mod ops_read;
 #[cfg(test)]
 mod ops_tests;
+#[cfg(test)]
+mod perf_tests;
 mod reconcile;
+mod verify;
 
 use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 
 pub use cards::{CardRow, SuggestionRow};
-pub use groups::{GroupSpec, GroupingStats, LoneSuggestion};
-pub use index::{FingerprintRow, HashRow, IndexRow, UpsertStats, WorkItem, MAX_FAILS};
+pub use groups::{plan_grouping, GroupSpec, GroupingPlan, GroupingStats, LoneSuggestion};
+pub use index::{
+    index_rows_on, FingerprintRow, HashRow, IndexRow, UpsertStats, WorkItem, MAX_FAILS,
+};
 pub use migrate::{migrate_to, MIGRATIONS};
 pub use ops::{BatchSpec, Cause, RowOp, UndoResult};
 pub use ops_read::{AssetRow, PendingSuggestion};
@@ -74,6 +79,8 @@ impl std::error::Error for StoreError {}
 pub struct Store {
     conn: Connection,
     path: Option<PathBuf>,
+    /// Økes av alt som endrer tilstand eller grupper (se `change_counter`).
+    generation: u64,
 }
 
 impl Store {
@@ -96,7 +103,11 @@ impl Store {
         }
         conn.pragma_update(None, "foreign_keys", true)?;
         migrate_to(&mut conn, MIGRATIONS.len() as u32)?;
-        Ok(Store { conn, path })
+        Ok(Store {
+            conn,
+            path,
+            generation: 0,
+        })
     }
 
     /// Skrivetilkoblingen (kun brukt fra denne modulen og tester).
@@ -114,6 +125,20 @@ impl Store {
                 Ok(Some(Connection::open_with_flags(p, flags)?))
             }
         }
+    }
+
+    /// Monoton teller som økes av alt som endrer bilders tilstand eller grupper/forslag (trash, angre,
+    /// avstemming, keeper-valg, `apply_plan`). Skanningens egne skrivinger (rader, hasher, fingeravtrykk)
+    /// teller ikke. Brukes til å se at en utregning ikke er foreldet mellom lesing og skriving.
+    pub fn change_counter(&self) -> u64 {
+        self.generation
+    }
+
+    /// Som `active_source_ids`, men på en indeksfil via egen skrivebeskyttet tilkobling (blokkerer ikke
+    /// og blokkeres ikke av en åpen `Store`). Brukes av kilder som ikke eier indeksen.
+    pub fn active_source_ids_at(path: &Path) -> Result<Vec<crate::model::SourceId>, StoreError> {
+        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+        index::active_source_ids_on(&Connection::open_with_flags(path, flags)?)
     }
 
     /// Gjeldende `PRAGMA user_version`.

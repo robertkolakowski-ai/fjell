@@ -15,4 +15,10 @@ fn main() {
         .unwrap_or(fjell_testdata::corpus::DEFAULT_SEED);
     let m = fjell_testdata::corpus::generate(&out, seed).expect("generering feilet");
     println!("{} bilder skrevet til {}", m.entries.len(), out.display());
+    if std::env::var("FJELL_BLURSET").is_ok() {
+        let bo = out.join("blurset");
+        let b = fjell_testdata::blurset::generate_blur(&bo, fjell_testdata::blurset::BLUR_SEED)
+            .expect("blurset feilet");
+        println!("{} uskarphetsbilder skrevet til {}", b.entries.len(), bo.display());
+    }
 }

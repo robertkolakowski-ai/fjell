@@ -1,6 +1,7 @@
-<!-- Papirkurv (UX-5, PLAN-UX-I18N 3.6): «Nylig slettet» med forklaring, utløpsvarsel, Tøm-ark (Windows Papirkurv som standard,
+<!-- Papirkurv (UX-5, PLAN-UX-I18N 3.6): «Nylig slettet» med forklaring, utløpsvarsel, liste per bilde (Utløpt / Utløper snart /
+     Andre) med «Gjenopprett» og «Gjenopprett alt» (umiddelbart, uten bekreftelse), Tøm-ark (Windows Papirkurv som standard,
      permanent med eget trinn og avkrysning), resultat og historikk. Tilstand i trashState.ts, flyt i trashFlow.ts.
-     Ikke med ennå: liste per bilde og «Gjenopprett» (CoreBridge har ingen listing av karantenen eller restore). -->
+     Ikke med ennå: miniatyrer i listen (raden viser filnavn, størrelse og datoer). -->
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import type { CoreBridge } from "../bridge/core-bridge";
@@ -8,7 +9,7 @@
   import { Button, LiveRegion } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { TrashSession } from "./trashFlow";
-  import { hasExpired, initialTrash, type TrashState } from "./trashState";
+  import { daysLeft, hasExpired, initialTrash, sectionsOf, type TrashSectionId, type TrashState } from "./trashState";
 
   interface Props {
     bridge?: CoreBridge;
@@ -23,9 +24,15 @@
 
   const sheetOpen = $derived(view.phase === "confirmPurge" || view.phase === "confirmPermanent" || view.phase === "purging");
   const info = $derived(view.info);
+  const nowS = Math.floor(Date.now() / 1000);
+  const sections = $derived(sectionsOf(view.items, nowS));
+  const sectionKey = { expired: "trash.section.expired", soon: "trash.section.soon", other: "trash.section.other" } as const satisfies Record<TrashSectionId, string>;
+  const canRestore = $derived(view.phase === "list" && !view.restoring);
   const outcome = $derived(view.outcome);
   const announce = $derived(
-    view.phase === "purged" && outcome
+    view.restored !== null ? $tr("restore.done", { count: view.restored })
+    : view.restoreFailed ? $tr("restore.failed")
+    : view.phase === "purged" && outcome
       ? outcome.mode === "permanent" ? $tr("trash.purged.permanent", { size: fmt.bytes(outcome.freedBytes) }) : $tr("trash.purged.recycle")
       : "",
   );
@@ -69,7 +76,39 @@
         <p class="expired"><strong>{$tr("trash.row.expired")}</strong>: {fmt.number(info.expired)}</p>
       {/if}
       <div class="actions">
+        <Button disabled={!canRestore || view.selected.size === 0} onclick={() => void session.restore(false)}>{$tr("trash.restore")}</Button>
+        <Button disabled={!canRestore} onclick={() => void session.restore(true)}>{$tr("trash.restore.all")}</Button>
         <Button variant="primary" disabled={view.phase !== "list"} onclick={() => session.send({ type: "openPurge" })}>{$tr("trash.empty.button")}</Button>
+      </div>
+      {#if view.restored !== null}
+        <p class="muted" role="status">{$tr("restore.done", { count: view.restored })} {$tr("restore.where")}</p>
+      {:else if view.restoreFailed}
+        <p role="alert">{$tr("restore.failed")}</p>
+      {:else}
+        <p class="muted">{view.selected.size === 0 ? $tr("restore.none") : $tr("restore.selected", { count: view.selected.size })}</p>
+      {/if}
+
+      <div class="listbar">
+        <Button disabled={!canRestore} onclick={() => session.send({ type: "selectAll" })}>{$tr("review.select.all")}</Button>
+      </div>
+      <div role="group" aria-label={$tr("restore.list.label")}>
+        {#each sections as sec (sec.id)}
+          <h2 class="sec">{$tr(sectionKey[sec.id])}</h2>
+          <ul class="items">
+            {#each sec.items as it (it.asset)}
+              <li>
+                <label class="row">
+                  <input type="checkbox" checked={view.selected.has(it.asset)} disabled={!canRestore}
+                    aria-label={$tr("restore.row.select", { name: it.name })}
+                    onchange={() => session.send({ type: "toggle", asset: it.asset })} />
+                  <span class="name">{it.name}</span>
+                  <span class="meta">{fmt.bytes(it.bytes)} · {$tr("trash.row.moved", { date: fmt.date(it.trashedAt * 1000) })}</span>
+                  <span class="meta">{#if it.expired}<strong>{$tr("trash.row.expired")}</strong>{:else}{$tr("trash.row.expires", { days: daysLeft(it, nowS) })}{/if}</span>
+                </label>
+              </li>
+            {/each}
+          </ul>
+        {/each}
       </div>
     {/if}
 
@@ -123,6 +162,12 @@
   .expired { padding: var(--space-3); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md); background: var(--c-badge-warn-bg); color: var(--c-badge-warn-text); }
   .actions, .dlg-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
   .dlg-actions { justify-content: flex-end; margin-block-start: var(--space-3); }
+  .listbar { margin-block: var(--space-3); }
+  .sec { margin-block: var(--space-4) var(--space-2); font-size: var(--fs-md); }
+  .items { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+  .row { flex-wrap: wrap; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--c-border); border-radius: var(--radius-md); background: var(--c-surface); }
+  .name { flex: 1 1 8rem; font-weight: var(--fw-semibold); overflow-wrap: anywhere; }
+  .meta { color: var(--c-text-muted); }
   .done { margin-block: var(--space-3); padding: var(--space-3); border: var(--border-width) solid var(--c-border); border-radius: var(--radius-md); background: var(--c-surface); }
   .history { margin-block-start: var(--space-5); }
   dialog { max-inline-size: min(32rem, calc(100vw - 2rem)); padding: var(--space-5); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-lg); background: var(--c-surface); color: var(--c-text); }

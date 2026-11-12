@@ -7,7 +7,10 @@ use super::StoreError;
 use rusqlite::Connection;
 
 /// Migreringene i rekkefølge. Legg nye filer til sist; endre aldri en utgitt migrering.
-pub const MIGRATIONS: [&str; 1] = [include_str!("001_init.sql")];
+pub const MIGRATIONS: [&str; 2] = [
+    include_str!("001_init.sql"),
+    include_str!("002_keeper_reason.sql"),
+];
 
 /// Migrerer `conn` opp til `target` (1-basert, `0` = ingen). Gjør ingenting hvis versjonen allerede er nådd.
 pub fn migrate_to(conn: &mut Connection, target: u32) -> Result<(), StoreError> {

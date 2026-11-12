@@ -26,6 +26,7 @@ impl Store {
         removed: &[SourceId],
         ts: i64,
     ) -> Result<Vec<AssetId>, StoreError> {
+        self.generation += 1;
         let tx = self.conn.transaction()?;
         let batch = next_batch_id(&tx)?;
         let mut purged = Vec::new();

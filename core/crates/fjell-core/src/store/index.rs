@@ -428,9 +428,34 @@ impl Store {
         Ok(out)
     }
 
+    /// Plattform-ID for alle AKTIVE bilder (ikke papirkurv, ikke purgede). Kilder bruker den til å
+    /// oppdage filer som er fjernet utenfor Fjell (T11); papirkurvbilder ligger i karantenen med vilje.
+    pub fn active_source_ids(&self) -> Result<Vec<SourceId>, StoreError> {
+        active_source_ids_on(&self.conn)
+    }
+
     /// Aktive bilder med fingeravtrykksrad, sortert på id.
     pub fn index_rows(&self) -> Result<Vec<IndexRow>, StoreError> {
-        let mut st = self.conn.prepare_cached(
+        index_rows_on(&self.conn)
+    }
+}
+
+pub(super) fn active_source_ids_on(
+    conn: &rusqlite::Connection,
+) -> Result<Vec<SourceId>, StoreError> {
+    let mut st = conn.prepare_cached("SELECT source_id FROM asset WHERE state = 0")?;
+    let rows = st.query_map([], |r| r.get::<_, String>(0))?;
+    Ok(rows
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .map(SourceId)
+        .collect())
+}
+
+/// Som `Store::index_rows`, men på en gitt tilkobling (f.eks. `Store::reader`, utenfor skrivelåsen).
+pub fn index_rows_on(conn: &rusqlite::Connection) -> Result<Vec<IndexRow>, StoreError> {
+    {
+        let mut st = conn.prepare_cached(
             "SELECT a.id, a.kind, a.width, a.height, a.bytes, a.created_at, a.protect_flags, \
              f.content_hash, f.dhash, f.phash, f.blur_score, f.shot_signals, f.algo_ver \
              FROM asset a JOIN fingerprint f ON f.asset_id = a.id WHERE a.state = 0 ORDER BY a.id",

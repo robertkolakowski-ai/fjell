@@ -132,6 +132,7 @@ fn i16_schema_has_no_image_data_or_free_text() {
         "asset.mod_token",
         "asset.mime",
         "grp.kind",
+        "grp.keeper_reason",
         "suggestion.kind",
         "suggestion.reason_code",
         "suggestion.status",

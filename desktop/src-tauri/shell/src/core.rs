@@ -10,7 +10,7 @@
 //!   aldri stille tilbake til permanent.
 //! - Rekkefølge: indeksen først, filflytting etterpå. Brudd midt imellom rettes av `reconcile`.
 
-use crate::dto::{EmptyDto, ErrorDto, PermanentAckDto};
+use crate::dto::{EmptyDto, ErrorDto, PermanentAckDto, RestoreDto, TrashedDto};
 use fjell_core::api::{Fjell, FjellApi};
 use fjell_core::model::{
     AssetId, AssetSource, BatchId, Clock, ConsequenceCode, DeleteOutcome, SourceId, State,
@@ -26,6 +26,15 @@ pub(crate) struct Core {
     pub fjell: Arc<Fjell>,
     pub library: PathBuf,
     quarantine: Arc<FsQuarantine>,
+}
+
+/// Siste sti-ledd (Windows- og Unix-skille). Aldri hele stien til frontend.
+fn file_name(source: &str) -> String {
+    source
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(source)
+        .to_string()
 }
 
 fn internal(e: impl std::fmt::Display) -> ErrorDto {
@@ -87,6 +96,68 @@ impl Core {
             .filter(|(_, r)| r.as_ref().is_some_and(|r| r.state == State::Trashed))
             .map(|(i, _)| i)
             .collect()
+    }
+
+    /// Karantenemappen (`<bibliotek>/.fjell-karantene`). Vises i Innstillinger; ingenting leses fra frontend.
+    pub fn quarantine_dir(&self) -> PathBuf {
+        self.library.join(fjell_fs::QUARANTINE_DIR)
+    }
+
+    /// Alle bilder i «Nylig slettet», eldste først. `now` brukes bare til `expired`.
+    pub fn trashed(&self, now: i64) -> Vec<TrashedDto> {
+        let ids = self.trashed_ids();
+        let rows = self
+            .fjell
+            .with_store(|s| s.asset_rows(&ids))
+            .unwrap_or_default();
+        let sources = self.fjell.sources_for(&ids);
+        let mut out: Vec<TrashedDto> = rows
+            .into_iter()
+            .flatten()
+            .filter(|r| r.state == State::Trashed)
+            .map(|r| {
+                let name = sources
+                    .iter()
+                    .find(|(id, _)| *id == r.id)
+                    .map(|(_, src)| file_name(&src.0))
+                    .unwrap_or_default();
+                let expires_at = r.expires_at.unwrap_or(i64::MAX);
+                TrashedDto {
+                    asset: r.id.0,
+                    name,
+                    bytes: r.bytes,
+                    trashed_at: r.trashed_at.unwrap_or(0),
+                    expires_at,
+                    expired: expires_at <= now,
+                }
+            })
+            .collect();
+        out.sort_by_key(|t| (t.trashed_at, t.asset));
+        out
+    }
+
+    /// Gjenoppretter `ids` (bare de som ligger i «Nylig slettet» telles). Indeksen først, så flyttes
+    /// filene tilbake fra karantenen. Feil ved flytting lar filen ligge; `reconcile` retter det ved oppstart.
+    pub fn restore(&self, ids: &[u64]) -> Result<RestoreDto, ErrorDto> {
+        let trashed = self.trashed_ids();
+        let wanted: Vec<AssetId> = ids
+            .iter()
+            .map(|i| AssetId(*i))
+            .filter(|a| trashed.contains(a))
+            .collect();
+        if wanted.is_empty() {
+            return Ok(RestoreDto::default());
+        }
+        self.fjell.restore_assets(&wanted).map_err(ErrorDto::from)?;
+        self.restore_undone();
+        Ok(RestoreDto {
+            restored: wanted.len() as u64,
+        })
+    }
+
+    pub fn restore_all(&self) -> Result<RestoreDto, ErrorDto> {
+        let all: Vec<u64> = self.trashed_ids().into_iter().map(|a| a.0).collect();
+        self.restore(&all)
     }
 
     /// Oppstart: filer i karantene som ikke lenger er `trashed` flyttes tilbake (avbrutt angre).

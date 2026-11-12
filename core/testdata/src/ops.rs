@@ -197,3 +197,103 @@ pub fn decode(bytes: &[u8]) -> Img {
         rgb: d.into_raw(),
     }
 }
+
+/// Lineær bevegelsesuskarphet i vilkårlig retning: `len` piksler langs vinkel `deg` (grader, 0 = horisontal).
+/// Kjernen er et linjestykke samplet med bilineær interpolasjon (realistisk for kamerabevegelse).
+pub fn motion_dir(img: &Img, len: f32, deg: f32) -> Img {
+    let n = (len.ceil() as usize).max(2) * 2; // taps langs linja
+    let (s, c) = deg.to_radians().sin_cos();
+    let taps: Vec<(f32, f32)> = (0..n)
+        .map(|i| {
+            let t = (i as f32 + 0.5) / n as f32 - 0.5;
+            (t * len * c, t * len * s)
+        })
+        .collect();
+    let at = |x: f32, y: f32, ch: usize| -> f32 {
+        let (x, y) = (
+            x.clamp(0.0, (img.w - 1) as f32),
+            y.clamp(0.0, (img.h - 1) as f32),
+        );
+        let (x0, y0) = (x.floor() as usize, y.floor() as usize);
+        let (x1, y1) = ((x0 + 1).min(img.w - 1), (y0 + 1).min(img.h - 1));
+        let (fx, fy) = (x - x0 as f32, y - y0 as f32);
+        let p = |xx: usize, yy: usize| img.rgb[(yy * img.w + xx) * 3 + ch] as f32;
+        (p(x0, y0) * (1.0 - fx) + p(x1, y0) * fx) * (1.0 - fy)
+            + (p(x0, y1) * (1.0 - fx) + p(x1, y1) * fx) * fy
+    };
+    let mut out = Img::new(img.w, img.h);
+    for y in 0..img.h {
+        for x in 0..img.w {
+            for ch in 0..3 {
+                let acc: f32 = taps
+                    .iter()
+                    .map(|&(dx, dy)| at(x as f32 + dx, y as f32 + dy, ch))
+                    .sum();
+                out.rgb[(y * img.w + x) * 3 + ch] =
+                    (acc / n as f32).round().clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+    out
+}
+
+/// Fokusfeil: uskarphet med skiveformet kjerne (pillbox, radius `r` piksler). Hver kjernerad er en
+/// korde som summeres eksakt fra radprefikser (fraksjonelle endepunkter gir kantutjevning), så
+/// kostnaden er O(r) per piksel. Standardavviket til kjernen er `r / 2`.
+pub fn defocus(img: &Img, r: f32) -> Img {
+    let ri = r.floor() as isize;
+    let (wi, hi) = (img.w as isize, img.h as isize);
+    let pad = ri as usize + 2;
+    let pw = img.w + 2 * pad;
+    // Radprefikser per kanal, kantreplikert; prefix[(y*3+c)*(pw+1) + i] = sum av de i første.
+    let mut prefix = vec![0i64; img.h * 3 * (pw + 1)];
+    for y in 0..img.h {
+        for c in 0..3 {
+            let base = (y * 3 + c) * (pw + 1);
+            for i in 0..pw {
+                let x = (i as isize - pad as isize).clamp(0, wi - 1) as usize;
+                prefix[base + i + 1] = prefix[base + i] + img.rgb[(y * img.w + x) * 3 + c] as i64;
+            }
+        }
+    }
+    // Kontinuerlig prefiks: piksel i dekker [i - 0.5, i + 0.5] (i i utvidet koordinat).
+    let f = |base: usize, t: f32| -> f32 {
+        let t = t + 0.5 + pad as f32;
+        let i = t.floor();
+        let fr = t - i;
+        let i = (i as usize).min(pw - 1);
+        let v = (prefix[base + i + 1] - prefix[base + i]) as f32;
+        prefix[base + i] as f32 + fr * v
+    };
+    let chords: Vec<(isize, f32)> = (-ri..=ri)
+        .map(|dy| (dy, (r * r - (dy * dy) as f32).max(0.0).sqrt() + 0.5))
+        .collect();
+    let wsum: f32 = chords.iter().map(|&(_, hw)| 2.0 * hw).sum();
+    let mut out = Img::new(img.w, img.h);
+    for y in 0..hi {
+        for x in 0..wi {
+            for c in 0..3 {
+                let mut acc = 0.0f32;
+                for &(dy, hw) in &chords {
+                    let yy = (y + dy).clamp(0, hi - 1) as usize;
+                    let base = (yy * 3 + c) * (pw + 1);
+                    acc += f(base, x as f32 + hw) - f(base, x as f32 - hw);
+                }
+                out.rgb[(y * wi + x) as usize * 3 + c] =
+                    (acc / wsum).round().clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+    out
+}
+
+/// Jevnt fordelt sensorstøy (uavhengig per kanal), amplitude ±`amp` nivåer.
+pub fn add_noise(img: &Img, seed: u64, amp: i32) -> Img {
+    let mut r = crate::rng::Rng::new(seed);
+    let mut o = img.clone();
+    for v in o.rgb.iter_mut() {
+        let n = r.below(2 * amp as u64 + 1) as i32 - amp;
+        *v = (*v as i32 + n).clamp(0, 255) as u8;
+    }
+    o
+}

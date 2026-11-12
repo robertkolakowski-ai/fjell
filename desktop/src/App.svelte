@@ -1,16 +1,21 @@
-<!-- Appskall (M7): hash-ruting, navigasjon, bridge i kontekst. Skjermene i ./screens er stubber. All tekst via t()/$tr. -->
+<!-- Appskall (M7): hash-ruting, navigasjon, bridge i kontekst. All tekst via t()/$tr. -->
 <script lang="ts">
-  import { tick } from "svelte";
+  import { onMount, tick } from "svelte";
   import type { CoreBridge } from "./bridge/core-bridge";
   import { bridge as defaultBridge } from "./bridge/bridge";
   import { provideBridge } from "./context";
   import { tr } from "./lib/i18n";
-  import { NAV_ROUTES, navFor, navHash, route, type NavRoute } from "./router";
+  import { Button } from "./lib";
+  import { NAV_ROUTES, navFor, navHash, navigate, route, type NavRoute } from "./router";
   import Cards from "./screens/Cards.svelte";
   import Group from "./screens/Group.svelte";
+  import Help from "./screens/Help.svelte";
+  import { helpScreenOf, isHelpKey } from "./screens/helpKeys";
   import Home from "./screens/Home.svelte";
   import Onboarding from "./screens/Onboarding.svelte";
+  import { shouldShowOnboarding } from "./screens/onboardingGate";
   import Review from "./screens/Review.svelte";
+  import Settings from "./screens/Settings.svelte";
   import Trash from "./screens/Trash.svelte";
 
   /** Overstyr bridge (tester). Standard: createBridge() i bridge/bridge.ts (Tauri hvis til stede, ellers Mock). */
@@ -21,6 +26,16 @@
   provideBridge(bridge);
 
   let main: HTMLElement | undefined = $state();
+  let helpOpen = $state(false);
+
+  // Første gang: gå til onboarding fra Hjem. Senere starter (og avbrutt skann) går rett til Hjem.
+  onMount(() => {
+    void shouldShowOnboarding(bridge, $route).then((yes) => { if (yes) navigate({ name: "onboarding" }); });
+  });
+  // F1: hurtigtaster for gjeldende skjerm (kortmodus har egen dialog). Esc lukker via <dialog>.
+  function windowKey(e: KeyboardEvent): void {
+    if (isHelpKey(e, $route)) { e.preventDefault(); helpOpen = !helpOpen; }
+  }
   const label: Record<NavRoute, "nav.home" | "nav.review" | "nav.trash" | "nav.settings"> = {
     home: "nav.home", review: "nav.review", trash: "nav.trash", settings: "nav.settings",
   };
@@ -37,6 +52,8 @@
   });
 </script>
 
+<svelte:window onkeydown={windowKey} />
+
 <a class="skip" href="#main" onclick={(e) => { e.preventDefault(); main?.focus(); }}>{$tr("a11y.skip.main")}</a>
 
 <header>
@@ -50,7 +67,12 @@
       {/each}
     </ul>
   </nav>
+  {#if $route.name !== "cards"}
+    <Button ariaKeyshortcuts="F1" onclick={() => (helpOpen = true)}>{$tr("common.shortcuts")}</Button>
+  {/if}
 </header>
+
+<Help open={helpOpen} screen={helpScreenOf($route)} onClose={() => (helpOpen = false)} />
 
 <main id="main" tabindex="-1" bind:this={main}>
   {#if $route.name === "onboarding"}
@@ -66,7 +88,7 @@
   {:else if $route.name === "trash"}
     <Trash />
   {:else}
-    <section><h1 tabindex="-1">{$tr("settings.title")}</h1></section>
+    <Settings />
   {/if}
 </main>
 

@@ -67,6 +67,8 @@ pub struct StateDto {
     pub scan_done: u64,
     pub scan_total: u64,
     pub trash_days: u32,
+    /// Skann satt på pause av brukeren (avbrutt, gjenopptas med `resume_scan`).
+    pub scan_paused: bool,
 }
 
 impl StateDto {
@@ -91,6 +93,7 @@ impl StateDto {
             scan_done: h.scan.done,
             scan_total: h.scan.total,
             trash_days: s.trash_days,
+            scan_paused: false,
         }
     }
 }
@@ -251,4 +254,33 @@ pub struct EmptyDto {
     pub cancelled: u64,
     pub unavailable: u64,
     pub freed_bytes: u64,
+}
+
+/// Ett bilde i «Nylig slettet». Tider i sekunder siden epoch. `name` er bare filnavnet (ingen sti).
+#[derive(Serialize, Debug, PartialEq, Eq, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashedDto {
+    pub asset: u64,
+    pub name: String,
+    pub bytes: u64,
+    pub trashed_at: i64,
+    pub expires_at: i64,
+    pub expired: bool,
+}
+
+/// Resultat av «Gjenopprett». Bare bilder som lå i «Nylig slettet» telles.
+#[derive(Serialize, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreDto {
+    pub restored: u64,
+}
+
+/// Innstillinger skallet viser. `quarantine_dir` er `None` til en mappe er valgt.
+/// `empty_default` er alltid `"recycle"`: «Tøm» går via Windows Papirkurv, permanent har eget ark.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsDto {
+    pub trash_days: u32,
+    pub quarantine_dir: Option<String>,
+    pub empty_default: &'static str,
 }

@@ -9,12 +9,14 @@
 //! - `path`: lange stier og UNC. `windows` (cfg(windows)): Papirkurv-implementasjon mot Windows.
 
 pub mod delete;
+pub mod drives;
 pub mod locality;
 pub mod manifest;
 pub mod path;
 pub mod quarantine;
 pub mod source;
 pub mod thumb;
+pub mod thumbcache;
 #[cfg(windows)]
 pub mod windows;
 

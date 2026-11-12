@@ -21,11 +21,11 @@ mod tests_core;
 use crate::core::Core;
 use dto::{
     parse_consequence, parse_kind, CardPageDto, DecisionDto, EmptyDto, ErrorDto, PermanentAckDto,
-    StateDto, TrashSummaryDto,
+    RestoreDto, SettingsDto, StateDto, TrashSummaryDto, TrashedDto,
 };
 use fjell_core::api::{
     Card, CardCursor, Decision, FjellApi, HomeSummary, KindSummary, MemApi, ScanConfig, ScanMode,
-    ScanPhase, ScanProgress, TrashSummary,
+    ScanPhase, ScanProgress, Settings, TrashSummary,
 };
 use fjell_core::model::{
     AssetId, AssetSource, CardId, Clock, ConsequenceCode, GroupId, ProtectFlags, ReasonCode,
@@ -33,6 +33,7 @@ use fjell_core::model::{
 };
 use fjell_fs::{FsSource, RecycleBin, RecycleError};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -82,6 +83,10 @@ pub struct Shell {
     data_dir: Option<PathBuf>,
     bin: Arc<dyn RecycleBin>,
     clock: Arc<dyn Clock>,
+    /// Brukeren har satt skann på pause (avbrutt; `resume_scan` starter på nytt og fortsetter via `mod_token`).
+    paused: AtomicBool,
+    /// Modus for siste skann, så `resume_scan` fortsetter likt.
+    last_full: AtomicBool,
 }
 
 impl Shell {
@@ -91,6 +96,8 @@ impl Shell {
             data_dir: None,
             bin: Arc::new(NoRecycleBin),
             clock: Arc::new(SysClock),
+            paused: AtomicBool::new(false),
+            last_full: AtomicBool::new(false),
         }
     }
 
@@ -110,6 +117,8 @@ impl Shell {
             data_dir: Some(data_dir.clone()),
             bin,
             clock: Arc::new(SysClock),
+            paused: AtomicBool::new(false),
+            last_full: AtomicBool::new(false),
         };
         if let Some(lib) = config::last_library(&data_dir) {
             let _ = sh.open_library(&lib, Arc::new(FsSource::new(&lib)));
@@ -183,7 +192,9 @@ impl Shell {
             Inner::Mock(a, b) => (a.clone(), *b),
             Inner::Core(c) => (c.fjell.clone() as Arc<dyn FjellApi>, "core"),
         };
-        StateDto::from_core(backend, &api.home_summary(), &api.settings())
+        let mut st = StateDto::from_core(backend, &api.home_summary(), &api.settings());
+        st.scan_paused = self.paused.load(Ordering::SeqCst);
+        st
     }
 
     /// Starter skanning og returnerer straks; fremdrift leses via `state()` (`scan_*`).
@@ -194,6 +205,8 @@ impl Shell {
         } else {
             ScanMode::Quick
         };
+        self.paused.store(false, Ordering::SeqCst);
+        self.last_full.store(full, Ordering::SeqCst);
         self.parts()?
             .0
             .start_scan(ScanConfig {
@@ -204,9 +217,26 @@ impl Shell {
             .map_err(ErrorDto::from)
     }
 
+    /// Avbryter skann. Det som er funnet beholdes; en ny skanning fortsetter via `mod_token`.
     pub fn cancel_scan(&self) -> Result<(), ErrorDto> {
+        self.paused.store(false, Ordering::SeqCst);
         self.parts()?.0.cancel();
         Ok(())
+    }
+
+    /// Pause = avbryt nå og husk det. Ingen filer røres; bildene som er analysert er lagret i indeksen.
+    pub fn pause_scan(&self) -> Result<(), ErrorDto> {
+        self.parts()?.0.cancel();
+        self.paused.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    /// Fortsett etter pause: ny skanning i samme modus. Ferdig analyserte bilder hoppes over.
+    pub fn resume_scan(&self) -> Result<(), ErrorDto> {
+        if !self.paused.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.start_scan(self.last_full.load(Ordering::SeqCst))
     }
 
     pub fn cards(
@@ -283,6 +313,66 @@ impl Shell {
             &api.trash_summary(),
             &api.settings(),
         ))
+    }
+
+    /// Alle bilder i «Nylig slettet» (ekte modus). Mocken har ingen filer.
+    pub fn trashed(&self) -> Result<Vec<TrashedDto>, ErrorDto> {
+        let core = self.core()?;
+        Ok(core.trashed(self.clock.now()))
+    }
+
+    /// Gjenoppretter valgte bilder. Umiddelbart og uten bekreftelse (PLAN-UX-I18N 3.6).
+    pub fn restore(&self, ids: &[u64]) -> Result<RestoreDto, ErrorDto> {
+        self.core()?.restore(ids)
+    }
+
+    pub fn restore_all(&self) -> Result<RestoreDto, ErrorDto> {
+        self.core()?.restore_all()
+    }
+
+    fn core(&self) -> Result<Arc<Core>, ErrorDto> {
+        self.parts()?
+            .1
+            .ok_or_else(|| ErrorDto::new("unsupported", "mock"))
+    }
+
+    /// Innstillinger: papirkurvfrist, karantenemappe og standard for «Tøm».
+    pub fn settings(&self) -> Result<SettingsDto, ErrorDto> {
+        let (api, core) = match &*self.read() {
+            Inner::NoLibrary => (None, None),
+            Inner::Mock(a, _) => (Some(a.clone()), None),
+            Inner::Core(c) => (Some(c.fjell.clone() as Arc<dyn FjellApi>), Some(c.clone())),
+        };
+        Ok(SettingsDto {
+            trash_days: api.map_or(Settings::default().trash_days, |a| a.settings().trash_days),
+            quarantine_dir: core.map(|c| c.quarantine_dir().to_string_lossy().into_owned()),
+            empty_default: "recycle",
+        })
+    }
+
+    /// Endrer papirkurvfristen (1 til 365 dager). Gjelder bare nye elementer (kjernen).
+    pub fn set_trash_days(&self, days: u32) -> Result<SettingsDto, ErrorDto> {
+        if !(1..=365).contains(&days) {
+            return Err(ErrorDto::bad_request("trash_days"));
+        }
+        self.parts()?.0.set_settings(Settings { trash_days: days });
+        self.settings()
+    }
+
+    /// Første gang appen kjøres (ingen mappe valgt, onboarding ikke fullført). Alltid `false` uten app-data.
+    pub fn first_run(&self) -> bool {
+        match &self.data_dir {
+            Some(d) => config::first_run(d),
+            None => false,
+        }
+    }
+
+    /// Onboarding er gjennomført (første skann startet). Vises ikke på nytt, også om appen lukkes midt i skann.
+    pub fn complete_onboarding(&self) -> Result<(), ErrorDto> {
+        if let Some(d) = &self.data_dir {
+            config::set_onboarded(d).map_err(|e| ErrorDto::new("internal", e.to_string()))?;
+        }
+        Ok(())
     }
 
     /// «Tøm»: Papirkurv som standard; permanent bare med `permanent` (avkrysning + riktig antall).
