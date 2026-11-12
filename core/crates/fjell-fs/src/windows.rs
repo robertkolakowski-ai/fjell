@@ -2,8 +2,8 @@
 //! på Linux finnes `delete::FakeRecycleBin` og tester av alt rundt. Eneste modul med `unsafe`.
 //!
 //! Valg (ARKITEKTUR 22): `IFileOperation` via `windows`-craten. Den erstatter `SHFileOperationW`,
-//! som ikke tar `\\?\` og dermed ga `Failed` for stier over MAX_PATH. Stien gjøres alltid om til
-//! `\\?\`-form før `SHCreateItemFromParsingName`.
+//! som ikke tar `\\?\` og dermed ga `Failed` for stier over MAX_PATH. Stien får `\\?\`-prefiks
+//! bare når den er lang; vanlige stier sendes uten (shell-parseren gir E_INVALIDARG på prefikset).
 //! Sikkerhet mot stille permanent sletting:
 //! - Bare faste disker (`DRIVE_FIXED`) forsøkes; nettverk, UNC og flyttbare gir `Unsupported`.
 //! - `FOFX_RECYCLEONDELETE` får operasjonen til å feile når filen ikke kan til Papirkurv, i stedet
@@ -57,7 +57,9 @@ fn recycle_item(path: &str) -> Result<(), RecycleError> {
     // Allerede initialisert med annen modell gir RPC_E_CHANGED_MODE; COM er da brukbart likevel.
     // SAFETY: standard COM-oppstart; guard avslutter på samme tråd.
     let _com = ComGuard(unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) }.is_ok());
-    let ext = HSTRING::from(extended_str(path, true));
+    // Shell-parseren avviser `\\?\` for vanlige stier (E_INVALIDARG): prefiks bare når stien er lang.
+    let plain = crate::path::strip_extended(path).replace('/', "\\");
+    let ext = HSTRING::from(extended_str(&plain, false));
     // SAFETY: COM er initialisert; `ext` lever gjennom kallene; grensesnittene slippes før `_com`.
     unsafe {
         let op: IFileOperation =
