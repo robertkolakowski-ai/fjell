@@ -9,4 +9,6 @@ workspace = true
 
 [dependencies]
 fjell-core = { path = "../../../core/crates/fjell-core" }
+fjell-fs = { path = "../../../core/crates/fjell-fs" }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"

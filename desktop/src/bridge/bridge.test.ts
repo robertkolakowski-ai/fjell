@@ -16,7 +16,7 @@ describe("identisk grensesnitt", () => {
   it("samme offentlige metoder", () => {
     const names = (o: object) =>
       Object.getOwnPropertyNames(Object.getPrototypeOf(o)).filter((n) => n !== "constructor" && !n.startsWith("wait")).sort();
-    const pub = ["decide", "getState", "listCards", "purge", "startScan", "undo"];
+    const pub = ["decide", "emptyTrash", "getState", "listCards", "purge", "setKeeper", "startScan", "undo"];
     expect(names(new TauriBridge())).toEqual(pub);
     expect(names(new MockBridge()).filter((n) => pub.includes(n))).toEqual(pub);
   });
@@ -39,8 +39,15 @@ describe("TauriBridge", () => {
       ["get_state"],
     ]);
   });
-  it("purge er ikke støttet ennå", async () => {
-    await expect(new TauriBridge(vi.fn()).purge()).rejects.toMatchObject({ code: "unsupported" });
+  it("setKeeper kaller set_keeper", async () => {
+    const call = vi.fn().mockResolvedValue(undefined);
+    await new TauriBridge(call).setKeeper(4, 9);
+    expect(call.mock.calls).toEqual([["set_keeper", { group: 4, keeper: 9 }]]);
+  });
+  it("purge tømmer via empty_trash og gir antall", async () => {
+    const call = vi.fn().mockResolvedValue({ purged: 3, keptTrashed: 0 });
+    expect(await new TauriBridge(call).purge()).toBe(3);
+    expect(call.mock.calls).toEqual([["empty_trash"]]);
   });
 });
 
