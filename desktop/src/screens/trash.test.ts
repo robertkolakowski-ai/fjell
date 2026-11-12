@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MockBridge } from "../bridge/mock-bridge";
 import { TrashSession } from "./trashFlow";
-import { ackFor, hasExpired, infoOf, initialTrash, reduceTrash } from "./trashState";
+import { ackFor, daysLeft, hasExpired, infoOf, initialTrash, reduceTrash, sectionsOf } from "./trashState";
 
 async function withTrash(opts = {}, n = 3) {
   const b = new MockBridge(opts);
@@ -103,5 +103,93 @@ describe("papirkurv mot MockBridge", () => {
     await s.confirm();
     expect(s.state).toMatchObject({ phase: "list", error: { code: "core_error" } });
     expect((await b.getState()).trashCount).toBe(3);
+  });
+});
+
+describe("papirkurv: per-bilde-liste og gjenoppretting", () => {
+  const DAY = 86_400_000;
+  it("listen har ett element per bilde, med filnavn, størrelse og datoer", async () => {
+    const { s } = await withTrash({}, 3);
+    expect(s.state.items).toHaveLength(3);
+    for (const i of s.state.items) {
+      expect(i.name).toMatch(/^IMG_\d{4}\.jpg$/);
+      expect(i.bytes).toBeGreaterThan(0);
+      expect(i.expiresAt - i.trashedAt).toBe(30 * 86_400);
+      expect(i.expired).toBe(false);
+    }
+  });
+  it("valg: toggle, velg alle, fjern; ukjent bilde ignoreres", async () => {
+    const { s } = await withTrash({}, 3);
+    const [a, b2] = s.state.items;
+    s.send({ type: "toggle", asset: a.asset });
+    s.send({ type: "toggle", asset: b2.asset });
+    s.send({ type: "toggle", asset: b2.asset });
+    expect([...s.state.selected]).toEqual([a.asset]);
+    s.send({ type: "toggle", asset: 99999 });
+    expect(s.state.selected.size).toBe(1);
+    s.send({ type: "selectAll" });
+    expect(s.state.selected.size).toBe(3);
+    s.send({ type: "clearSelection" });
+    expect(s.state.selected.size).toBe(0);
+  });
+  it("Gjenopprett: bare valgte, umiddelbart, uten bekreftelsesark", async () => {
+    const { b, s } = await withTrash({}, 3);
+    const keep = s.state.items[2].asset;
+    s.send({ type: "toggle", asset: s.state.items[0].asset });
+    s.send({ type: "toggle", asset: s.state.items[1].asset });
+    await s.restore(false);
+    expect(s.state).toMatchObject({ phase: "list", restored: 2, restoring: false, restoreFailed: false });
+    expect(s.state.items.map((i) => i.asset)).toEqual([keep]);
+    expect(s.state.selected.size).toBe(0);
+    expect((await b.getState()).trashCount).toBe(1);
+  });
+  it("Gjenopprett uten valg gjør ingenting", async () => {
+    const { b, s } = await withTrash({}, 2);
+    await s.restore(false);
+    expect(s.state.restored).toBeNull();
+    expect((await b.getState()).trashCount).toBe(2);
+  });
+  it("Gjenopprett alt tømmer listen og gir tomtilstand", async () => {
+    const { b, s } = await withTrash({}, 3);
+    await s.restore(true);
+    expect(s.state).toMatchObject({ phase: "empty", restored: 3 });
+    expect(s.state.items).toEqual([]);
+    expect((await b.getState()).trashCount).toBe(0);
+  });
+  it("feil: ingenting endres, melding vises, listen står urørt", async () => {
+    const { b, s } = await withTrash({}, 2);
+    b.restoreAll = () => Promise.reject({ code: "core_error", detail: "" });
+    await s.restore(true);
+    expect(s.state).toMatchObject({ phase: "list", restoreFailed: true, restoring: false });
+    expect(s.state.items).toHaveLength(2);
+    // Prøv igjen virker (restoring er ikke låst).
+    s.send({ type: "toggle", asset: s.state.items[0].asset });
+    expect(s.state.selected.size).toBe(1);
+  });
+  it("dobbelttrykk under gjenoppretting gir ett kall", async () => {
+    const { b, s } = await withTrash({ delayMs: 1 }, 2);
+    let calls = 0;
+    const orig = b.restoreAll.bind(b);
+    b.restoreAll = () => { calls++; return orig(); };
+    await Promise.all([s.restore(true), s.restore(true)]);
+    expect(calls).toBe(1);
+  });
+  it("grupper: utløpt, utløper snart (≤ 7 dager), øvrige; tomme utelates", async () => {
+    let t = 1_000_000_000_000;
+    const { b, s } = await withTrash({ now: () => t }, 3);
+    const nowS = Math.floor(t / 1000);
+    expect(sectionsOf(s.state.items, nowS).map((x) => x.id)).toEqual(["other"]);
+    t += 25 * DAY; // 5 dager igjen
+    await s.load();
+    expect(sectionsOf(s.state.items, Math.floor(t / 1000)).map((x) => x.id)).toEqual(["soon"]);
+    expect(daysLeft(s.state.items[0], Math.floor(t / 1000))).toBe(5);
+    t += 6 * DAY; // utløpt
+    await s.load();
+    expect(sectionsOf(s.state.items, Math.floor(t / 1000)).map((x) => x.id)).toEqual(["expired"]);
+    expect(s.state.info?.expired).toBe(3);
+    expect(daysLeft(s.state.items[0], Math.floor(t / 1000))).toBe(0);
+    // Utløpt er ikke slettet: bildene kan fortsatt gjenopprettes.
+    await s.restore(true);
+    expect((await b.getState()).trashCount).toBe(0);
   });
 });

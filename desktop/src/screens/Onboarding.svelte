@@ -7,7 +7,10 @@
   import { Button, LiveRegion } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { navigate } from "../router";
+  import FolderDialog from "./FolderDialog.svelte";
+  import { addFolder } from "./homeFlow";
   import { quickScan, trashFound } from "./onboardingFlow";
+  import { markOnboarded } from "./onboardingGate";
   import { initialOnb, reduceOnb, type OnbEvent, type OnbState } from "./onboardingState";
 
   interface Props {
@@ -36,7 +39,25 @@
     if (!first) void tick().then(() => root?.querySelector<HTMLElement>("h1")?.focus());
   });
 
+  let library: string | null = $state(null);
+  let folderOpen = $state(false);
+  $effect(() => {
+    if (view.kind === "chooseFolders") void b.getLibrary().then((l) => { if (!gone) library = l; }, () => undefined);
+  });
+  async function chooseFolder(path: string): Promise<boolean> {
+    const r = await addFolder(b, path, false);
+    if (!r.ok) return false;
+    library = r.path;
+    folderOpen = false;
+    return true;
+  }
+
   async function start(): Promise<void> {
+    // Uten valgt mappe finnes ingenting å skanne: be om en først.
+    let lib: string | null = null;
+    try { lib = await b.getLibrary(); } catch { /* feil kommer fra skannet under */ }
+    if (lib === null && library === null) { folderOpen = true; return; }
+    void markOnboarded(b);
     send({ type: "startScan" });
     const r = await quickScan(b, {
       onFound: (found) => send({ type: "progress", found }),
@@ -91,9 +112,12 @@
     <h1 tabindex="-1">{$tr("onb.folders.title")}</h1>
     <p>{$tr("onb.folders.privacy")}</p>
     {#if view.failed}<p role="alert">{$tr("err.generic")}</p>{/if}
-    <!-- Standardmappen (Bilder) er alltid valgt; «Legg til mappe» venter på adapter (A2/A4), ingen bridge-kall finnes. -->
-    <ul class="folders"><li>{$tr("onb.folders.default")}</li></ul>
-    <div class="row"><Button variant="primary" onclick={start}>{$tr("onb.folders.start")}</Button></div>
+    <ul class="folders"><li>{library ?? $tr("home.folder.none")}</li></ul>
+    <div class="row">
+      <Button onclick={() => (folderOpen = true)}>{$tr("onb.folders.add")}</Button>
+      <Button variant="primary" onclick={start}>{$tr("onb.folders.start")}</Button>
+    </div>
+    <FolderDialog open={folderOpen} onSubmit={chooseFolder} onClose={() => (folderOpen = false)} />
   {:else if view.kind === "noAccess"}
     <h1 tabindex="-1">{$tr("onb.noaccess.title")}</h1>
     <p>{$tr("onb.noaccess.body")}</p>

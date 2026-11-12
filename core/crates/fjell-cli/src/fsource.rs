@@ -14,6 +14,15 @@ impl FsSource {
     pub fn new(root: impl Into<PathBuf>) -> FsSource {
         FsSource(fjell_fs::FsSource::new(root).without_decoding())
     }
+
+    /// Kobler fjerningsdeteksjon (T11) til indeksen i `db`: kjente id-er er indeksens aktive bilder.
+    /// Feil ved lesing gir tom liste, altså ingen fjerninger (aldri gjetting).
+    pub fn with_index(self, db: &std::path::Path) -> FsSource {
+        let db = db.to_path_buf();
+        FsSource(self.0.with_known_ids(Box::new(move || {
+            fjell_core::store::Store::active_source_ids_at(&db).unwrap_or_default()
+        })))
+    }
 }
 
 impl AssetSource for FsSource {

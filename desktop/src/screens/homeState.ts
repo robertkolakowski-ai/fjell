@@ -4,6 +4,7 @@ import type { AppState, BridgeError, KindCode, ScanPhase } from "../bridge/types
 export type HomeView =
   | { kind: "loading" }
   | { kind: "scanning"; summary: AppState; done: number; total: number }
+  | { kind: "paused"; summary: AppState; done: number; total: number }
   | { kind: "ready"; summary: AppState }
   | { kind: "allClean"; summary: AppState }
   | { kind: "error"; error: BridgeError };
@@ -25,12 +26,17 @@ export function ringFraction(s: AppState): number {
   return total > 0 ? s.reclaimableBytes / total : 0;
 }
 
+/** Aldri skannet (ingen skann har kjørt i denne indeksen): Hjem tilbyr «Start skanning» i stedet for tomme tall. */
+export const neverScanned = (s: AppState): boolean => s.scanPhase === "idle" && pendingCount(s) === 0;
+
 export const initialHome: HomeView = { kind: "loading" };
 
 export function reduceHome(s: HomeView, e: HomeEvent): HomeView {
   switch (e.type) {
     case "loaded": {
       const sum = e.summary;
+      // Pause går foran fase: skannet er avbrutt og ventende funn står, men skann regnes ikke som aktivt.
+      if (sum.scanPaused) return { kind: "paused", summary: sum, done: sum.scanDone, total: sum.scanTotal };
       if (isScanning(sum.scanPhase)) return { kind: "scanning", summary: sum, done: sum.scanDone, total: sum.scanTotal };
       // Aldri skannet (idle) er ikke «alt ryddet».
       if (sum.scanPhase === "done" && pendingCount(sum) === 0) return { kind: "allClean", summary: sum };

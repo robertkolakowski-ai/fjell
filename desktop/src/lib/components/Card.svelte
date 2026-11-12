@@ -8,15 +8,18 @@
     children: Snippet;
   }
   let { heading, headingLevel = 2, children }: Props = $props();
+  const uid = $props.id();
   const tag = $derived(`h${headingLevel}`);
 </script>
 
-<section class="card" aria-label={heading}>
+<!-- Gruppe, ikke region: et landemerke per kort gir støy i Narrator/NVDA-landemerkelisten, og aria-label som gjentar
+     overskriften leses to ganger. Navnet kommer fra selve overskriften. -->
+<div class="card" role={heading ? "group" : undefined} aria-labelledby={heading ? `${uid}-t` : undefined}>
   {#if heading}
-    <svelte:element this={tag} class="title">{heading}</svelte:element>
+    <svelte:element this={tag} id="{uid}-t" class="title">{heading}</svelte:element>
   {/if}
   {@render children()}
-</section>
+</div>
 
 <style>
   .card {

@@ -3,7 +3,9 @@
 //! Avhenger av: `tauri`, `fjell-shell`.
 //! Grensesnitt: `run()` (kalles fra `main.rs`). Kommandoer: `get_state`, `start_scan`,
 //! `cancel_scan`, `list_cards`, `decide_cards`, `set_keeper`, `undo`, `trash_summary`,
-//! `empty_trash`, `set_library`, `get_library`. Ingen logikk her; ingen sletting utenom
+//! `empty_trash`, `set_library`, `get_library`, `pause_scan`, `resume_scan`, `list_trashed`,
+//! `restore_trashed`, `restore_all_trashed`, `get_settings`, `set_trash_days`, `get_first_run`,
+//! `complete_onboarding`. Ingen logikk her; ingen sletting utenom
 //! `Shell::empty` (Papirkurv som standard, beslutning 17).
 //!
 //! Alle kommandoer er `async` slik at filarbeid ikke kjører på hovedtråden (< 100 ms-målet);
@@ -12,7 +14,8 @@
 //! IKKE bygget eller kjørt i utviklingsmiljøet (krever webkit2gtk/WebView2).
 
 use fjell_shell::dto::{
-    CardPageDto, DecisionDto, EmptyDto, ErrorDto, PermanentAckDto, StateDto, TrashSummaryDto,
+    CardPageDto, DecisionDto, EmptyDto, ErrorDto, PermanentAckDto, RestoreDto, SettingsDto,
+    StateDto, TrashSummaryDto, TrashedDto,
 };
 use fjell_shell::{default_recycle_bin, Shell};
 use std::sync::Arc;
@@ -99,6 +102,60 @@ async fn get_library(shell: State<'_, Arc<Shell>>) -> Res<Option<String>> {
     Ok(shell.library())
 }
 
+#[tauri::command]
+async fn pause_scan(shell: State<'_, Arc<Shell>>) -> Res<()> {
+    shell.pause_scan()
+}
+
+#[tauri::command]
+async fn resume_scan(shell: State<'_, Arc<Shell>>) -> Res<()> {
+    shell.resume_scan()
+}
+
+#[tauri::command]
+async fn list_trashed(shell: State<'_, Arc<Shell>>) -> Res<Vec<TrashedDto>> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.trashed())
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
+}
+
+#[tauri::command]
+async fn restore_trashed(shell: State<'_, Arc<Shell>>, ids: Vec<u64>) -> Res<RestoreDto> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.restore(&ids))
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
+}
+
+#[tauri::command]
+async fn restore_all_trashed(shell: State<'_, Arc<Shell>>) -> Res<RestoreDto> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.restore_all())
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
+}
+
+#[tauri::command]
+async fn get_settings(shell: State<'_, Arc<Shell>>) -> Res<SettingsDto> {
+    shell.settings()
+}
+
+#[tauri::command]
+async fn set_trash_days(shell: State<'_, Arc<Shell>>, days: u32) -> Res<SettingsDto> {
+    shell.set_trash_days(days)
+}
+
+#[tauri::command]
+async fn get_first_run(shell: State<'_, Arc<Shell>>) -> Res<bool> {
+    Ok(shell.first_run())
+}
+
+#[tauri::command]
+async fn complete_onboarding(shell: State<'_, Arc<Shell>>) -> Res<()> {
+    shell.complete_onboarding()
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
@@ -117,7 +174,16 @@ pub fn run() {
             trash_summary,
             empty_trash,
             set_library,
-            get_library
+            get_library,
+            pause_scan,
+            resume_scan,
+            list_trashed,
+            restore_trashed,
+            restore_all_trashed,
+            get_settings,
+            set_trash_days,
+            get_first_run,
+            complete_onboarding
         ])
         .run(tauri::generate_context!())
         .expect("kunne ikke starte Fjell");

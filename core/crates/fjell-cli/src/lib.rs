@@ -4,8 +4,11 @@
 //! Grensesnitt:
 //! - `fsource::FsSource`: omslag rundt `fjell_fs::FsSource` uten bildedekoding (som før M5).
 //! - `cmd::{scan, list}`: kommandoene, skriver til en `Write`.
+//! - `perf::{SynthSource, run}`: ytelsesmåling med syntetiske bilder (`fjell-cli perf`).
 //! - `flow::{index, trash, undo, purge}`: fullflyt mot ekte kjerne (`Fjell`), purge bare i temp-kopi.
 
 pub mod cmd;
+pub mod crashtest;
 pub mod flow;
 pub mod fsource;
+pub mod perf;

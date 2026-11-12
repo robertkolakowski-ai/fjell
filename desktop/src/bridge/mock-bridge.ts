@@ -2,7 +2,8 @@
 import type { CoreBridge } from "./core-bridge";
 import {
   KIND_CODES, type AppState, type BridgeError, type Card, type CardPage, type Decision,
-  type EmptyResult, type KindCode, type PermanentAck, type ReasonCode, type ScanPhase,
+  type AppSettings, type EmptyResult, type KindCode, type PermanentAck, type ReasonCode, type RestoreResult,
+  type ScanPhase, type TrashedItem,
 } from "./types";
 
 export interface MockOptions {
@@ -11,7 +12,18 @@ export interface MockOptions {
   trashDays?: number;
   /** Simuler volum uten Papirkurv (nettverksstasjon): Papirkurv-modus gir `unsupported`. */
   noBin?: boolean;
+  /** Klokke (ms siden epoch). Tester styrer utløp med denne. */
+  now?: () => number;
+  /** Valgt mappe. Standard: en mappe er valgt. `null` = ingen (start av skann gir `no_library`). */
+  library?: string | null;
+  /** Første gang appen kjøres (onboarding vises). Standard: false. */
+  firstRun?: boolean;
+  /** Antall `getState`-kall skannet blir stående i «analyserer» før det er ferdig (tester av pause/fortsett/avbryt). Standard 0 = straks ferdig. */
+  scanPolls?: number;
 }
+
+const DAY = 86_400;
+const QUARANTINE = ".fjell-karantene";
 
 const REASON: Record<KindCode, ReasonCode> = {
   exact_dup: "ExactCopy", visual_dup: "VisualDuplicate", blurry: "Blurry", screenshot: "Screenshot",
@@ -51,13 +63,26 @@ export class MockBridge implements CoreBridge {
   private freedSince: number | null = null;
   private readonly noBin: boolean;
   private readonly delayMs: number;
-  private readonly days: number;
+  private days: number;
+  private readonly now: () => number;
+  private library: string | null;
+  private firstRun: boolean;
+  private readonly scanPolls: number;
+  private pollsLeft = 0;
+  private paused = false;
+  /** Sekunder siden epoch når bildet (`asset`) ble flyttet til «Nylig slettet». */
+  private trashedAt = new Map<number, number>();
 
   constructor(opts: MockOptions = {}) {
     this.delayMs = opts.delayMs ?? 0;
     this.days = opts.trashDays ?? 30;
     this.noBin = opts.noBin ?? false;
+    this.now = opts.now ?? Date.now;
+    this.library = opts.library === undefined ? "C:\\Bilder" : opts.library;
+    this.firstRun = opts.firstRun ?? false;
+    this.scanPolls = opts.scanPolls ?? 0;
   }
+
 
   private wait(): Promise<void> {
     return this.delayMs > 0 ? new Promise((r) => setTimeout(r, this.delayMs)) : Promise.resolve();
@@ -65,6 +90,7 @@ export class MockBridge implements CoreBridge {
 
   async getState(): Promise<AppState> {
     await this.wait();
+    if (this.phase === "analyzing" && !this.paused && this.pollsLeft-- <= 0) this.phase = "done";
     const have = this.phase === "idle" ? [] : this.cards;
     const perKind = KIND_CODES.map((kind) => {
       const k = have.filter((c) => c.kind === kind);
@@ -75,15 +101,43 @@ export class MockBridge implements CoreBridge {
       reclaimableBytes: perKind.reduce((s, k) => s + k.bytes, 0),
       trashCount: this.trashed.length,
       trashBytes: this.trashed.reduce((s, c) => s + c.bytes, 0),
-      trashExpired: 0, freedBytes: this.freed,
-      scanPhase: this.phase, scanDone: this.phase === "done" ? 100 : 0,
+      trashExpired: this.trashedItems().filter((i) => i.expired).length, freedBytes: this.freed,
+      scanPhase: this.phase, scanDone: this.phase === "done" ? 100 : this.phase === "idle" ? 0 : 40,
       scanTotal: this.phase === "idle" ? 0 : 100, trashDays: this.days, freedSince: this.freedSince,
+      scanPaused: this.paused,
     };
   }
 
   async startScan(_full: boolean): Promise<void> {
     await this.wait();
-    this.phase = "done";
+    if (this.library === null) throw err("no_library");
+    this.paused = false;
+    this.begin();
+  }
+
+  private begin(): void {
+    this.pollsLeft = this.scanPolls;
+    this.phase = this.scanPolls > 0 ? "analyzing" : "done";
+  }
+
+  async pauseScan(): Promise<void> {
+    await this.wait();
+    if (this.phase === "analyzing") this.paused = true;
+  }
+
+  async resumeScan(): Promise<void> {
+    await this.wait();
+    if (this.paused) {
+      this.paused = false;
+      this.phase = "analyzing";
+    }
+  }
+
+  async cancelScan(): Promise<void> {
+    await this.wait();
+    this.paused = false;
+    // Det som er funnet beholdes: skannet regnes som ferdig for det som er analysert.
+    if (this.phase === "analyzing") this.phase = "done";
   }
 
   async listCards(kind: KindCode, limit: number, cursor: number | null = null): Promise<CardPage> {
@@ -101,7 +155,10 @@ export class MockBridge implements CoreBridge {
     if (hit.some((c) => c === null)) throw err("unknown_card");
     const batch = this.nextBatch++;
     this.cards = this.cards.filter((c) => !ids.includes(c.id));
-    if (decision === "trash") this.trashed.push(...(hit as Card[]));
+    if (decision === "trash") {
+      this.trashed.push(...(hit as Card[]));
+      for (const c of hit as Card[]) this.trashedAt.set(c.asset, Math.floor(this.now() / 1000));
+    }
     else this.kept.push(...(hit as Card[]));
     this.batches.push({ ids, decision });
     return batch;
@@ -132,6 +189,84 @@ export class MockBridge implements CoreBridge {
     else this.kept = this.kept.filter((c) => !ids.includes(c.id));
     this.cards = [...this.cards, ...back].sort((a, b) => a.id - b.id);
     return this.nextBatch++;
+  }
+
+  private trashedItems(): TrashedItem[] {
+    const nowS = Math.floor(this.now() / 1000);
+    return this.trashed
+      .map((c) => {
+        const trashedAt = this.trashedAt.get(c.asset) ?? nowS;
+        const expiresAt = trashedAt + this.days * DAY;
+        return { asset: c.asset, name: `IMG_${String(c.asset).padStart(4, "0")}.jpg`, bytes: c.bytes, trashedAt, expiresAt, expired: expiresAt <= nowS };
+      })
+      .sort((a, b) => a.trashedAt - b.trashedAt || a.asset - b.asset);
+  }
+
+  async listTrashed(): Promise<TrashedItem[]> {
+    await this.wait();
+    return this.trashedItems();
+  }
+
+  async restore(assets: number[]): Promise<RestoreResult> {
+    await this.wait();
+    const back = this.trashed.filter((c) => assets.includes(c.asset));
+    if (back.length === 0) return { restored: 0 };
+    const ids = new Set(back.map((c) => c.id));
+    this.trashed = this.trashed.filter((c) => !ids.has(c.id));
+    back.forEach((c) => this.trashedAt.delete(c.asset));
+    // Gjenopprettede bilder foreslås ikke på nytt (som i kjernen), så de legges ikke tilbake som kort.
+    // Angre-stabelen mister dem: en batch uten gjenværende bilder kan ikke angres.
+    this.batches = this.batches
+      .map((b) => ({ ...b, ids: b.decision === "trash" ? b.ids.filter((i) => !ids.has(i)) : b.ids }))
+      .filter((b) => b.ids.length > 0);
+    return { restored: back.length };
+  }
+
+  async restoreAll(): Promise<RestoreResult> {
+    await this.wait();
+    return this.restore(this.trashed.map((c) => c.asset));
+  }
+
+  async getLibrary(): Promise<string | null> {
+    await this.wait();
+    return this.library;
+  }
+
+  async setLibrary(path: string): Promise<void> {
+    await this.wait();
+    if (path.trim() === "" || path.includes("\0")) throw err("not_a_folder", path);
+    this.library = path.trim();
+    this.firstRun = false;
+  }
+
+  async getFirstRun(): Promise<boolean> {
+    await this.wait();
+    return this.firstRun && this.library === null;
+  }
+
+  async completeOnboarding(): Promise<void> {
+    await this.wait();
+    this.firstRun = false;
+  }
+
+  async getSettings(): Promise<AppSettings> {
+    await this.wait();
+    return this.settings();
+  }
+
+  async setTrashDays(days: number): Promise<AppSettings> {
+    await this.wait();
+    if (!Number.isInteger(days) || days < 1 || days > 365) throw err("bad_request", "trash_days");
+    this.days = days;
+    return this.settings();
+  }
+
+  private settings(): AppSettings {
+    const sep = this.library?.includes("\\") ? "\\" : "/";
+    return {
+      trashDays: this.days, emptyDefault: "recycle",
+      quarantineDir: this.library === null ? null : `${this.library.replace(/[\\/]+$/, "")}${sep}${QUARANTINE}`,
+    };
   }
 
   async purge(): Promise<number> {

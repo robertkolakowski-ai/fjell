@@ -105,9 +105,9 @@ fn deterministic_vectors() {
     assert_eq!(blur_score(&noisy).to_bits(), got[0]);
 }
 
-const VECTORS: [u32; 4] = [1085665849, 1043099570, 1098905457, 1085650167];
+const VECTORS: [u32; 4] = [1039478234, 993368672, 1051124735, 1039458161];
 
-/// K3-7: miniatyr mindre enn 3×3 (og ugyldig datalengde) gir `LOW_CONTRAST`, ikke panikk.
+/// K3-7: miniatyr mindre enn `MIN_SIDE` (og ugyldig datalengde) gir `LOW_CONTRAST`, ikke panikk.
 /// Deterministisk fuzz i stedet for `proptest` (ikke i avhengighetsbufferen offline).
 #[test]
 fn tiny_and_malformed_never_panic() {
@@ -133,7 +133,110 @@ fn tiny_and_malformed_never_panic() {
         let t = Thumb::new(w, h, ThumbFmt::Gray8, vec![7; (w * h) as usize]).unwrap();
         assert_eq!(blur_score(&t), LOW_CONTRAST);
     }
-    // Akkurat 3×3: ett indre punkt gir Laplace-varians 0, uten panikk eller NaN.
+    // Under `MIN_SIDE` (retningsstatistikk trenger lag 2 i alle retninger): ikke vurderbar.
     let t = gray(3, 3, |x, y| if (x + y) % 2 == 0 { 0 } else { 255 });
-    assert_eq!(blur_score(&t), 0.0);
+    assert_eq!(blur_score(&t), LOW_CONTRAST);
+    let t = gray(7, 40, |x, y| if (x + y) % 2 == 0 { 0 } else { 255 });
+    assert_eq!(blur_score(&t), LOW_CONTRAST);
+    // Akkurat `MIN_SIDE`: vurderbar, endelig og positiv.
+    let t = gray(8, 8, |x, y| (x * 40 + y * 7) as u8 ^ ((x * y) as u8));
+    let s = blur_score(&t);
+    assert!(s.is_finite() && s > 0.0 && s < LOW_CONTRAST, "{s}");
+}
+
+/// Tekstur med fin detalj (hvit støy glattet svakt), ikke periodisk.
+fn texture(w: u32, h: u32, seed: u64) -> Thumb {
+    let mut r = Lcg(seed);
+    let n: Vec<i32> = (0..w * h).map(|_| (r.next() >> 56) as i32).collect();
+    let at = |x: i32, y: i32| {
+        n[(y.clamp(0, h as i32 - 1) * w as i32 + x.clamp(0, w as i32 - 1)) as usize]
+    };
+    gray(w, h, |x, y| {
+        let (x, y) = (x as i32, y as i32);
+        ((at(x, y) * 2 + at(x + 1, y) + at(x, y + 1)) / 4).clamp(0, 255) as u8
+    })
+}
+
+fn blur_dir(t: &Thumb, dx: i32, dy: i32, len: i32) -> Thumb {
+    let (w, h) = (t.w as i32, t.h as i32);
+    gray(t.w, t.h, |x, y| {
+        let mut s = 0i32;
+        for i in 0..len {
+            let (xx, yy) = (
+                (x as i32 + dx * (i - len / 2)).clamp(0, w - 1),
+                (y as i32 + dy * (i - len / 2)).clamp(0, h - 1),
+            );
+            s += t.data[(yy * w + xx) as usize] as i32;
+        }
+        (s / len) as u8
+    })
+}
+
+/// K8: lineær bevegelsesuskarphet (13 px ≈ 8 % av bredden; vannrett, loddrett, diagonal) og isotrop
+/// uskarphet flagges;
+/// den skarpe teksturen gjør det ikke. Samme motiv, bare uskarpheten er ulik.
+#[test]
+fn motion_and_isotropic_blur_are_flagged_sharp_is_not() {
+    for seed in 1..=6u64 {
+        let sharp = texture(160, 120, seed);
+        let s0 = blur_score(&sharp);
+        assert!(s0 >= BLUR_ABS_MAX, "skarp flagget, seed {seed}: {s0}");
+        for (dx, dy) in [(1, 0), (0, 1), (1, 1), (1, -1)] {
+            let s = blur_score(&blur_dir(&sharp, dx, dy, 13));
+            assert!(
+                s < BLUR_ABS_MAX,
+                "bevegelse ({dx},{dy}) ikke flagget, seed {seed}: {s}"
+            );
+        }
+        // Tolv 3×3-passer ≈ Gauss-σ 2,8 px (grensen ligger rundt 1,3 px; svakere uskarphet på ren støy ligner glatt struktur).
+        let iso = (0..12).fold(sharp.clone(), |t, _| box_blur(&t));
+        assert!(
+            blur_score(&iso) < BLUR_ABS_MAX,
+            "isotrop uskarphet ikke flagget, seed {seed}: {} (skarp {s0})",
+            blur_score(&iso)
+        );
+    }
+}
+
+/// Transponering og speiling bytter bare retningene, så scoren er bit for bit lik.
+#[test]
+fn score_is_invariant_under_transpose_and_mirror() {
+    let t = texture(97, 61, 5);
+    let (w, h) = (t.w as usize, t.h as usize);
+    let tr = Thumb::new(
+        h as u32,
+        w as u32,
+        ThumbFmt::Gray8,
+        (0..w)
+            .flat_map(|x| (0..h).map(move |y| (x, y)))
+            .map(|(x, y)| t.data[y * w + x])
+            .collect(),
+    )
+    .unwrap();
+    let mir = Thumb::new(
+        w as u32,
+        h as u32,
+        ThumbFmt::Gray8,
+        (0..h)
+            .flat_map(|y| (0..w).map(move |x| (x, y)))
+            .map(|(x, y)| t.data[y * w + (w - 1 - x)])
+            .collect(),
+    )
+    .unwrap();
+    let s = blur_score(&t).to_bits();
+    assert_eq!(blur_score(&tr).to_bits(), s);
+    assert_eq!(blur_score(&mir).to_bits(), s);
+}
+
+/// Scoren er strengt positiv og under `LOW_CONTRAST` for vurderbare bilder, og faller med uskarphet.
+#[test]
+fn score_is_positive_and_falls_with_blur() {
+    let mut cur = texture(128, 96, 11);
+    let mut prev = f32::INFINITY;
+    for _ in 0..6 {
+        let s = blur_score(&cur);
+        assert!(s > 0.0 && s < LOW_CONTRAST && s < prev, "{s} {prev}");
+        prev = s;
+        cur = box_blur(&cur);
+    }
 }

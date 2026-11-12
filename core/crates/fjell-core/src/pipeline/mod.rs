@@ -25,7 +25,7 @@ mod progress;
 #[cfg(test)]
 pub(crate) mod tests;
 
-pub use groups::{compute, refresh_groups, Grouping, LOW_INFO_BIT};
+pub use groups::{compute, compute_with, refresh_groups, GroupEngine, Grouping, LOW_INFO_BIT};
 pub use progress::{Phase, Progress, Snapshot, DEFAULT_INTERVAL};
 
 use crate::model::{AssetId, AssetSource, ChangeToken, Clock, SourceError, ALGO_VER};
@@ -145,6 +145,10 @@ impl std::error::Error for PipelineError {}
 /// Tilgang til den ene skrivetilkoblingen uten å eie den. Implementasjonen låser og slipper per kall.
 pub trait StoreHandle: Sync {
     fn with_store<R>(&self, f: impl FnOnce(&mut Store) -> R) -> R;
+    /// Buffer for inkrementell klynging som overlever mellom utregninger (`None`: bygges på nytt hver gang).
+    fn engine(&self) -> Option<&Mutex<GroupEngine>> {
+        None
+    }
 }
 
 impl StoreHandle for Mutex<Store> {

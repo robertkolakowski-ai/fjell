@@ -1,5 +1,7 @@
 // CoreBridge: felles grensesnitt for Tauri og mock. All UI går via dette (ingen direkte invoke).
-import type { AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck } from "./types";
+import type {
+  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, TrashedItem,
+} from "./types";
 
 export interface CoreBridge {
   getState(): Promise<AppState>;
@@ -15,4 +17,27 @@ export interface CoreBridge {
   purge(): Promise<number>;
   /** «Tøm» med valg: Windows Papirkurv (standard) eller permanent (krever `PermanentAck`: avkrysning + riktig antall). */
   emptyTrash(permanent?: PermanentAck | null): Promise<EmptyResult>;
+  /** Alle bilder i «Nylig slettet», eldste først. */
+  listTrashed(): Promise<TrashedItem[]>;
+  /** Gjenoppretter valgte bilder fra «Nylig slettet». Umiddelbart, uten bekreftelse. Filer flyttes tilbake fra karantenen. */
+  restore(assets: number[]): Promise<RestoreResult>;
+  /** Gjenoppretter alt i «Nylig slettet». */
+  restoreAll(): Promise<RestoreResult>;
+  /** Pause: avbryter skannet og husker det. Det som er funnet beholdes. */
+  pauseScan(): Promise<void>;
+  /** Fortsett etter pause (ny skanning; ferdig analyserte bilder hoppes over). */
+  resumeScan(): Promise<void>;
+  /** Avbryt skann. Det som er funnet beholdes. */
+  cancelScan(): Promise<void>;
+  /** Valgt biblioteksmappe, eller null. */
+  getLibrary(): Promise<string | null>;
+  /** Velger mappe (sti). Kjernen skanner én mappe om gangen: en ny mappe erstatter den forrige. */
+  setLibrary(path: string): Promise<void>;
+  /** Første gang appen kjøres: onboarding skal vises. */
+  getFirstRun(): Promise<boolean>;
+  /** Onboarding er gjennomført. Vises ikke på nytt. */
+  completeOnboarding(): Promise<void>;
+  getSettings(): Promise<AppSettings>;
+  /** Papirkurvfrist i dager (1 til 365). Gjelder nye elementer. */
+  setTrashDays(days: number): Promise<AppSettings>;
 }

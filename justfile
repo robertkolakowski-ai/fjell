@@ -35,9 +35,11 @@ i18n:
 i18n-gen:
     python3 tools/gen-i18n/gen_i18n.py
 
-# Stub: criterion/perf kommer i M1 (docs/mvp/ARKITEKTUR.md del 4)
-bench:
-    @echo "bench: ikke implementert ennå (M1+)"
+# Ytelsesmåling i release (docs/mvp/YTELSE.md): 10 000 syntetiske bilder gjennom full pipeline
+# (≤ 10 ms/bilde, < 10 min), skanning uten endring/inkrementell, handlinger p95 < 10 ms på 50 000 rader og under skann.
+# Avslutter med feil ved budsjettbrudd. Argumenter: `just bench --n 10000 --rows 50000`.
+bench *ARGS:
+    cargo run --manifest-path core/Cargo.toml --release -p fjell-cli --locked -- perf {{ARGS}}
 
 # Swift-bindinger fra UniFFI (library mode) til core/target/bindings/swift. Sjekkes ikke inn.
 # Krever bare cargo; selve Swift-kompileringen (xcframework) skjer på macOS-runner (CI-jobb `ios`).
@@ -59,3 +61,11 @@ desktop-check:
     cargo test --manifest-path desktop/src-tauri/Cargo.toml -p fjell-shell --locked
     cd desktop && npm ci --no-audit --no-fund && npm run contrast && npm test && npm run check && npm run build
     @if pkg-config --exists webkit2gtk-4.1 || [ "${OS:-}" = "Windows_NT" ]; then cargo clippy --manifest-path desktop/src-tauri/Cargo.toml -p fjell-desktop --locked -- -D warnings; else echo "desktop-check: hopper over fjell-desktop (mangler webkit2gtk-4.1); kjøres på windows-latest"; fi
+
+# THIRD_PARTY.md fra cargo- og npm-lisenser (Windows-målet). `just third-party-check` feiler hvis fila er utdatert eller en lisens ikke er tillatt (deny.toml)
+third-party:
+    python3 tools/licenses/gen_third_party.py
+
+third-party-check:
+    python3 tools/licenses/gen_third_party.py --check
+    cd tools/licenses && python3 -m unittest -q test_gen_third_party

@@ -148,8 +148,8 @@ impl Store {
                 .join(",")
         );
         let mut st = self.conn.prepare_cached(
-            "SELECT m.grp_id, m.asset_id FROM json_each(?1) j JOIN grp_member m ON m.grp_id = j.value \
-             JOIN asset a ON a.id = m.asset_id JOIN grp ON grp.id = m.grp_id WHERE a.state = 0 \
+            "SELECT m.grp_id, m.asset_id FROM json_each(?1) j CROSS JOIN grp_member m ON m.grp_id = j.value \
+             JOIN asset a ON a.id = m.asset_id JOIN grp ON grp.id = m.grp_id WHERE +a.state = 0 \
              ORDER BY m.grp_id, (m.asset_id = grp.keeper_id) DESC, m.rank, m.asset_id",
         )?;
         let rows = st.query_map([json], |r| {
@@ -173,7 +173,7 @@ impl Store {
     ) -> Result<Vec<(AssetId, SuggestionKind, String)>, StoreError> {
         let mut st = self.conn.prepare_cached(
             "SELECT s.asset_id, s.kind, s.reason_code FROM json_each(?1) j \
-             JOIN suggestion s ON s.asset_id = j.value WHERE s.status = 'pending' ORDER BY s.confidence DESC, s.id",
+             CROSS JOIN suggestion s ON s.asset_id = j.value WHERE s.status = 'pending' ORDER BY s.confidence DESC, s.id",
         )?;
         let rows = st.query_map([ids_json(ids)], |r| {
             Ok((

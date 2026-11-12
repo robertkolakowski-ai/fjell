@@ -79,6 +79,43 @@ Felles for alle: `just check` grønn, aksepttabell for fasen avkrysset, ingen fi
 | M7 | UX-2…5 akseptkriterier; tastatur, mus og knapp gir lik `action_log`; axe 0 brudd; ingen avkutting i pseudo; ingen tekst om «frigjort» før permanent sletting; ingen nettverkskall, og ingen nettverks-, fs- eller shell-tillatelse for frontend (Tauri-capabilities og CSP) |
 | M8 | K8: alle porter med Windows-dekoding, `ALGO_VER = 1` frosset; handling/angre p95 < 100 ms, kald oppstart < 1,5 s, 10 000 bilder < 10 min på referansemaskin (Windows); onboarding ≤ 60 s; manuell Narrator- og NVDA-avkrysning, skalering 100–200 % og høykontrast; NSIS-installasjonsprogram bygget (signering per åpent spørsmål); brukbarhetstest (5 deltakere) |
 
+## 4b. Faktisk status per milepæl (integrasjon M8, 2026-11-12, Linux)
+
+Alt under er målt på Linux (4 vCPU). Windows og Tauri er ikke kjørt her. «Kode» betyr at koden finnes og er testet på Linux; «DoD» betyr at hele DoD i del 4 er oppfylt. Ingenting er committet ennå (arbeidstreet `m8/herding`).
+
+| M | Status | Det som er målt / grønt | Det som mangler mot DoD |
+|---|---|---|---|
+| M0 | DoD oppfylt | `just check` (fmt, clippy -D warnings, test, testdata, layers) exit 0; `check-layers` feiler på bevisste brudd (selvtest); `cargo deny check` på core: advisories, bans, licenses, sources ok | CI-kjøring ikke sett her (kjøres i GitHub) |
+| M1 | DoD oppfylt (Linux) | Korpus og manifest, K6-1, `api`-mock, sjekksumtest for originaler grønne | - |
+| M2 | Delvis | K1…K5 grønne i `just check`. Uskarphet (K8-algoritmen i `quality.rs`): eval P 0,956 / R 0,919, kontrollsett P 0,956 / R 0,961, gammelt korpus P 0,968 / R 1,000. Kjerne 0,40 ms/bilde | Hash-port med uskarpe varianter regnet som duplikater: recall 0,891 (< 0,90). Kun syntetiske motiver |
+| M3 | DoD oppfylt (Linux) | I1–I16, T1–T24 grønne; `decide_many` p95 1,19 ms, `undo` 0,77 ms på 50 000 rader | - |
+| M4 | DoD oppfylt (Linux) | K7-1…12 grønne, inkl. ekte `kill -9` (K7-6); `just bench`: 10 000 bilder 4,1 s, skann uten endring 57 ms, inkrementell 153 ms, alle budsjetter holdt | `FsSource::with_known_ids` er ikke koblet i Tauri-skallet (T11 i appen) |
+| M5 | Kode, ikke DoD | `fjell-fs` 40 tester grønne på Linux; Windows-koden (IFileOperation-Papirkurv, stasjoner, lange stier, UNC) type-sjekket og clippy-ren mot `x86_64-pc-windows-gnu`; `fjell-shell` 27/27 | Ingen Windows-kjøring: Papirkurv, lange stier, UNC, stasjoner, `tests/windows.rs`, `desktop`-jobb, `fjell-desktop` er ikke kompilert (mangler webkit2gtk). `thumbcache` ikke koblet inn. 20 `device_thumbs/` ikke levert |
+| M6 | DoD oppfylt (Linux) | Kontrast: 81 par i 3 temaer består WCAG AA; `MockBridge`/`CoreBridge` har samme grensesnitt | - |
+| M7 | Delvis | vitest 176/176, svelte-check 0 feil, vite build ok; Playwright axe 0 brudd (lys/mørk × bred/smal, pluss kortmodus-slutt, tom papirkurv, Hjem); flyt 4/4; handling til DOM p95 14,8 ms (mål < 100 ms; MockBridge, ikke Tauri) | Ingen skjermleser; kjernen har ett bibliotek, så «Legg til mappe» erstatter forrige; mappevelger ikke koblet (sti skrives inn); «Pause» er avbryt og start på nytt; ingen miniatyrer i Papirkurv |
+| M8 | Delvis | UX-6 automatisert (forced-colors lys/mørk, redusert bevegelse, skalering 100/150/200 % og minstevindu med pseudo-lokale, ARIA, ingen nettverk) grønn i Chrome: 29 bestått, 4 hoppet over (skjermbildefiler, bare med `SHOTS=1`), 1 forventet feil (`test.fail`, se under). Dokumentene `BETA.md`, `RELEASE.md`, `PERSONVERN.md`, `THIRD_PARTY.md` finnes; `just third-party-check` ok | Se «MVP-restanse». `ALGO_VER` er ikke frosset |
+
+Kjente åpne funn (ikke skjult): `Review.svelte` setter inn `role=status` med ferdig tekst (`test.fail` i `aria.spec.ts`, se `BETA.md` del 8); bunnlinjens regionnavn er lik sidetittelen; `cargo deny check` på `desktop/src-tauri` feiler (bannlysting av `tokio` er ment for kjernen, og `proc-macro-error` er uvedlikeholdt via Tauri); CI kjører bare deny på `core/`. `desktop/src-tauri/Cargo.lock` manglet `windows` og er oppdatert med én linje (ellers feilet `--locked`).
+
+## 4c. MVP-restanse
+
+| # | Punkt | Kategori | Hva som trengs |
+|---|---|---|---|
+| 1 | Windows-kjøring av `fjell-fs` (Papirkurv via IFileOperation, lange stier, UNC, stasjoner, karantene) og `tests/windows.rs` | Krever Windows-maskin | `desktop`-jobben på `windows-latest`; manuell kontroll av at filen faktisk havner i Papirkurv |
+| 2 | `fjell-desktop` (Tauri-lim) er ikke kompilert; `connect-src 'self'` fjernet i `tauri.conf.json`, kan ødelegge HMR i `tauri dev` | Krever Windows-maskin | `tauri build` og `tauri dev` på Windows |
+| 3 | NSIS-installasjon, WebView2-bootstrapper, røyktest (stille installasjon, start, avinstaller), norsk NSIS-språk | Krever Windows-maskin | Kjør `desktop.yml`; sjekk om Tauri støtter norsk i NSIS |
+| 4 | Narrator og NVDA, ekte Windows-skalering og høykontrasttemaer (testet bare emulert i Chrome) | Krever Windows-maskin | Manuell avkrysning i `BETA.md` (alle felt er uutfylt) |
+| 5 | Ytelse: «10 000 bilder < 10 min», dekodetid (JPEG/HEIC via WIC), kald oppstart < 1,5 s, RSS-topp, handling p95 i ekte Tauri | Krever Windows-maskin | Referansemaskinen (åpent spørsmål 8); `just bench` på `nightly` |
+| 6 | Hash-recall med uskarpe varianter som duplikater er 0,891 (< 0,90); uskarphet er kun testet på syntetiske motiver; svakheter: treverk, periodisk vev, fokusfeil på tekst, grensesone σ 0,3–0,5 | Krever ekte bilder | Etikettert korpus av ekte foto (HEIC/JPEG/RAW) og ny kalibrering; deretter fryse `ALGO_VER = 1` |
+| 7 | Eldre indekser har utdaterte `blur_score` siden algoritmen endret seg før frysing | Krever beslutning | Frys `ALGO_VER` først, eller reindekser ved neste skann |
+| 8 | Brukbarhetstest (5 deltakere), onboarding ≤ 60 s målt på ekte maskin | Krever ekte bilder | Rekruttering og ekte bibliotek |
+| 9 | Kodesignering og SmartScreen (åpent spørsmål 11), installasjonsformat (12), Windows 10-støtte (13) | Krever beslutning | Produkteier |
+| 10 | Bibliotek med flere mapper (kjernen har ett), mappevelger-plugin, ekte pause, miniatyrer i Papirkurv, språkvalg lagret i skallet i stedet for `localStorage` | Krever beslutning | Avklar om dette er MVP eller kuttliste (del 5) |
+| 11 | Prisene i `RELEASE.md` er veiledende; åpne spørsmål 5–17 | Krever beslutning | Produkteier |
+| 12 | Tauri-skallet må kalle `FsSource::with_known_ids` (T11) og koble `thumbcache` inn i `FsSource` | Ikke verifisert | Kobling og test på Windows |
+| 13 | `just bench` og Playwright er ikke koblet på CI; Playwright kjørt bare i system-Chrome på Linux | Ikke verifisert | CI-jobb og `nightly` |
+| 14 | `cargo deny` for `desktop/src-tauri` feiler (se over) | Krever beslutning | Egen `deny`-konfigurasjon for skallet, eller akseptér unntaket |
+
 ## 5. Omfang og risiko (0–3 måneder)
 
 Anslag (ikke målt): med parallelle agenter og kun Windows-PC ca. **13 uker** (spenn 11–15; var 12 for iPhone). Kjerne, trygghet og CLI (M0–M4) uendret, uke 8. Spart: ingen macOS-runner, ingen enhet, ingen UniFFI/bindinger, ingen bakgrunnsoppdrag-API, web-a11y kan automatiseres med axe. Lagt til: karantene, Papirkurv/permanent og stasjonskanter (frakoblet disk, UNC, skyplassholdere), Windows-kodeker (HEIC/RAW), Tauri/WebView2, to skjermlesere (Narrator, NVDA), installasjonsprogram og signering, omarbeid av UX-planen. Netto +1 uke, mest på M5. Stramt: karantene og «Tøm» med full test, skjermleser i WebView2, ytelsesmåling på referansemaskin. Forslag til kuttliste hvis M7 sliter (krever produkteiers ja, ingen regel i CLAUDE.md brytes): mus-dra i kortmodus (tastatur og knapper beholdes); touch-tilpasning; Windows-varsler om utløp (bare banner); historikklinjen «frigjort siden»; full skjermbildematrise utenfor `nightly`; «Gjør dette til beste» (keeper byttes via `set_keeper` beholdes bare hvis tid). Ikke kuttbart: knappealternativ, angre, bekreftelse før permanent sletting.

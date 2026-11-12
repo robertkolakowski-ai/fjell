@@ -20,7 +20,7 @@ test("onboarding: første funn, ryd, angre", async ({ page }) => {
 
 test("gruppe: bytt keeper, flytt, angre", async ({ page }) => {
   await open(page, "#/");
-  await page.getByRole("button", { name: "Rask opprydding" }).waitFor();
+  await page.locator("h1").first().waitFor(); // Hjem viser «Rask opprydding» først etter skann; gruppevisningen trenger ikke det
   await go(page, "#/group/1");
   const best = page.locator("li", { has: page.getByText("Beste", { exact: true }) });
   await expect(best).toHaveCount(1);

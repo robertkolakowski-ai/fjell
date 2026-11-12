@@ -271,3 +271,159 @@ fn ack_required_carries_codes_and_confirmation_is_validated() {
         "bad_request"
     );
 }
+
+// ---- M7-hull: liste, gjenoppretting, innstillinger, pause og første gang ----
+
+/// To duplikatpar i tillegg til c.jpg, slik at ett kan gjenopprettes og ett bli liggende.
+fn trash_one(e: &Env) -> u64 {
+    e.open();
+    e.scan();
+    let ids = e.dup_ids();
+    e.sh.decide(&ids, DecisionDto::Trash).unwrap();
+    e.sh.trashed().unwrap()[0].asset
+}
+
+#[test]
+fn trashed_lists_each_image_with_name_but_no_path() {
+    let e = env("list");
+    assert_eq!(e.sh.trashed().unwrap_err().code, "no_library");
+    trash_one(&e);
+    let t = e.sh.trashed().unwrap();
+    assert_eq!(t.len(), 1);
+    assert!(t[0].name == "a.jpg" || t[0].name == "b.jpg", "{:?}", t[0]);
+    assert!(!t[0].name.contains(['/', '\\']), "bare filnavn");
+    assert_eq!(t[0].bytes, 21);
+    assert!(t[0].expires_at > t[0].trashed_at && !t[0].expired);
+    // 30 dager (standard) mellom flyttet og utløp.
+    assert_eq!(t[0].expires_at - t[0].trashed_at, 30 * 86_400);
+}
+
+#[test]
+fn restore_moves_file_back_and_empties_the_list() {
+    let e = env("restore");
+    let id = trash_one(&e);
+    assert_eq!(quarantined(&e.lib), 1);
+    let r = e.sh.restore(&[id]).unwrap();
+    assert_eq!(r.restored, 1);
+    assert!(e.sh.trashed().unwrap().is_empty());
+    assert_eq!(quarantined(&e.lib), 0);
+    assert!(exists(&e.lib.join("a.jpg")) && exists(&e.lib.join("b.jpg")));
+    assert_eq!(
+        fs::read(e.lib.join("a.jpg")).unwrap(),
+        b"same-bytes-same-bytes",
+        "originalfilen er uendret"
+    );
+    assert_eq!(e.sh.state().trash_count, 0);
+    // Gjentatt gjenoppretting er et tomt no-op, ikke en feil.
+    assert_eq!(e.sh.restore(&[id]).unwrap().restored, 0);
+    assert_eq!(e.sh.restore(&[9999]).unwrap().restored, 0);
+}
+
+#[test]
+fn restore_all_restores_everything_in_one_call() {
+    let e = env("restoreall");
+    trash_one(&e);
+    assert_eq!(e.sh.restore_all().unwrap().restored, 1);
+    assert_eq!(quarantined(&e.lib), 0);
+    assert_eq!(e.sh.restore_all().unwrap().restored, 0);
+    // Kjernen foreslår ikke et gjenopprettet bilde på nytt (brukeren har bestemt seg): ingen kort etter ny skann.
+    e.scan();
+    assert!(e.dup_ids().is_empty());
+    assert!(exists(&e.lib.join("a.jpg")) && exists(&e.lib.join("b.jpg")));
+}
+
+#[test]
+fn restore_never_calls_the_recycle_bin() {
+    let e = env("restorebin");
+    let id = trash_one(&e);
+    e.sh.restore(&[id]).unwrap();
+    assert!(e.bin.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn settings_show_quarantine_dir_and_recycle_default() {
+    let e = env("settings");
+    let s = e.sh.settings().unwrap();
+    assert_eq!(
+        (s.trash_days, s.quarantine_dir, s.empty_default),
+        (30, None, "recycle")
+    );
+    e.open();
+    let s = e.sh.settings().unwrap();
+    let dir = s.quarantine_dir.unwrap();
+    assert!(dir.ends_with(".fjell-karantene"), "{dir}");
+    assert!(dir.starts_with(e.lib.to_str().unwrap()));
+}
+
+#[test]
+fn set_trash_days_validates_and_applies_to_new_items() {
+    let e = env("days");
+    e.open();
+    assert_eq!(e.sh.set_trash_days(0).unwrap_err().code, "bad_request");
+    assert_eq!(e.sh.set_trash_days(366).unwrap_err().code, "bad_request");
+    assert_eq!(
+        e.sh.settings().unwrap().trash_days,
+        30,
+        "uendret etter avvist verdi"
+    );
+    assert_eq!(e.sh.set_trash_days(7).unwrap().trash_days, 7);
+    assert_eq!(e.sh.state().trash_days, 7);
+    e.scan();
+    e.sh.decide(&e.dup_ids(), DecisionDto::Trash).unwrap();
+    let t = e.sh.trashed().unwrap();
+    assert_eq!(t[0].expires_at - t[0].trashed_at, 7 * 86_400);
+}
+
+#[test]
+fn first_run_until_onboarding_done_or_library_chosen() {
+    let e = env("first");
+    assert!(e.sh.first_run());
+    e.sh.complete_onboarding().unwrap();
+    assert!(!e.sh.first_run());
+    // Overlever ny Shell på samme app-data (omstart), og valg av mappe overskriver ikke flagget.
+    let again = Shell::with_data_dir(&e.data, e.bin.clone() as Arc<dyn RecycleBin>);
+    assert!(!again.first_run());
+    assert!(e.sh.set_library(e.lib.to_str().unwrap()).is_ok());
+    assert!(!Shell::with_data_dir(&e.data, e.bin.clone() as Arc<dyn RecycleBin>).first_run());
+}
+
+#[test]
+fn choosing_a_library_alone_ends_first_run() {
+    let e = env("firstlib");
+    assert!(e.sh.first_run());
+    e.sh.set_library(e.lib.to_str().unwrap()).unwrap();
+    assert!(!e.sh.first_run());
+}
+
+#[test]
+fn pause_marks_state_and_resume_scans_again() {
+    let e = env("pause");
+    e.open();
+    e.scan();
+    e.sh.pause_scan().unwrap();
+    assert!(e.sh.state().scan_paused);
+    e.sh.resume_scan().unwrap();
+    assert!(!e.sh.state().scan_paused);
+    let t = Instant::now();
+    while e.sh.state().scan_phase != "done" {
+        assert!(
+            t.elapsed() < Duration::from_secs(20),
+            "ny skanning ble ikke ferdig"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(e.dup_ids().len(), 1, "funnet beholdes");
+    // Resume uten pause gjør ingenting; cancel nullstiller pause.
+    e.sh.pause_scan().unwrap();
+    e.sh.cancel_scan().unwrap();
+    assert!(!e.sh.state().scan_paused);
+    assert!(e.sh.resume_scan().is_ok());
+}
+
+#[test]
+fn mock_mode_reports_unsupported_for_trash_listing() {
+    let sh = Shell::mock();
+    assert_eq!(sh.trashed().unwrap_err().code, "unsupported");
+    assert_eq!(sh.restore(&[1]).unwrap_err().code, "unsupported");
+    assert!(!sh.first_run(), "ingen app-data: aldri onboarding i mock");
+}

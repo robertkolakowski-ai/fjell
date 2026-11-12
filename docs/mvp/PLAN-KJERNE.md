@@ -162,6 +162,9 @@ Akseptkriterier:
 ### Ytelsesmål
 - ≤ 3 ms per 256 px miniatyr (mål < 0,5 ms). Én gjennomgang, ingen heap-allokering utover radbuffer.
 
+### K8-endring av algoritmen (2026-11-12)
+Punkt 1 over (ren Laplace-varians) fanget ikke bevegelsesuskarphet (recall 0,667 på golden-korpuset) og er erstattet av en retningsbestemt, støyrobust score; se del 9 «K8-resultater: uskarphet». Grensesnittet (`blur_score(&Thumb) -> f32`, høy = skarp, `LOW_CONTRAST`, `BLUR_ABS_MAX`) og alle K3-krav er uendret; `MIN_SIDE = 8` erstatter «mindre enn 3×3» (retningsstatistikk trenger lag 2 i alle retninger).
+
 ### Kjent begrensning (rapporteres til arkitekt)
 Nedskalering til 256 px skjuler lett uskarphet (4000 px til 256 px krymper blur 16 ganger). MVP fanger bare tydelig uskarphet og bevegelsesuskarphet. Korpusets σ er derfor oppgitt relativt til bildebredden. Etter MVP: valgfritt 256 px **utsnitt i full oppløsning** fra plattformen.
 
@@ -305,6 +308,29 @@ Oppgaver:
 6. Frys `ALGO_VER = 1` og vektorfil.
 
 Akseptkriterium: alle porter fra ARKITEKTUR del 4 (visuelt dup. presisjon ≥ 0,98 / recall ≥ 0,90, uskarphet presisjon ≥ 0,90, skjermbilde presisjon ≥ 0,95) er grønne i `just check`, og tallene er skrevet inn i dokumentet.
+
+### K8-resultater: uskarphet (2026-11-12, algoritmer og testdata)
+
+**Algoritme** (`fjell-core/src/quality.rs`, bit-eksakt, kun +, −, ×, ÷ i f64, én gjennomgang, fire radbuffere). I fire retninger (0°, 90°, 45°, 135°) er `g = I(p+d) − I(p)` og `q_k = E[g(p)·g(p+k·d)]`. Hvit sensorstøy bidrar bare til q₀ og q₁, så `ρ_k = q_k/q₀` (k = 1, 2) sier hvor glatt gradientfeltet er uten at støy skjuler uskarphet; bevegelsesuskarphet gir høy ρ i én retning, fokusfeil i alle. Fem trekk: min ρ₂, min ρ₁, maks ρ₁ (over retninger), tredje minste `E = q₀/Var(I)` og `lap/(lap + 0,1)` med `lap = Var(L)/(Var(I)+1)` (gammel Laplace-måling, følsom for lett uskarphet). `z = Σ wᵢfᵢ + b`, uskarpt hvis `z ≥ −0,4`. Scoren er sammensatt og alltid > 0: `BLUR_ABS_MAX/(1 + (z+0,4)/1,5)` på uskarp side, `BLUR_ABS_MAX·(1 + lap/0,3)` på skarp side (K3-2 og keeper-rangeringen forutsetter at skarpe bilder rangeres etter fin-skala-energi). `BLUR_ABS_MAX` er fortsatt 0,006 og tilsvarer nå beslutningsgrensen. P10-regelen i `suggest` er uendret.
+
+**Korpus** (`core/testdata/src/{blurset,textures,ops}.rs`, `just testdata`): sju motivfamilier (skyer, løv, tekstside, vev, treverk med sterk retning, kantfattig himmel/horisont og `scene` fra golden-korpuset) × `train`/`eval` (ulike motiver) × 8 motiver × 9 varianter = 1 008 bilder. Skarpe: original, lavkontrast (0,25–0,5), lett myk (σ 0,3–0,5 %), JPEG q60, halv oppløsning. Uskarpe (σ_ekv ≥ 1 % av bredden): Gauss, fokusfeil (skivekjerne), lineær bevegelsesuskarphet (4–8 %, vinkel 0°–150°) og uskarphet med sensorstøy. Sensorstøy 0…±3 nivåer legges på etter uskarpheten. Bilder med miniatyrvarians < 4 («ikke vurderbare», `assessable = false`; 31 av 1 008, 30 uskarpe, nesten alle kraftig uskarpet treverk) telles ikke. Kontrollsettet bruker egen seed (`BLUR_HOLDOUT_SEED`).
+
+**Kalibrering**: vekter (logistisk regresjon, 977 vurderbare bilder, bare `train`) og terskel (høyest recall med presisjon ≥ 0,96 på `train`, og slik at alle ti K3-2-motivene er monotone; originalene ligger helt ned mot z = −0,7) er tilpasset bare `train`. Konfidensskalaen (`D = 1,5`) er valgt slik at den ligger under målt presisjon: margin < 0,5 → presisjon 0,59 (konf. 0,50–0,56), 0,5–1 → 0,90 (0,56–0,63), 1–2 → 0,96 (0,63–0,71), 2–4 → 0,97 (0,71–0,79), ≥ 4 → 0,99 (≥ 0,79).
+
+| Utvalg | Presisjon | Recall | tp / fp / fn |
+|---|---|---|---|
+| Hovedsett `train` (tilpasset) | 0,961 | 0,957 | 198 / 8 / 9 |
+| Hovedsett `eval` (andre motiver) | 0,956 | 0,919 | 194 / 9 / 17 |
+| Kontrollsett, egen seed (alle 1 008) | 0,956 | 0,961 | 393 / 18 / 16 |
+| – kontrollsett, `train`-halvdel / `eval`-halvdel | 0,952 / 0,960 | 0,966 / 0,955 | |
+| Golden-korpus (330 bilder, K3-3, uavhengig) | 0,968 | 1,000 | 30 / 1 / 0 (var 0,952 / 0,667) |
+| Skarpe lavkontrast (0,25–0,5) flagget | 3 av 112 (2,7 %) | | 107 av 112 innen ±25 % av originalens score |
+
+Kjente svakheter (rapportert, ikke skjult): (1) **Treverk med nesten perfekt retning** (min/maks gradientenergi 0,04): bare 12–38 % av de vurderbare uskarpe flagges, og 19–31 % av lavkontrast/myke kontroller flagges; ekstremt rettet tekstur kan ikke skilles fra bevegelsesuskarphet langs retningen. (2) Bevegelsesuskarphet på vev (periodisk) 69–81 % flagget, fokusfeil på tekst 81–88 %. (3) Grensesonen σ 0,3–0,5 % (skarp) mot 1 % (uskarp) er smal: opptil 31 % av de myke kontrollene flagges (treverk 25–31 %, kantfattig 25 %). (4) Heftig sensorstøy ±3 før uskarphet er med, men støy langt over det er ikke testet. (5) 256 px-miniatyr skjuler lett uskarphet (jf. kjent begrensning over). (6) Ikke testet mot ekte foto; bare syntetiske motiver (jf. risiko «Syntetisk korpus er for enkelt»).
+
+**Hash-porter på utvidede data** (`tests/golden_blur_ext.rs`, alle varianter av et motiv er sannhetsgruppe): uten uskarpe varianter presisjon 1,000 og recall 0,962 (112 grupper, 0 falske par), port holdt. Med uskarpe varianter regnet som duplikater: presisjon 1,000, recall **0,891**, port **ikke holdt** for den varianten (recall mot originalen: Gauss 0,83, fokusfeil 0,84, bevegelse 0,81, uskarphet med støy 0,86, lavkontrast 0,98, omkodet 0,96, myk 0,94, halv oppløsning 1,00). Golden-korpusets K2b-3 er uendret: presisjon 1,000, recall 0,950.
+
+**ALGO_VER er ikke frosset** (står på 1; uskarphetsalgoritmen ble endret før frysing, så eldre indekser har utdaterte `blur_score`). Grunn: ikke alle K8-oppgaver er utført eller målt her: Windows-dekoding mot golden-korpus (punkt 4), ytelsesgater i CI (punkt 5), Hamming-sveip (punkt 1) og skjermbildestandard (punkt 3) er ikke kjørt i denne leveransen, og hash-recall med uskarpe varianter ligger under 0,90. `ABS_MAX` (punkt 2) er satt og P10-regelen er uendret; P10-regelen er ikke målt på hele biblioteker.
 
 ## 10. Risiko
 

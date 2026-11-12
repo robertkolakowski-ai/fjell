@@ -48,7 +48,7 @@ fn entries(group: &str) -> Vec<&'static Entry> {
 }
 
 /// K3-2: score faller monotont med økende sigma (10 motiver × 5 sigma, sigma som andel av bredden).
-/// Over ca. 2 % flater scoren ut mot støygulvet fra 8-bits kvantisering og stiger igjen (rapportert).
+/// Scoren er sammensatt (K8): uskarp side faller med z-marginen, skarp side med fin-skala-energi.
 #[test]
 fn k3_2_score_falls_monotonically_with_sigma() {
     for i in 0..10u64 {
@@ -79,7 +79,8 @@ fn k3_2_score_falls_monotonically_with_sigma() {
     }
 }
 
-/// K3-3 og K3-4: presisjon ≥ 0,90 på uskarpe mot skarpe kontroller; lav kontrast flagges ikke.
+/// K3-3 og K3-4: presisjon og recall ≥ 0,90 på uskarpe mot skarpe kontroller (σ ≥ 1 % mot ≤ 0,5 %,
+/// inkludert bevegelsesuskarphet); lav kontrast flagges ikke.
 #[test]
 fn k3_3_and_k3_4_blur_precision_and_low_contrast() {
     let all = &corpus().1.entries;
@@ -101,6 +102,7 @@ fn k3_3_and_k3_4_blur_precision_and_low_contrast() {
     let recall = tp as f32 / (tp + fneg) as f32;
     eprintln!("K3-3: ABS_MAX {BLUR_ABS_MAX}, presisjon {precision:.3}, recall {recall:.3} (tp {tp}, fp {fp}, fn {fneg})");
     assert!(precision >= 0.90, "presisjon {precision}");
+    assert!(recall >= 0.90, "recall {recall}");
     // K3-4: de ti lavkontrast-kontrollene (hvit vegg, himmel) og degenererte er aldri flagget.
     let sharp = entries("sharp");
     assert_eq!(sharp.len(), 40);

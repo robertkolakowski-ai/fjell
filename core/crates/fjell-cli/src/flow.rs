@@ -63,7 +63,7 @@ fn open(dir: &Path, db: &Path) -> Result<Fjell, FlowError> {
     let store = Store::open(db).map_err(fail)?;
     Ok(Fjell::new(
         store,
-        Arc::new(FsSource::new(dir)),
+        Arc::new(FsSource::new(dir).with_index(db)),
         Arc::new(SysClock),
     ))
 }

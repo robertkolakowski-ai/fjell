@@ -7,18 +7,22 @@
 //!   venter og gir `ScanReport` (CLI og tester), `last_report()` leser siste. `cancel()` setter flagget.
 //! - Resten av `FjellApi` ligger i `fjell_ops` (kort, beslutninger, angre, purge).
 //!
-//! Etter trash/restore/purge kaller `Fjell` `pipeline::refresh_groups` (actions kan ikke kalle pipeline).
+//! Etter trash/restore/purge kaller `Fjell` `pipeline::refresh_groups` (actions kan ikke kalle pipeline), i
+//! bakgrunnen og sammenslått (`Fjell::sync_groups` venter). Utregningen skjer utenfor indekslåsen.
 //! Låsen på indeksen holdes bare per kall/batch, aldri under dekoding av miniatyrer.
 
 use super::{ApiError, ScanConfig, ScanMode, ScanPhase, ScanProgress};
 use crate::actions::{ActionError, Actions};
 use crate::model::{AssetSource, Clock};
-use crate::pipeline::{self, Phase, PipelineError, Progress, ScanReport, StoreHandle};
+use crate::pipeline::{self, GroupEngine, Phase, PipelineError, Progress, ScanReport, StoreHandle};
 use crate::store::Store;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::Duration;
+
+/// Opptil så mange aktive bilder med fingeravtrykk regnes gruppene ut synkront etter en handling.
+const SYNC_REFRESH_MAX_ROWS: usize = 2_000;
 
 pub(super) struct Shared {
     pub actions: Mutex<Actions>,
@@ -27,14 +31,28 @@ pub(super) struct Shared {
     pub cancel: AtomicBool,
     pub progress: Progress,
     pub report: Mutex<Option<Result<ScanReport, String>>>,
+    /// Buffer for inkrementell klynging (deles av skanning og oppdatering etter handlinger).
+    pub engine: Mutex<GroupEngine>,
+    /// Oppdatering av grupper etter handlinger kjører i bakgrunnen (se `Fjell::refresh`).
+    pub dirty: AtomicBool,
+    pub refreshing: AtomicBool,
+    pub refresh_error: Mutex<Option<String>>,
 }
 
 /// `StoreHandle` over `Mutex<Actions>`: pipeline får bare skrivetilkoblingen.
-pub(super) struct Handle<'a>(pub &'a Mutex<Actions>);
+pub(super) struct Handle<'a>(pub &'a Shared);
 
 impl StoreHandle for Handle<'_> {
     fn with_store<R>(&self, f: impl FnOnce(&mut Store) -> R) -> R {
-        f(self.0.lock().unwrap_or_else(|e| e.into_inner()).store_mut())
+        f(self
+            .0
+            .actions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .store_mut())
+    }
+    fn engine(&self) -> Option<&Mutex<GroupEngine>> {
+        Some(&self.0.engine)
     }
 }
 
@@ -73,6 +91,10 @@ impl Fjell {
                 cancel: AtomicBool::new(false),
                 progress: Progress::new(),
                 report: Mutex::new(None),
+                engine: Mutex::new(GroupEngine::new()),
+                dirty: AtomicBool::new(false),
+                refreshing: AtomicBool::new(false),
+                refresh_error: Mutex::new(None),
             }),
             worker: Mutex::new(None),
         }
@@ -82,11 +104,60 @@ impl Fjell {
         self.sh.actions.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Regner grupper og forslag på nytt (etter trash/restore/purge).
+    /// Ber om ny utregning av grupper og forslag (etter trash/restore/purge). Utregningen er O(biblioteket)
+    /// og ville brutt «handling < 100 ms» på store indekser, så den kjører i bakgrunnen og slås sammen
+    /// (flere handlinger på rad gir én utregning). Handlingen selv er ferdig og varig når kallet
+    /// returnerer; kortlister filtrerer allerede bort slettede bilder. `sync_groups` venter på utregningen.
     pub(super) fn refresh(&self) -> Result<(), ApiError> {
-        pipeline::refresh_groups(&Handle(&self.sh.actions), self.sh.clock.as_ref())
-            .map(|_| ())
-            .map_err(internal)
+        let sh = &self.sh;
+        // Små indekser regnes ferdig før kallet returnerer (billig, og kortlistene er alltid à jour).
+        // Store indekser (og når en utregning allerede pågår) går i bakgrunnen.
+        let small = !sh.refreshing.load(Ordering::SeqCst)
+            && !sh.dirty.load(Ordering::SeqCst)
+            && sh
+                .engine
+                .try_lock()
+                .is_ok_and(|e| e.rows() <= SYNC_REFRESH_MAX_ROWS);
+        if small {
+            return pipeline::refresh_groups(&Handle(sh), sh.clock.as_ref())
+                .map(|_| ())
+                .map_err(internal);
+        }
+        sh.dirty.store(true, Ordering::SeqCst);
+        if sh.refreshing.swap(true, Ordering::SeqCst) {
+            return Ok(()); // en bakgrunnsutregning pågår og tar også denne endringen
+        }
+        let sh = self.sh.clone();
+        std::thread::spawn(move || loop {
+            while sh.dirty.swap(false, Ordering::SeqCst) {
+                let r = pipeline::refresh_groups(&Handle(&sh), sh.clock.as_ref());
+                *sh.refresh_error.lock().unwrap_or_else(|e| e.into_inner()) =
+                    r.err().map(|e| e.to_string());
+            }
+            sh.refreshing.store(false, Ordering::SeqCst);
+            // En endring kan ha kommet mellom siste sjekk og frigivelsen.
+            if !sh.dirty.load(Ordering::SeqCst) || sh.refreshing.swap(true, Ordering::SeqCst) {
+                break;
+            }
+        });
+        Ok(())
+    }
+
+    /// Venter til bakgrunnsutregningen av grupper er ferdig (tester, CLI og avslutning).
+    pub fn sync_groups(&self) -> Result<(), ApiError> {
+        while self.sh.dirty.load(Ordering::SeqCst) || self.sh.refreshing.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        match self
+            .sh
+            .refresh_error
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+        {
+            Some(e) => Err(ApiError::Internal(e)),
+            None => Ok(()),
+        }
     }
 
     /// Venter til pågående skanning er ferdig og gir rapporten (`None` hvis ingen skanning har kjørt).
@@ -163,7 +234,7 @@ impl Fjell {
         *w = Some(std::thread::spawn(move || {
             let r = pipeline::scan(
                 sh.src.as_ref(),
-                &Handle(&sh.actions),
+                &Handle(&sh),
                 sh.clock.as_ref(),
                 &cfg,
                 &sh.progress,

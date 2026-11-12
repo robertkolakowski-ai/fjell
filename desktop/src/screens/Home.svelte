@@ -1,5 +1,6 @@
-<!-- Hjem (UX-2, PLAN-UX-I18N 3.2): ring («X kan ryddes»), kategorikort, Rask opprydding (eneste aksentknapp), skannstatus,
-     papirkurvlenke, utløpt-banner. Tilstand i homeState.ts. Ringen har alltid tekstekvivalent. -->
+<!-- Hjem (UX-2, PLAN-UX-I18N 3.2): ring («X kan ryddes»), kategorikort, Rask opprydding (eneste aksentknapp), skannstatus
+     med Pause/Fortsett/Avbryt, «Legg til mappe», papirkurvlenke, utløpt-banner. Tilstand i homeState.ts, effekter i homeFlow.ts.
+     Ringen har alltid tekstekvivalent. -->
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import type { CoreBridge } from "../bridge/core-bridge";
@@ -8,7 +9,9 @@
   import { Button, LiveRegion, Ring } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { formatHash, navigate } from "../router";
-  import { initialHome, kindOf, pendingCount, reduceHome, ringFraction, type HomeEvent, type HomeView } from "./homeState";
+  import FolderDialog from "./FolderDialog.svelte";
+  import { addFolder, controlScan, type ScanNote } from "./homeFlow";
+  import { initialHome, kindOf, neverScanned, pendingCount, reduceHome, ringFraction, type HomeEvent, type HomeView } from "./homeState";
 
   interface Props {
     bridge?: CoreBridge;
@@ -38,7 +41,24 @@
     } catch (e) {
       send({ type: "failed", error: e as BridgeError });
     }
+    try { library = await b.getLibrary(); } catch { /* mappe vises bare når den er kjent */ }
     if (!gone && view.kind === "scanning") timer = setTimeout(load, pollMs);
+  }
+  let library: string | null = $state(null);
+  let note: ScanNote = $state(null);
+  let folderOpen = $state(false);
+
+  async function control(action: "pause" | "resume" | "cancel" | "start"): Promise<void> {
+    note = await controlScan(b, action);
+    await load();
+  }
+  async function chooseFolder(path: string): Promise<boolean> {
+    const r = await addFolder(b, path);
+    if (!r.ok) return false;
+    folderOpen = false;
+    note = null;
+    await load();
+    return true;
   }
   function retry(): void {
     send({ type: "retry" });
@@ -66,13 +86,32 @@
       </div>
     {/if}
 
-    {#if view.kind === "scanning"}
-      <p class="muted">{$tr("home.scan.progress", { done: fmt.number(view.done), total: fmt.number(view.total) })}</p>
-      <LiveRegion message={$tr("a11y.live.scan", { done: fmt.number(view.done), total: fmt.number(view.total) })} delay={2000} />
+    {#if view.kind === "scanning" || view.kind === "paused"}
+      {#if view.kind === "scanning"}
+        <p class="muted">{$tr("home.scan.progress", { done: fmt.number(view.done), total: fmt.number(view.total) })}</p>
+        <LiveRegion message={$tr("a11y.live.scan", { done: fmt.number(view.done), total: fmt.number(view.total) })} delay={2000} />
+      {:else}
+        <p class="muted" role="status">{$tr("home.scan.paused")}</p>
+      {/if}
+      <div class="row ctl" role="group" aria-label={$tr("home.scan.controls")}>
+        {#if view.kind === "scanning"}
+          <Button onclick={() => void control("pause")}>{$tr("home.scan.pause")}</Button>
+        {:else}
+          <Button onclick={() => void control("resume")}>{$tr("home.scan.resume")}</Button>
+        {/if}
+        <Button onclick={() => void control("cancel")}>{$tr("home.scan.cancel")}</Button>
+      </div>
     {/if}
+    {#if note === "cancelled"}<p class="muted" role="status">{$tr("home.scan.cancelled")}</p>{/if}
+    {#if note === "error"}<p role="alert">{$tr("home.scan.error")}</p>{/if}
 
     {#if view.kind === "allClean"}
       <p class="clean">{$tr("home.clean.body")}</p>
+    {:else if neverScanned(summary) && view.kind === "ready"}
+      <p>{$tr("home.idle.body")}</p>
+      {#if library}
+        <div class="row"><Button onclick={() => void control("start")}>{$tr("home.scan.start")}</Button></div>
+      {/if}
     {:else}
       <div class="ring">
         <Ring
@@ -101,7 +140,13 @@
     {/if}
 
     <p><a href={formatHash({ name: "trash" })}>{$tr("home.trash.link", { count: summary.trashCount })}</a></p>
+
+    <div class="folder">
+      <p class="muted">{library ? $tr("home.folder.current", { path: library }) : $tr("home.folder.none")}</p>
+      <Button onclick={() => (folderOpen = true)}>{$tr("home.folder.add")}</Button>
+    </div>
   {/if}
+  <FolderDialog open={folderOpen} onSubmit={chooseFolder} onClose={() => (folderOpen = false)} />
 </section>
 
 <style>
@@ -114,6 +159,9 @@
   .ring { display: flex; flex-direction: column; align-items: center; text-align: center; margin-block-end: var(--space-4); }
   .caption { margin-block: var(--space-2) var(--space-1); font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
   .row { display: flex; justify-content: center; margin-block-end: var(--space-5); }
+  .ctl { gap: var(--space-3); flex-wrap: wrap; }
+  .folder { margin-block-start: var(--space-5); padding-block-start: var(--space-4); border-block-start: var(--border-width) solid var(--c-border); }
+  .folder p { overflow-wrap: anywhere; }
   .banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-3) var(--space-4); margin-block-end: var(--space-4); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md); background: var(--c-surface); }
   .banner p { margin: 0; }
   .cats { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: grid; gap: var(--space-3); }

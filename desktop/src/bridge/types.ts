@@ -44,6 +44,8 @@ export interface AppState {
   scanDone: number;
   scanTotal: number;
   trashDays: number;
+  /** Skann satt på pause av brukeren (avbrutt, kan fortsettes). Mangler = ikke pauset. */
+  scanPaused?: boolean;
   /** Tidspunkt (ms siden epoch) for første permanente sletting, til historikklinjen. Kjernen leverer det ikke ennå. */
   freedSince?: number | null;
 }
@@ -101,4 +103,26 @@ export type BridgeErrorCode =
 export interface BridgeError {
   code: BridgeErrorCode | string;
   detail: string;
+}
+
+/** Ett bilde i «Nylig slettet». Tider i sekunder siden epoch. `name` er bare filnavnet. Speiler TrashedDto. */
+export interface TrashedItem {
+  asset: number;
+  name: string;
+  bytes: number;
+  trashedAt: number;
+  expiresAt: number;
+  expired: boolean;
+}
+
+/** Resultat av «Gjenopprett». Bare bilder som lå i «Nylig slettet» telles. Speiler RestoreDto. */
+export interface RestoreResult {
+  restored: number;
+}
+
+/** Innstillinger skallet viser. `quarantineDir` er null til en mappe er valgt. `emptyDefault` er alltid «recycle». Speiler SettingsDto. */
+export interface AppSettings {
+  trashDays: number;
+  quarantineDir: string | null;
+  emptyDefault: "recycle";
 }
