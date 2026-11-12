@@ -2,8 +2,9 @@
 //! på Linux finnes `delete::FakeRecycleBin` og tester av alt rundt. Eneste modul med `unsafe`.
 //!
 //! Valg (ARKITEKTUR 22): `IFileOperation` via `windows`-craten. Den erstatter `SHFileOperationW`,
-//! som ikke tar `\\?\` og dermed ga `Failed` for stier over MAX_PATH. Stien får `\\?\`-prefiks
-//! bare når den er lang; vanlige stier sendes uten (shell-parseren gir E_INVALIDARG på prefikset).
+//! som ikke tar `\\?\` og dermed ga `Failed` for stier over MAX_PATH. Shell-parseren gir
+//! E_INVALIDARG på `\\?\`, så stier sendes alltid uten prefiks. Stier over MAX_PATH prøves via
+//! 8.3-kortnavn og gir ellers `Unsupported` (filen røres ikke; appen beholder den i karantenen).
 //! Sikkerhet mot stille permanent sletting:
 //! - Bare faste disker (`DRIVE_FIXED`) forsøkes; nettverk, UNC og flyttbare gir `Unsupported`.
 //! - `FOFX_RECYCLEONDELETE` får operasjonen til å feile når filen ikke kan til Papirkurv, i stedet
@@ -90,6 +91,28 @@ fn recycle_item(path: &str) -> Result<(), RecycleError> {
     Ok(())
 }
 
+/// Shell-grensen for stilengde (MAX_PATH inkl. nullterminator).
+const MAX_SHELL_PATH: usize = 260;
+
+/// 8.3-kortform av en eksisterende sti, hvis den finnes og er under grensen.
+fn short_path(path: &str) -> Option<String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;
+    let wide: Vec<u16> = std::ffi::OsStr::new(&extended_str(path, true))
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    let mut buf = vec![0u16; 4096];
+    // SAFETY: `wide` er nullterminert og lever gjennom kallet; `buf` har oppgitt lengde.
+    let n =
+        unsafe { GetShortPathNameW(wide.as_ptr(), buf.as_mut_ptr(), buf.len() as u32) } as usize;
+    if n == 0 || n >= buf.len() {
+        return None;
+    }
+    let short = crate::path::strip_extended(&String::from_utf16_lossy(&buf[..n]));
+    (short.len() < MAX_SHELL_PATH).then_some(short)
+}
+
 impl RecycleBin for WindowsRecycleBin {
     fn recycle(&self, path: &Path) -> Result<(), RecycleError> {
         let root = volume_root_of(path).ok_or(RecycleError::Unsupported)?;
@@ -101,7 +124,16 @@ impl RecycleBin for WindowsRecycleBin {
             }
         }
         let s = path.to_str().ok_or(RecycleError::Unsupported)?;
-        recycle_item(s)?;
+        // Shell-APIet tar ikke `\\?\`-stier (E_INVALIDARG, målt på windows-latest). Lange stier
+        // prøves via 8.3-kortnavn; finnes det ikke, avvises de uten å røre filen (Unsupported).
+        let short;
+        let target = if crate::path::strip_extended(s).len() >= MAX_SHELL_PATH {
+            short = short_path(s).ok_or(RecycleError::Unsupported)?;
+            short.as_str()
+        } else {
+            s
+        };
+        recycle_item(target)?;
         // Aldri meld Deleted hvis filen fortsatt ligger der.
         if std::fs::symlink_metadata(crate::path::os_path(path)).is_ok() {
             return Err(RecycleError::Failed("filen ligger fortsatt igjen".into()));

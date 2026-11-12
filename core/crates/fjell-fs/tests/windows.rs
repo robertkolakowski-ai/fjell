@@ -47,7 +47,7 @@ fn missing_file_is_failed_not_ok() {
 }
 
 #[test]
-fn long_path_over_max_path_goes_to_recycle_bin() {
+fn long_path_over_max_path_is_recycled_or_rejected_untouched() {
     let root = tempdir("w-long");
     let rel = deep_rel();
     let dir = root.join(&rel);
@@ -56,8 +56,15 @@ fn long_path_over_max_path_goes_to_recycle_bin() {
     let file = dir.join("lang.jpg");
     fs::write(ext(&file), jpeg(8, 8, None)).unwrap();
     assert!(file.to_str().unwrap().len() > 260);
-    assert_eq!(WindowsRecycleBin.recycle(&file), Ok(()));
-    assert!(!ext(&file).exists());
+    // Papirkurv-APIet tar ikke stier over MAX_PATH. Godkjent utfall: enten Papirkurv via 8.3-kortnavn
+    // (filen er borte), eller `Unsupported` og filen urørt. Aldri `Failed`, aldri tapt fil.
+    match WindowsRecycleBin.recycle(&file) {
+        Ok(()) => assert!(!ext(&file).exists(), "meldt Ok, men filen ligger der"),
+        Err(RecycleError::Unsupported) => {
+            assert!(ext(&file).exists(), "Unsupported skal la filen ligge")
+        }
+        other => panic!("uventet utfall for lang sti: {other:?}"),
+    }
     let _ = fs::remove_dir_all(ext(&root));
 }
 
