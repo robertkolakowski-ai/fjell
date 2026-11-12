@@ -1,0 +1,17 @@
+# MAL, IKKE AKTIV (filendelsen .disabled gjør at GitHub ignorerer den).
+# Jobb `ios`: bygg xcframework (arm64 + simulator) og kjør enhetstester/skjermbildetester.
+# Venter på avklaring av macOS-runner og referanseenhet (MVP-PLAN del 6, spørsmål 8) og på
+# at app/ios/ og UniFFI-bindinger finnes (M4/M5). Aktiver: gi filen navnet ios.yml.
+name: ios
+on:
+  pull_request:
+    paths: ["app/ios/**", "core/**", ".github/workflows/ios.yml"]
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: macos-14 # TODO: avklar runner (egen eller GitHub-hostet)
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+      - run: echo "TODO M4/M5 - just bindings, xcodebuild test, hardkodet-tekst-lint (just)"

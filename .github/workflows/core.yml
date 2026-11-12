@@ -1,0 +1,30 @@
+# Jobb `core`: just check + cargo-deny. Stifiltre sparer minutter (ARKITEKTUR del 5).
+# Golden-porter og migreringstester kommer med M1 og kjøres av `just test`.
+name: core
+on:
+  push:
+    branches: [main]
+    paths: &paths ["core/**", "i18n/**", "tools/**", "justfile", "deny.toml", ".github/workflows/core.yml"]
+  pull_request:
+    paths: *paths
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust-verktøy
+        run: rustup component add rustfmt clippy
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - run: just check
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: core/Cargo.toml
+          arguments: --all-features

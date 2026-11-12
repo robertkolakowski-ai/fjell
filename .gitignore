@@ -2,3 +2,16 @@
 node_modules/
 .env
 *.sqlite
+
+# Rust
+target/
+
+# Python
+__pycache__/
+*.pyc
+
+# iOS / editor
+xcuserdata/
+DerivedData/
+.idea/
+.vscode/

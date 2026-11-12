@@ -1,0 +1,8 @@
+{
+  "_meta": { "locale": "nb", "version": 1 },
+  "onb.start.button": { "t": "Kom i gang", "ctx": "Primærknapp på første onboarding-skjerm", "len": "short" },
+  "home.ring.caption": { "t": "{size} kan ryddes", "ctx": "Under ringen på Hjem. {size} = formatert filstørrelse" },
+  "review.bar.trash": { "t": "{count, plural, one {Flytt # til papirkurv} other {Flytt # til papirkurv}} ({size})", "ctx": "Bunnlinje i Gjennomgang. {count} = antall bilder, {size} = formatert filstørrelse", "len": "short" },
+  "reason.blurry": { "t": "Uskarpt ({pct})", "ctx": "Begrunnelsesmerke. {pct} = formatert prosent", "len": "short" },
+  "trash.freed.note": { "t": "Plassen frigjøres først når du tømmer papirkurven.", "ctx": "Info i Papirkurv" }
+}

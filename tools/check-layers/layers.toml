@@ -1,0 +1,10 @@
+# Lagdefinisjon utledet fra modulgrafen i docs/mvp/ARKITEKTUR.md del 2.
+# En modul kan bare bruke (`use crate::<modul>`) moduler i strengt lavere lag.
+# Endres modulgrafen: oppdater ARKITEKTUR.md først, så denne filen.
+
+[layers]
+L4 = ["api"]
+L3 = ["pipeline"]
+L2 = ["cluster", "suggest", "actions"]
+L1 = ["store", "hash", "quality", "screenshot"]
+L0 = ["model"]

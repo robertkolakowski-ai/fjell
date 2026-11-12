@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = ["crates/fjell-core", "crates/fjell-ffi", "crates/fjell-cli"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
