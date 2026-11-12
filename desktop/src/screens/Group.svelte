@@ -6,9 +6,10 @@
   import type { CoreBridge } from "../bridge/core-bridge";
   import type { BridgeError } from "../bridge/types";
   import { useBridge } from "../context";
-  import { Badge, Button } from "../lib";
+  import { Badge, Button, CloudWarning } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { formatHash, navigate } from "../router";
+  import { cloudFromError, loadCloud } from "./cloud";
   import {
     findGroup, groupItems, initialGroup, keeperForKey, movableCards, reduceGroup, type GroupEvent, type GroupState,
   } from "./groupState";
@@ -23,6 +24,8 @@
 
   let view: GroupState = $state(initialGroup);
   let gone = false;
+  /** Skysynket bibliotek (leverandørkode): papirkurv er sperret synlig, med forklaring. */
+  let cloud: string | null = $state(null);
 
   const items = $derived(view.group ? groupItems(view.group) : []);
   const movable = $derived(view.group ? movableCards(view.group) : []);
@@ -45,7 +48,10 @@
     send({ type: "reload" });
     void load();
   }
-  onMount(() => void load());
+  onMount(() => {
+    void load();
+    void loadCloud(b).then((c) => { if (!gone) cloud = c; });
+  });
   onDestroy(() => { gone = true; });
 
   async function makeBest(asset: number): Promise<void> {
@@ -61,11 +67,12 @@
     }
   }
   async function keepPrimary(): Promise<void> {
-    if (view.phase !== "ready" || movable.length === 0) return;
+    if (view.phase !== "ready" || movable.length === 0 || cloud) return;
     send({ type: "start" });
     try {
       send({ type: "committed", batch: await b.decide(movable.map((c) => c.id), "trash"), moved: movable.length });
     } catch (e) {
+      cloud = cloudFromError(e as BridgeError) ?? cloud;
       send({ type: "actionFailed", error: e as BridgeError });
     }
   }
@@ -93,6 +100,7 @@
 <section class="group">
   <h1 tabindex="-1">{$tr("group.title")}</h1>
   <p><a href={formatHash({ name: "review", kind: null })}>{$tr("group.back")}</a></p>
+  {#if cloud}<CloudWarning provider={cloud} />{/if}
 
   {#if view.phase === "loading"}
     <p role="status">{$tr("common.loading")}</p>
@@ -103,7 +111,7 @@
     <p role="status">{$tr("group.committed", { count: view.moved })}</p>
     <Button onclick={undo}>{$tr("common.undo")}</Button>
   {:else if view.group}
-    {#if view.error}<p role="alert">{$tr("group.error.body")}</p>{/if}
+    {#if view.error}<p role="alert">{$tr(cloudFromError(view.error) ? "cloud.error.blocked" : "group.error.body")}</p>{/if}
     <p class="muted">{$tr("group.exact.note")}</p>
     <p class="muted">{$tr("group.keys.hint")}</p>
 
@@ -128,7 +136,7 @@
     </ul>
 
     <div class="actions">
-      <Button variant="primary" disabled={busy || movable.length === 0} onclick={keepPrimary}>{$tr("group.keep.primary", { count: movable.length })}</Button>
+      <Button variant="primary" disabled={busy || (!cloud && movable.length === 0)} ariaDisabled={!!cloud} ariaDescribedby="cloud-why" onclick={keepPrimary}>{$tr("group.keep.primary", { count: movable.length })}</Button>
       <Button disabled={busy} onclick={keepAll}>{$tr("group.keep.all")}</Button>
     </div>
   {/if}

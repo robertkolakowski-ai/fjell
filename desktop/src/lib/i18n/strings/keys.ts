@@ -280,6 +280,12 @@ export interface MessageParams {
   "nav.review": Record<never, never>;
   "nav.trash": Record<never, never>;
   "nav.settings": Record<never, never>;
+  "cloud.title": { provider: string };
+  "cloud.body": Record<never, never>;
+  "cloud.tip": Record<never, never>;
+  "cloud.caveat": Record<never, never>;
+  "cloud.key.blocked": Record<never, never>;
+  "cloud.error.blocked": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;

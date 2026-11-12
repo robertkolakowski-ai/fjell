@@ -72,7 +72,7 @@ Windows: Innstillinger → Tilgjengelighet → Visuelle effekter → Animasjonse
 
 ## 6. Installasjonssjekkliste
 
-Se også [RELEASE.md](RELEASE.md). Gjøres på rene Windows 10 22H2 og Windows 11 (VM duger).
+Se også [RELEASE.md](RELEASE.md). Kortversjon for tester uten utviklerverktøy: [WINDOWS-TEST.md](mvp/WINDOWS-TEST.md). Gjøres på rene Windows 10 22H2 og Windows 11 (VM duger).
 
 | # | Sjekk | Forventet |
 |---|---|---|
@@ -89,6 +89,7 @@ Se også [RELEASE.md](RELEASE.md). Gjøres på rene Windows 10 22H2 og Windows 1
 | I11 | Avinstaller (Apper og funksjoner) | Programfiler fjernes. Brukerdata (`%LOCALAPPDATA%\Fjell\`, karantenemapper) **beholdes**, og avinstallasjon sier det. Ingen original røres. |
 | I12 | Oppgrader over eksisterende versjon | Indeks migreres, ingen tap. |
 | I13 | Installer på en bruker uten skrivetilgang til Bilder / UNC | Tydelig melding, ingen krasj. |
+| I14 | Legg til en mappe under `OneDrive`, `Dropbox` eller `iCloud Photos`; skann; prøv «Flytt til papirkurv» | Skann og forslag virker, plassholdere («bare på nett») lastes ikke ned, flytting til papirkurv avvises og ingenting forsvinner fra mappen. **Ikke prøvd mot ekte skytjeneste.** Sikkerhetsnettet er basert på mappenavn: gi synkmappen et eget navn og noter at den ikke oppdages. Grensesnittet viser ikke advarselen ennå; noter hva du ser. |
 
 ## 7. Brukbarhetstest (5 deltakere)
 

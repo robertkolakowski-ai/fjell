@@ -6,7 +6,7 @@ import { TauriBridge } from "./tauri-bridge";
 export function createBridge(): CoreBridge {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
     ? new TauriBridge()
-    : new MockBridge({ delayMs: mockDelay(), ...mockUnsupported() });
+    : new MockBridge({ delayMs: mockDelay(), ...mockUnsupported(), ...mockLibrary() });
 }
 
 /** Simulert latens i nettleser/dev. `?mockDelay=0` (bare i dev-server) gir e2e- og ytelsesmålinger uten kunstig ventetid. */
@@ -24,6 +24,15 @@ function mockUnsupported(): { noBin?: boolean; unsupportedCount?: number } {
     const v = new URLSearchParams(location.search).get("mockUnsupported");
     if (v === "all") return { noBin: true };
     if (v !== null && Number.isInteger(Number(v)) && Number(v) > 0) return { unsupportedCount: Number(v) };
+  }
+  return {};
+}
+
+/** Bare dev: `?mockLibrary=<sti>` setter valgt mappe i mocken (e2e og skjermbilder av skymappe-advarselen, f.eks. `C:\\Users\\a\\OneDrive\\Bilder`). */
+function mockLibrary(): { library?: string } {
+  if (import.meta.env.DEV && typeof location !== "undefined") {
+    const v = new URLSearchParams(location.search).get("mockLibrary");
+    if (v !== null && v.trim() !== "") return { library: v };
   }
   return {};
 }

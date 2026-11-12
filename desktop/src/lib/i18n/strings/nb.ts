@@ -281,4 +281,10 @@ export const nb: Readonly<Record<MessageKey, string>> = {
   "nav.review": "Gjennomgang",
   "nav.trash": "Papirkurv",
   "nav.settings": "Innstillinger",
+  "cloud.title": "Mappen synkroniseres med {provider, select, icloud {iCloud} onedrive {OneDrive} dropbox {Dropbox} other {en skytjeneste}}",
+  "cloud.body": "Å flytte bilder til papirkurven her kan fjerne dem fra alle enhetene dine. Derfor er «Flytt til papirkurv» slått av. Du kan fortsatt skanne, se forslag og velge «Behold».",
+  "cloud.tip": "Tips: bruk en lokal kopi av mappen, eller eksporter bildene til en vanlig mappe, og rydd der.",
+  "cloud.caveat": "Vi kjenner igjen synkmapper på navnet. Heter synkmappen noe annet, kan vi ikke se det.",
+  "cloud.key.blocked": "Papirkurv-tasten gjør ingenting her: mappen synkroniseres med en skytjeneste. Bruk «Behold» eller «Hopp over».",
+  "cloud.error.blocked": "Ingenting ble flyttet: mappen synkroniseres med en skytjeneste.",
 };

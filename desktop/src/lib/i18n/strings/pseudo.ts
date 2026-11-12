@@ -281,4 +281,10 @@ export const pseudo: Readonly<Record<MessageKey, string>> = {
   "nav.review": "[Gjænnømgång····]",
   "nav.trash": "[Påpirkürv···]",
   "nav.settings": "[Innstillingær····]",
+  "cloud.title": "[Måppæn synkrønisæræs mæd {provider, select, icloud {iCløüd} onedrive {ØnæDrivæ} dropbox {Drøpbøx} other {æn skytjænæstæ}}············]",
+  "cloud.body": "[Å flyttæ bildær til påpirkürvæn hær kån fjærnæ dæm frå ållæ ænhætænæ dinæ. Dærfør ær «Flytt til påpirkürv» slått åv. Dü kån førtsått skånnæ, sæ førslåg øg vælgæ «Bæhøld».···················································]",
+  "cloud.tip": "[Tips: brük æn løkål køpi åv måppæn, ællær ækspørtær bildænæ til æn vånlig måppæ, øg rydd dær.····························]",
+  "cloud.caveat": "[Vi kjænnær igjæn synkmåppær på nåvnæt. Hætær synkmåppæn nøæ ånnæt, kån vi ikkæ sæ dæt.··························]",
+  "cloud.key.blocked": "[Påpirkürv-tåstæn gjør ingænting hær: måppæn synkrønisæræs mæd æn skytjænæstæ. Brük «Bæhøld» ællær «Høpp øvær».·································]",
+  "cloud.error.blocked": "[Ingænting blæ flyttæt: måppæn synkrønisæræs mæd æn skytjænæstæ.···················]",
 };

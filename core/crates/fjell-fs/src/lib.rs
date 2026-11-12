@@ -6,8 +6,10 @@
 //!   skyplassholdere (`locality`).
 //! - `Quarantine`/`FsQuarantine`: flytting til `.fjell-karantene` med manifest og avstemming.
 //! - `RecycleBin`/`FsDeleter`: «Tøm» via Papirkurv (standard) eller permanent med `PermanentAck`.
+//! - `cloud`: sikkerhetsnett som kjenner igjen skysynkede mappenavn (iCloud/OneDrive/Dropbox).
 //! - `path`: lange stier og UNC. `windows` (cfg(windows)): Papirkurv-implementasjon mot Windows.
 
+pub mod cloud;
 pub mod delete;
 pub mod drives;
 pub mod locality;
@@ -20,6 +22,7 @@ pub mod thumbcache;
 #[cfg(windows)]
 pub mod windows;
 
+pub use cloud::{cloud_provider, CloudProvider};
 pub use delete::{
     DeleteError, DeleteMode, DeleteResult, FakeRecycleBin, FsDeleter, PermanentAck, RecycleBin,
     RecycleError,

@@ -281,4 +281,10 @@ export const en: Readonly<Record<MessageKey, string>> = {
   "nav.review": "Review",
   "nav.trash": "Trash",
   "nav.settings": "Settings",
+  "cloud.title": "This folder syncs with {provider, select, icloud {iCloud} onedrive {OneDrive} dropbox {Dropbox} other {a cloud service}}",
+  "cloud.body": "Moving photos to the trash here could remove them from all your devices. That is why «Move to trash» is turned off. You can still scan, see suggestions and choose «Keep».",
+  "cloud.tip": "Tip: use a local copy of the folder, or export the photos to an ordinary folder, and clean up there.",
+  "cloud.caveat": "We recognise sync folders by name. If your sync folder is named something else, we can't tell.",
+  "cloud.key.blocked": "The trash key does nothing here: the folder syncs with a cloud service. Use «Keep» or «Skip».",
+  "cloud.error.blocked": "Nothing was moved: the folder syncs with a cloud service.",
 };

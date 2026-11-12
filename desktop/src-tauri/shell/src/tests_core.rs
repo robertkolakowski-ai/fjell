@@ -598,3 +598,47 @@ const TINY_JPEG: [u8; 632] = [
     232, 233, 234, 242, 243, 244, 245, 246, 247, 248, 249, 250, 255, 218, 0, 12, 3, 1, 0, 2, 17, 3,
     17, 0, 63, 0, 109, 20, 81, 94, 89, 236, 159, 255, 217,
 ];
+
+/// Bibliotek i en mappe som heter «OneDrive»: skysynket, så papirkurv nektes.
+#[test]
+fn cloud_synced_library_refuses_trash_but_allows_keep() {
+    let e = env("cloud");
+    let lib = e.root.join("OneDrive").join("bilder");
+    fs::create_dir_all(&lib).unwrap();
+    fs::write(lib.join("a.jpg"), b"same-bytes-same-bytes").unwrap();
+    fs::write(lib.join("b.jpg"), b"same-bytes-same-bytes").unwrap();
+    let src = FsSource::new(&lib).without_decoding();
+    e.sh.open_library(&lib, Arc::new(src)).unwrap();
+    assert_eq!(e.sh.state().cloud_sync, Some("onedrive"));
+    e.sh.start_scan(true).unwrap();
+    let t = Instant::now();
+    while e.sh.state().scan_phase != "done" {
+        assert!(
+            t.elapsed() < Duration::from_secs(20),
+            "skanning ble ikke ferdig"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let ids = e.dup_ids();
+    assert!(!ids.is_empty(), "skanning og forslag virker som før");
+
+    let err = e.sh.decide(&ids, DecisionDto::Trash).unwrap_err();
+    assert_eq!(err.code, "cloud_synced_readonly");
+    assert_eq!(err.detail, "onedrive");
+    assert_eq!(e.sh.state().trash_count, 0);
+    assert_eq!(quarantined(&lib), 0);
+    assert!(exists(&lib.join("a.jpg")) && exists(&lib.join("b.jpg")));
+    assert_eq!(e.dup_ids(), ids, "kortene er fortsatt ventende");
+
+    e.sh.decide(&ids, DecisionDto::Keep).unwrap();
+    assert_eq!(quarantined(&lib), 0);
+    assert!(exists(&lib.join("a.jpg")) && exists(&lib.join("b.jpg")));
+}
+
+#[test]
+fn local_library_has_no_cloud_sync_flag() {
+    let e = env("nocloud");
+    e.open();
+    assert_eq!(e.sh.state().cloud_sync, None);
+    assert_eq!(Shell::mock().state().cloud_sync, None);
+}

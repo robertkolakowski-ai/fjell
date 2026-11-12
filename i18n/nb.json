@@ -277,5 +277,11 @@
   "nav.home": {"t": "Hjem", "ctx": "Navigasjonsvalg", "len": "short"},
   "nav.review": {"t": "Gjennomgang", "ctx": "Navigasjonsvalg", "len": "short"},
   "nav.trash": {"t": "Papirkurv", "ctx": "Navigasjonsvalg", "len": "short"},
-  "nav.settings": {"t": "Innstillinger", "ctx": "Navigasjonsvalg", "len": "short"}
+  "nav.settings": {"t": "Innstillinger", "ctx": "Navigasjonsvalg", "len": "short"},
+  "cloud.title": {"t": "Mappen synkroniseres med {provider, select, icloud {iCloud} onedrive {OneDrive} dropbox {Dropbox} other {en skytjeneste}}", "ctx": "Tittel på skyadvarsel. {provider} = icloud, onedrive eller dropbox"},
+  "cloud.body": {"t": "Å flytte bilder til papirkurven her kan fjerne dem fra alle enhetene dine. Derfor er «Flytt til papirkurv» slått av. Du kan fortsatt skanne, se forslag og velge «Behold».", "ctx": "Forklaring i skyadvarselen. Også beskrivelse (aria-describedby) for de deaktiverte papirkurv-knappene"},
+  "cloud.tip": {"t": "Tips: bruk en lokal kopi av mappen, eller eksporter bildene til en vanlig mappe, og rydd der.", "ctx": "Tips i skyadvarselen"},
+  "cloud.caveat": {"t": "Vi kjenner igjen synkmapper på navnet. Heter synkmappen noe annet, kan vi ikke se det.", "ctx": "Ærlig forbehold i skyadvarselen: deteksjonen er et sikkerhetsnett, ikke en garanti"},
+  "cloud.key.blocked": {"t": "Papirkurv-tasten gjør ingenting her: mappen synkroniseres med en skytjeneste. Bruk «Behold» eller «Hopp over».", "ctx": "Annonseres og vises når brukeren trykker papirkurv-tasten eller dytter kortet opp i en skysynket mappe"},
+  "cloud.error.blocked": {"t": "Ingenting ble flyttet: mappen synkroniseres med en skytjeneste.", "ctx": "Feilmelding når skallet svarer cloud_synced_readonly på papirkurv-valg"}
 }

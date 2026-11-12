@@ -113,11 +113,9 @@ test("ark (Tøm papirkurv): navn, fokusfelle og retur av fokus", async ({ page }
   await expect.poll(() => page.evaluate(() => document.activeElement?.textContent?.trim())).toContain("Tøm papirkurv");
 });
 
-// KJENT FUNN (UX-6, ikke rettet her: skjermene eies av annen fase): Review.svelte setter inn role=status-elementer sammen med
-// teksten («Flytter …», «6 flyttet»). Narrator/NVDA annonserer slike ofte ikke. test.fail() gjør funnet synlig uten å
-// gjøre CI rød; når skjermen bruker en vedvarende LiveRegion, feiler denne testen («forventet feil lyktes») og test.fail fjernes.
+// Tidligere funn (UX-6) rettet i M9: Review.svelte satte inn role=status-elementer sammen med teksten («Flytter …», «6 flyttet»).
+// Narrator/NVDA annonserer slike ofte ikke. Nå står en vedvarende aria-live-region i bunnlinjen og får teksten inn i seg.
 test("live-regioner i skjermene: finnes før innholdet endres (Narrator/NVDA)", async ({ page }) => {
-  test.fail(true, "Review.svelte setter inn role=status med ferdig tekst; se docs/BETA.md avsnitt 8");
   await open(page, "#/");
   await seedScan(page);
   await go(page, "#/review/blurry");

@@ -1,4 +1,5 @@
 // MockBridge: deterministiske eksempeldata, samme grensesnitt. Forsinkelser kan slås av.
+import { cloudProvider } from "./cloud";
 import type { CoreBridge } from "./core-bridge";
 import {
   KIND_CODES, type AppState, type BridgeError, type Card, type CardPage, type Decision,
@@ -22,6 +23,8 @@ export interface MockOptions {
   firstRun?: boolean;
   /** Antall `getState`-kall skannet blir stående i «analyserer» før det er ferdig (tester av pause/fortsett/avbryt). Standard 0 = straks ferdig. */
   scanPolls?: number;
+  /** Lagret språkvalg i «skallet» (system, nb, en). Standard null = aldri valgt (frontend migrerer localStorage). */
+  language?: string | null;
 }
 
 const DAY = 86_400;
@@ -71,6 +74,7 @@ export class MockBridge implements CoreBridge {
   private library: string | null;
   private firstRun: boolean;
   private readonly scanPolls: number;
+  private language: string | null;
   private pollsLeft = 0;
   private paused = false;
   /** Sekunder siden epoch når bildet (`asset`) ble flyttet til «Nylig slettet». */
@@ -85,6 +89,7 @@ export class MockBridge implements CoreBridge {
     this.library = opts.library === undefined ? "C:\\Bilder" : opts.library;
     this.firstRun = opts.firstRun ?? false;
     this.scanPolls = opts.scanPolls ?? 0;
+    this.language = opts.language ?? null;
   }
 
 
@@ -109,7 +114,13 @@ export class MockBridge implements CoreBridge {
       scanPhase: this.phase, scanDone: this.phase === "done" ? 100 : this.phase === "idle" ? 0 : 40,
       scanTotal: this.phase === "idle" ? 0 : 100, trashDays: this.days, freedSince: this.freedSince,
       scanPaused: this.paused,
+      cloudSync: this.cloud(),
     };
+  }
+
+  /** Skysynket bibliotek etter mappenavn (samme regler som kjernen). */
+  private cloud() {
+    return this.library === null ? null : cloudProvider(this.library);
   }
 
   async startScan(_full: boolean): Promise<void> {
@@ -157,6 +168,9 @@ export class MockBridge implements CoreBridge {
     await this.wait();
     const hit = ids.map((id) => this.cards.find((c) => c.id === id) ?? null);
     if (hit.some((c) => c === null)) throw err("unknown_card");
+    // Som skallet: papirkurv i skysynket bibliotek nektes FØR noe endres. Behold er tillatt.
+    const cloud = decision === "trash" ? this.cloud() : null;
+    if (cloud) throw err("cloud_synced_readonly", cloud);
     const batch = this.nextBatch++;
     this.cards = this.cards.filter((c) => !ids.includes(c.id));
     if (decision === "trash") {
@@ -263,6 +277,19 @@ export class MockBridge implements CoreBridge {
     if (!Number.isInteger(days) || days < 1 || days > 365) throw err("bad_request", "trash_days");
     this.days = days;
     return this.settings();
+  }
+
+  async getLanguage(): Promise<string | null> {
+    await this.wait();
+    return this.language;
+  }
+
+  /** Som skallet: bare system, nb og en er gyldige («pseudo» avvises). */
+  async setLanguage(language: string): Promise<string> {
+    await this.wait();
+    if (language !== "system" && language !== "nb" && language !== "en") throw err("bad_request", "language");
+    this.language = language;
+    return language;
   }
 
   private settings(): AppSettings {

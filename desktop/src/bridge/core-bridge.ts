@@ -40,4 +40,8 @@ export interface CoreBridge {
   getSettings(): Promise<AppSettings>;
   /** Papirkurvfrist i dager (1 til 365). Gjelder nye elementer. */
   setTrashDays(days: number): Promise<AppSettings>;
+  /** Lagret språkvalg i skallet («system», «nb», «en»), eller null = aldri valgt (frontend migrerer sitt eget). */
+  getLanguage(): Promise<string | null>;
+  /** Lagrer språkvalget i skallet. Returnerer lagret verdi. «pseudo» avvises av skallet. */
+  setLanguage(language: string): Promise<string>;
 }

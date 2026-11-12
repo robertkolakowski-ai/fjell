@@ -10,12 +10,17 @@
     /** Synlig tekst er også tilgjengelig navn (WCAG 2.5.3). Sett kun aria-label hvis den inneholder den synlige teksten. */
     ariaLabel?: string;
     ariaKeyshortcuts?: string;
+    /** Synlig sperret, men fortsatt fokuserbar og med forklaring (`ariaDescribedby`): ingen skjult sperre. Klikk gjør ingenting. */
+    ariaDisabled?: boolean;
+    /** id til elementet som forklarer hvorfor knappen er sperret. */
+    ariaDescribedby?: string;
     children: Snippet;
   }
-  let { variant = "secondary", type = "button", disabled = false, onclick, ariaLabel, ariaKeyshortcuts, children }: Props = $props();
+  let { variant = "secondary", type = "button", disabled = false, onclick, ariaLabel, ariaKeyshortcuts, ariaDisabled = false, ariaDescribedby, children }: Props = $props();
 </script>
 
-<button class="btn {variant}" {type} {disabled} {onclick} aria-label={ariaLabel} aria-keyshortcuts={ariaKeyshortcuts}>
+<button class="btn {variant}" {type} {disabled} onclick={(e) => { if (!ariaDisabled) onclick?.(e); }} aria-label={ariaLabel}
+  aria-keyshortcuts={ariaKeyshortcuts} aria-disabled={ariaDisabled ? "true" : undefined} aria-describedby={ariaDescribedby}>
   {@render children()}
 </button>
 
@@ -40,9 +45,9 @@
     color: var(--c-on-accent);
     border-color: var(--c-accent);
   }
-  .btn.primary:hover:not(:disabled) { background: var(--c-accent-hover); border-color: var(--c-accent-hover); }
-  .btn.secondary:hover:not(:disabled) { background: var(--c-surface-sunken); }
-  .btn:disabled {
+  .btn.primary:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--c-accent-hover); border-color: var(--c-accent-hover); }
+  .btn.secondary:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--c-surface-sunken); }
+  .btn:disabled, .btn[aria-disabled="true"] {
     cursor: not-allowed;
     opacity: 0.6; /* tekst + tilstand er også kodet via disabled-attributtet; deaktivert er unntatt fra kontrastkrav */
     border-style: dashed;
@@ -50,6 +55,6 @@
   @media (forced-colors: active) {
     .btn { border-color: ButtonText; }
     .btn.primary { background: ButtonFace; border-width: 3px; }
-    .btn:disabled { color: GrayText; border-color: GrayText; opacity: 1; }
+    .btn:disabled, .btn[aria-disabled="true"] { color: GrayText; border-color: GrayText; opacity: 1; }
   }
 </style>

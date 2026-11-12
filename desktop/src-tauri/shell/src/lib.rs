@@ -221,7 +221,18 @@ impl Shell {
         };
         let mut st = StateDto::from_core(backend, &api.home_summary(), &api.settings());
         st.scan_paused = self.paused.load(Ordering::SeqCst);
+        st.cloud_sync = self.cloud_sync();
         st
+    }
+
+    /// Skyleverandør for gjeldende bibliotek (kun ekte modus), etter kjente mappenavn.
+    fn cloud_sync(&self) -> Option<&'static str> {
+        match &*self.read() {
+            Inner::Core(c) => {
+                fjell_fs::cloud_provider(&c.library.to_string_lossy()).map(|p| p.code())
+            }
+            _ => None,
+        }
     }
 
     /// Starter skanning og returnerer straks; fremdrift leses via `state()` (`scan_*`).
@@ -291,6 +302,12 @@ impl Shell {
         confirmed: &[String],
     ) -> Result<u64, ErrorDto> {
         let (api, core) = self.parts()?;
+        // Skysynket bibliotek: papirkurv nektes før noe endres (Behold er trygt og tillatt).
+        if matches!(decision, DecisionDto::Trash) {
+            if let Some(p) = self.cloud_sync() {
+                return Err(ErrorDto::new("cloud_synced_readonly", p));
+            }
+        }
         let codes = parse_codes(confirmed)?;
         let d = match decision {
             DecisionDto::Trash => Decision::Trash,

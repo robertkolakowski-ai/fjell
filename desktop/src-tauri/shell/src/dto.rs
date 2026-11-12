@@ -69,6 +69,8 @@ pub struct StateDto {
     pub trash_days: u32,
     /// Skann satt på pause av brukeren (avbrutt, gjenopptas med `resume_scan`).
     pub scan_paused: bool,
+    /// Leverandørkode (`icloud`/`onedrive`/`dropbox`) hvis biblioteket ligger i en skysynket mappe.
+    pub cloud_sync: Option<&'static str>,
 }
 
 impl StateDto {
@@ -94,6 +96,7 @@ impl StateDto {
             scan_total: h.scan.total,
             trash_days: s.trash_days,
             scan_paused: false,
+            cloud_sync: None,
         }
     }
 }
