@@ -2,3 +2,6 @@
 body {
   padding: var(--space-4) var(--space-5);
 }
+
+/* Lenker i innhold: tekstfarge med understrek (aksentfarge er forbeholdt primærhandling). Klasser og komponentstiler overstyrer. */
+main a { color: var(--c-text); text-decoration: underline; text-underline-offset: 0.2em; }

@@ -46,6 +46,18 @@ jobs:
           npm test
           npm run check
           npm run build
+      # Playwright mot vite dev med MockBridge: flyttester, axe (lys/mørk × bred/smal, 0 brudd) og ytelse (p95 < 100 ms)
+      - name: e2e (Playwright, axe, ytelse)
+        working-directory: desktop
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-resultater
+          path: desktop/e2e/.results
+          if-no-files-found: ignore
       - name: Bygg Tauri-appen (usignert NSIS)
         working-directory: desktop
         run: npx tauri build --bundles nsis

@@ -5,8 +5,9 @@
 //! Kjernen returnerer koder, aldri tekst (ARKITEKTUR beslutning 13): alle strenger her er
 //! stabile koder (snake_case) som UI slår opp i nøkkelkatalogen.
 
-use fjell_core::api::{ApiError, Card, CardPage, HomeSummary, ScanPhase, Settings};
-use fjell_core::model::SuggestionKind;
+use fjell_core::api::{ApiError, Card, CardPage, HomeSummary, ScanPhase, Settings, TrashSummary};
+use fjell_core::model::{ConsequenceCode, SuggestionKind};
+use fjell_fs::DeleteError;
 use serde::{Deserialize, Serialize};
 
 /// Stabil kode for forslagstype.
@@ -24,6 +25,11 @@ pub fn parse_kind(code: &str) -> Option<SuggestionKind> {
     SuggestionKind::ALL
         .into_iter()
         .find(|k| kind_code(*k) == code)
+}
+
+/// Motsatt vei for konsekvenskoder (`ack_required` gir dem; UI sender dem tilbake som bekreftelse).
+pub fn parse_consequence(code: &str) -> Option<ConsequenceCode> {
+    ConsequenceCode::ALL.into_iter().find(|c| c.key() == code)
 }
 
 fn phase_code(p: ScanPhase) -> &'static str {
@@ -152,6 +158,13 @@ pub struct ErrorDto {
 }
 
 impl ErrorDto {
+    pub fn new(code: &'static str, detail: impl Into<String>) -> ErrorDto {
+        ErrorDto {
+            code,
+            detail: detail.into(),
+        }
+    }
+
     pub fn bad_request(detail: impl Into<String>) -> ErrorDto {
         ErrorDto {
             code: "bad_request",
@@ -162,8 +175,14 @@ impl ErrorDto {
 
 impl From<ApiError> for ErrorDto {
     fn from(e: ApiError) -> ErrorDto {
+        if let ApiError::AckRequired(codes) = &e {
+            // Detalj = konsekvenskodene (kommaseparert), slik at UI kan vise og sende dem tilbake.
+            let keys: Vec<&str> = codes.iter().map(|c| c.key()).collect();
+            return ErrorDto::new("ack_required", keys.join(","));
+        }
         let code = match &e {
             ApiError::AckRequired(_) => "ack_required",
+            ApiError::WouldEmptyGroup(_) => "would_empty_group",
             ApiError::UnknownCard(_) => "unknown_card",
             ApiError::UnknownAsset(_) => "unknown_asset",
             ApiError::NothingToUndo => "nothing_to_undo",
@@ -179,4 +198,57 @@ impl From<ApiError> for ErrorDto {
             detail: format!("{e:?}"),
         }
     }
+}
+
+impl From<DeleteError> for ErrorDto {
+    fn from(e: DeleteError) -> ErrorDto {
+        match e {
+            DeleteError::AckRequired => ErrorDto::new("ack_required", "permanent"),
+            DeleteError::AckMismatch => ErrorDto::new("ack_mismatch", "permanent"),
+        }
+    }
+}
+
+/// «Nylig slettet»: merket / kan frigjøres / frigjort.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashSummaryDto {
+    pub count: u64,
+    pub bytes: u64,
+    pub expired: u64,
+    pub freed_bytes: u64,
+    pub trash_days: u32,
+}
+
+impl TrashSummaryDto {
+    pub fn from_core(t: &TrashSummary, s: &Settings) -> TrashSummaryDto {
+        TrashSummaryDto {
+            count: t.count,
+            bytes: t.bytes,
+            expired: t.expired,
+            freed_bytes: t.freed_bytes,
+            trash_days: s.trash_days,
+        }
+    }
+}
+
+/// Brukerens ekstra bekreftelse for permanent sletting (avkrysning + antallet på knappen).
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PermanentAckDto {
+    pub checked: bool,
+    pub count: usize,
+}
+
+/// Resultat av «Tøm». Alt som ikke er `purged` ligger fortsatt i «Nylig slettet» (ingen tap).
+#[derive(Serialize, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct EmptyDto {
+    pub purged: u64,
+    pub kept_trashed: u64,
+    /// Volum uten Papirkurv: ikke slettet, UI kan tilby permanent med egen advarsel.
+    pub unsupported: u64,
+    pub cancelled: u64,
+    pub unavailable: u64,
+    pub freed_bytes: u64,
 }

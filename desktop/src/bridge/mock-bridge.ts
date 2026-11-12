@@ -2,13 +2,15 @@
 import type { CoreBridge } from "./core-bridge";
 import {
   KIND_CODES, type AppState, type BridgeError, type Card, type CardPage, type Decision,
-  type KindCode, type ReasonCode, type ScanPhase,
+  type EmptyResult, type KindCode, type PermanentAck, type ReasonCode, type ScanPhase,
 } from "./types";
 
 export interface MockOptions {
   /** Simulert latens per kall i ms. 0 = av (tester). */
   delayMs?: number;
   trashDays?: number;
+  /** Simuler volum uten Papirkurv (nettverksstasjon): Papirkurv-modus gir `unsupported`. */
+  noBin?: boolean;
 }
 
 const REASON: Record<KindCode, ReasonCode> = {
@@ -40,16 +42,21 @@ export function seedCards(): Card[] {
 export class MockBridge implements CoreBridge {
   private cards = seedCards();
   private trashed: Card[] = [];
-  private batches: number[][] = [];
+  /** Angre-stabel: både papirkurv og behold er batcher (kjernen gir batch-id for begge). */
+  private batches: { ids: number[]; decision: Decision }[] = [];
+  private kept: Card[] = [];
   private nextBatch = 1;
   private phase: ScanPhase = "idle";
   private freed = 0;
+  private freedSince: number | null = null;
+  private readonly noBin: boolean;
   private readonly delayMs: number;
   private readonly days: number;
 
   constructor(opts: MockOptions = {}) {
     this.delayMs = opts.delayMs ?? 0;
     this.days = opts.trashDays ?? 30;
+    this.noBin = opts.noBin ?? false;
   }
 
   private wait(): Promise<void> {
@@ -70,7 +77,7 @@ export class MockBridge implements CoreBridge {
       trashBytes: this.trashed.reduce((s, c) => s + c.bytes, 0),
       trashExpired: 0, freedBytes: this.freed,
       scanPhase: this.phase, scanDone: this.phase === "done" ? 100 : 0,
-      scanTotal: this.phase === "idle" ? 0 : 100, trashDays: this.days,
+      scanTotal: this.phase === "idle" ? 0 : 100, trashDays: this.days, freedSince: this.freedSince,
     };
   }
 
@@ -94,19 +101,35 @@ export class MockBridge implements CoreBridge {
     if (hit.some((c) => c === null)) throw err("unknown_card");
     const batch = this.nextBatch++;
     this.cards = this.cards.filter((c) => !ids.includes(c.id));
-    if (decision === "trash") {
-      this.trashed.push(...(hit as Card[]));
-      this.batches.push(ids);
-    }
+    if (decision === "trash") this.trashed.push(...(hit as Card[]));
+    else this.kept.push(...(hit as Card[]));
+    this.batches.push({ ids, decision });
     return batch;
+  }
+
+  async setKeeper(group: number, asset: number): Promise<void> {
+    await this.wait();
+    const members = this.cards.filter((c) => c.group === group);
+    if (members.length === 0) throw err("unknown_card", "unknown group");
+    const old = members[0].keeper;
+    if (asset === old) return;
+    const hit = members.find((c) => c.asset === asset);
+    if (!hit || old === null) throw err("unknown_asset");
+    // Byt plass: forslaget får den gamle keeperens asset, alle får ny keeper.
+    this.cards = this.cards.map((c) =>
+      c.group !== group ? c : { ...c, keeper: asset, asset: c.id === hit.id ? old : c.asset },
+    );
   }
 
   async undo(): Promise<number> {
     await this.wait();
-    const ids = this.batches.pop();
-    if (!ids) throw err("nothing_to_undo");
-    const back = this.trashed.filter((c) => ids.includes(c.id));
-    this.trashed = this.trashed.filter((c) => !ids.includes(c.id));
+    const last = this.batches.pop();
+    if (!last) throw err("nothing_to_undo");
+    const { ids, decision } = last;
+    const pool = decision === "trash" ? this.trashed : this.kept;
+    const back = pool.filter((c) => ids.includes(c.id));
+    if (decision === "trash") this.trashed = this.trashed.filter((c) => !ids.includes(c.id));
+    else this.kept = this.kept.filter((c) => !ids.includes(c.id));
     this.cards = [...this.cards, ...back].sort((a, b) => a.id - b.id);
     return this.nextBatch++;
   }
@@ -118,5 +141,26 @@ export class MockBridge implements CoreBridge {
     this.trashed = [];
     this.batches = [];
     return n;
+  }
+
+  async emptyTrash(permanent: PermanentAck | null = null): Promise<EmptyResult> {
+    await this.wait();
+    const n = this.trashed.length;
+    const bytes = this.trashed.reduce((sum, c) => sum + c.bytes, 0);
+    const none: EmptyResult = { purged: 0, keptTrashed: 0, unsupported: 0, cancelled: 0, unavailable: 0, freedBytes: 0 };
+    if (permanent === null) {
+      // Papirkurv-modus: filene forlater karantenen, men plassen er ikke frigjort ennå.
+      if (this.noBin) return { ...none, unsupported: n, keptTrashed: n };
+      this.trashed = [];
+      this.batches = this.batches.filter((b) => b.decision !== "trash");
+      return { ...none, purged: n };
+    }
+    // Permanent krever avkrysning og riktig antall (PermanentAck). Aldri uten.
+    if (!permanent.checked || permanent.count !== n) throw err("ack_required", "permanent");
+    this.trashed = [];
+    this.batches = this.batches.filter((b) => b.decision !== "trash");
+    this.freed += bytes;
+    this.freedSince ??= Date.now();
+    return { ...none, purged: n, freedBytes: bytes };
   }
 }

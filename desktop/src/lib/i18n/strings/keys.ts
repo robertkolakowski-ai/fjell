@@ -96,6 +96,8 @@ export interface MessageParams {
   "review.confirm.body": { days: string | number };
   "review.confirm.ack": Record<never, never>;
   "review.confirm.go": Record<never, never>;
+  "review.photo.name": { n: string | number; size: string | number; total: string | number };
+  "review.confirm.preview": { count: number; size: string | number };
   "group.title": Record<never, never>;
   "group.exact.note": Record<never, never>;
   "group.keep.primary": { count: number };
@@ -112,6 +114,11 @@ export interface MessageParams {
   "group.info.sharpness": Record<never, never>;
   "group.info.sharper": Record<never, never>;
   "group.committed": { count: number };
+  "group.back": Record<never, never>;
+  "group.error.body": Record<never, never>;
+  "group.keys.hint": Record<never, never>;
+  "group.protected": Record<never, never>;
+  "group.item.name": { n: string | number; total: string | number };
   "cards.title": Record<never, never>;
   "cards.keep": Record<never, never>;
   "cards.trash": Record<never, never>;
@@ -128,6 +135,7 @@ export interface MessageParams {
   "cards.help.title": Record<never, never>;
   "cards.photo.alt": { n: string | number; total: string | number };
   "cards.drag.hint": Record<never, never>;
+  "cards.key.space": Record<never, never>;
   "trash.title": Record<never, never>;
   "trash.summary": { count: number; size: string | number };
   "trash.section.expired": Record<never, never>;
@@ -216,6 +224,11 @@ export interface MessageParams {
   "dev.state.scan": Record<never, never>;
   "dev.state.reclaimable": Record<never, never>;
   "dev.state.trash": Record<never, never>;
+  "nav.label": Record<never, never>;
+  "nav.home": Record<never, never>;
+  "nav.review": Record<never, never>;
+  "nav.trash": Record<never, never>;
+  "nav.settings": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;
@@ -286,6 +299,7 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "group.next",
   "group.zoom.in",
   "group.zoom.out",
+  "group.back",
   "cards.title",
   "cards.keep",
   "cards.trash",
@@ -295,6 +309,7 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "cards.overlay.skip",
   "cards.remaining",
   "cards.undo.last",
+  "cards.key.space",
   "trash.title",
   "trash.row.expired",
   "trash.restore",
@@ -310,4 +325,8 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "a11y.dialog.close",
   "ui.card.suggestion",
   "ui.badge.protected",
+  "nav.home",
+  "nav.review",
+  "nav.trash",
+  "nav.settings",
 ]);

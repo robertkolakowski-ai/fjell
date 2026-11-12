@@ -245,6 +245,7 @@ Avklart 2026-11-11: nn er ikke MVP-krav. MVP = nb + en. Nøkkelstruktur og nøkk
 | Gjennomgang | Ctrl+A / Shift+klikk | Velg alle / område |
 | Gjennomgang | Delete | Flytt valgte til papirkurv (bekreftelse ved massesletting, som knappen) |
 | Gruppevisning | ← / → | Forrige / neste bilde |
+| Gruppevisning | 1–9 | Gjør bilde nr. N til beste (bare med fokus i gruppeområdet; knappen «Gjør dette til beste» finnes alltid) |
 
 Regler: ingen Alt-, Win- eller Ctrl+W/Tab/F4-kombinasjoner (reservert av Windows og WebView2; Alt+←/→ er «tilbake/frem»); ingen enkelttegn-taster (WCAG 2.1.4); Backspace brukes ikke; piler, Delete og Mellomrom er bare aktive når kortområdet eller listen har fokus, aldri i tekstfelt. Endring av tabellen krever oppdatering her først. Test: `shortcuts.test.ts` sjekker at tabellen, F1-dialogen og `aria-keyshortcuts` er like.
 

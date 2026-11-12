@@ -44,6 +44,25 @@ export interface AppState {
   scanDone: number;
   scanTotal: number;
   trashDays: number;
+  /** Tidspunkt (ms siden epoch) for første permanente sletting, til historikklinjen. Kjernen leverer det ikke ennå. */
+  freedSince?: number | null;
+}
+
+/** Brukerens ekstra bekreftelse for permanent sletting (avkrysning + antallet på knappen). Speiler PermanentAckDto. */
+export interface PermanentAck {
+  checked: boolean;
+  count: number;
+}
+
+/** Resultat av «Tøm». Alt som ikke er `purged` ligger fortsatt i «Nylig slettet». Speiler EmptyDto. */
+export interface EmptyResult {
+  purged: number;
+  keptTrashed: number;
+  /** Volum uten Papirkurv: ikke slettet. UI kan tilby permanent med egen advarsel. */
+  unsupported: number;
+  cancelled: number;
+  unavailable: number;
+  freedBytes: number;
 }
 
 /** Ett forslag (kort). `group`/`keeper` er satt for dubletter. */

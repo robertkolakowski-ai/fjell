@@ -18,16 +18,16 @@
   const f = $derived(Math.min(1, Math.max(0, Number.isFinite(fraction) ? fraction : 0)));
 </script>
 
-<figure class="ring" role="img" aria-label={label}>
+<div class="ring" role="img" aria-label={label}>
   <svg viewBox="0 0 120 120" aria-hidden="true" focusable="false">
     <circle class="track" cx="60" cy="60" r={R} />
     <circle class="fill" cx="60" cy="60" r={R} stroke-dasharray={C} stroke-dashoffset={C * (1 - f)} transform="rotate(-90 60 60)" />
   </svg>
-  <figcaption aria-hidden="true">
+  <div class="cap" aria-hidden="true">
     <span class="value">{value ?? label}</span>
     {#if caption}<span class="caption">{caption}</span>{/if}
-  </figcaption>
-</figure>
+  </div>
+</div>
 
 <style>
   .ring {
@@ -40,7 +40,7 @@
   circle { fill: none; stroke-width: 10; }
   .track { stroke: var(--c-ring-track); }
   .fill { stroke: var(--c-ring-fill); stroke-linecap: round; transition: stroke-dashoffset var(--dur-base) ease-out; }
-  figcaption {
+  .cap {
     position: absolute;
     inset: 18%;
     display: flex;
