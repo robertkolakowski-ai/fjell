@@ -7,9 +7,10 @@
   import { groupCards } from "../bridge/groups";
   import { KIND_CODES, type BridgeError, type Card, type KindCode } from "../bridge/types";
   import { useBridge } from "../context";
-  import { Badge, BottomBar, Button, PhotoTile } from "../lib";
+  import { Badge, BottomBar, Button, CloudWarning, LiveRegion, PhotoTile } from "../lib";
   import { fmt, reasonLabel, tr, type TFunction } from "../lib/i18n";
   import { formatHash } from "../router";
+  import { cloudFromError, loadCloud } from "./cloud";
   import {
     initialReview, isProtected, PAGE_SIZE, reasonSnake, reduceReview, summarize, type ReviewEvent, type ReviewState,
   } from "./reviewState";
@@ -29,6 +30,9 @@
 
   let view: ReviewState = $state(initialReview);
   let days = $state(30);
+  /** Skysynket bibliotek (leverandørkode): papirkurv er sperret synlig, med forklaring. */
+  let cloud: string | null = $state(null);
+  let keyNote = $state(false);
   let dialog: HTMLDialogElement | undefined = $state();
   let sentinel: HTMLElement | undefined = $state();
   let shift = false;
@@ -43,6 +47,7 @@
   const busy = $derived(view.phase === "committing");
 
   function send(e: ReviewEvent): void {
+    keyNote = false;
     view = reduceReview(view, e);
   }
   async function loadPage(append: boolean): Promise<void> {
@@ -65,13 +70,16 @@
       send({ type: "committed", batch: await b.decide(ids, "trash") });
     } catch (e) {
       send({ type: "commitFailed", error: e as BridgeError });
+      cloud = cloudFromError(e as BridgeError) ?? cloud;
     }
   }
   function request(): void {
+    if (cloud) { keyNote = true; return; } // sperret: gjør ingenting, men forklarer
     send({ type: "requestCommit" });
     void run();
   }
   function confirm(): void {
+    if (cloud) return;
     send({ type: "confirmCommit" });
     void run();
   }
@@ -95,7 +103,7 @@
     observer.observe(sentinel);
   });
   onMount(() => {
-    b.getState().then((s) => { if (!gone) days = s.trashDays; }).catch(() => undefined);
+    b.getState().then((s) => { if (!gone) { days = s.trashDays; cloud = s.cloudSync || null; } }).catch(() => undefined);
     void loadPage(false);
   });
   onDestroy(() => { gone = true; observer?.disconnect(); });
@@ -123,6 +131,7 @@
 <section class="review">
   <h1 tabindex="-1">{$tr("review.title")}{#if kind}<span class="sub"> · {$tr(catKey[kind])}</span>{/if}</h1>
   <p><a href={formatHash({ name: "home" })}>{$tr("review.back")}</a></p>
+  {#if cloud}<CloudWarning provider={cloud} />{/if}
 
   {#if !kind}
     <ul class="cats">
@@ -139,7 +148,9 @@
     <h2>{$tr("review.empty.title")}</h2>
     <p>{$tr("review.empty.body")}</p>
   {:else}
-    {#if view.error}<p role="alert">{$tr("review.error.body")}</p>{/if}
+    {#if view.error}<p role="alert">{$tr(cloudFromError(view.error) ? "cloud.error.blocked" : "review.error.body")}</p>{/if}
+    {#if keyNote}<p class="note">{$tr("cloud.key.blocked")}</p>{/if}
+    <LiveRegion message={keyNote ? $tr("cloud.key.blocked") : ""} />
     {#if grouped}<p class="muted">{$tr("group.exact.note")}</p>{/if}
 
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -189,14 +200,12 @@
     <BottomBar
       label={sum.count === 0 ? $tr("review.bar.none") : $tr("review.bar.trash", { count: sum.count, size: fmt.bytes(sum.bytes) })}
       announce={$tr("a11y.live.selected", { count: sum.count, size: fmt.bytes(sum.bytes) })}
-      disabled={sum.count === 0 || busy} onclick={request} ariaLabel={$tr("review.title")}>
+      disabled={busy || (!cloud && sum.count === 0)} blocked={!!cloud} describedby="cloud-why" onclick={request} ariaLabel={$tr("review.title")}>
       {#snippet secondary()}
-        {#if busy}
-          <span role="status">{$tr("review.committing")}</span>
-        {:else if view.phase === "committed"}
-          <span role="status">{$tr("review.committed", { count: view.moved })}</span>
-          <Button onclick={undo}>{$tr("common.undo")}</Button>
-        {/if}
+        <!-- Vedvarende live-region (finnes før teksten settes inn: Narrator/NVDA annonserer ellers ofte ikke). Uten role=status:
+             BottomBar har allerede den ene status-regionen i linjen. -->
+        <span class="live" aria-live="polite" aria-atomic="true">{#if busy}{$tr("review.committing")}{:else if view.phase === "committed"}{$tr("review.committed", { count: view.moved })}{/if}</span>
+        {#if view.phase === "committed" && !busy}<Button onclick={undo}>{$tr("common.undo")}</Button>{/if}
         <Button onclick={() => send({ type: "selectAll" })} ariaKeyshortcuts="Control+A">{$tr("review.select.all")}</Button>
         <Button onclick={() => send({ type: "clear" })}>{$tr("review.select.none")}</Button>
       {/snippet}
@@ -225,6 +234,8 @@
   h2 { font-size: var(--fs-lg); margin-block: var(--space-5) var(--space-2); }
   .sub { font-weight: var(--fw-regular, 400); }
   .muted { color: var(--c-text-muted); }
+  .note { margin-block: 0 var(--space-3); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md); }
+  .live { align-self: center; }
   ul { list-style: none; margin: 0; padding: 0; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--space-3); }
   .rows { display: grid; gap: var(--space-3); }

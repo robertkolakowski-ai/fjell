@@ -6,7 +6,7 @@
   import type { CoreBridge } from "../bridge/core-bridge";
   import { KIND_CODES, type BridgeError, type KindCode } from "../bridge/types";
   import { useBridge } from "../context";
-  import { Button, LiveRegion, Ring } from "../lib";
+  import { Button, CloudWarning, LiveRegion, Ring } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { formatHash, navigate } from "../router";
   import FolderDialog from "./FolderDialog.svelte";
@@ -79,6 +79,8 @@
     <p role="alert">{$tr("home.error.body")}</p>
     <Button onclick={retry}>{$tr("common.retry")}</Button>
   {:else if summary}
+    {#if summary.cloudSync}<CloudWarning provider={summary.cloudSync} />{/if}
+
     {#if summary.trashExpired > 0}
       <div class="banner" role="status">
         <p>{$tr("home.expired.banner", { count: summary.trashExpired })}</p>

@@ -5,7 +5,7 @@
 //! `cancel_scan`, `list_cards`, `decide_cards`, `set_keeper`, `undo`, `trash_summary`,
 //! `empty_trash`, `set_library`, `get_library`, `pause_scan`, `resume_scan`, `list_trashed`,
 //! `restore_trashed`, `restore_all_trashed`, `get_settings`, `set_trash_days`, `get_first_run`,
-//! `complete_onboarding`. Ingen logikk her; ingen sletting utenom
+//! `complete_onboarding`, `get_language`, `set_language`. Ingen logikk her; ingen sletting utenom
 //! `Shell::empty` (Papirkurv som standard, beslutning 17).
 //!
 //! Alle kommandoer er `async` slik at filarbeid ikke kjører på hovedtråden (< 100 ms-målet);
@@ -157,6 +157,16 @@ async fn complete_onboarding(shell: State<'_, Arc<Shell>>) -> Res<()> {
     shell.complete_onboarding()
 }
 
+#[tauri::command]
+async fn get_language(shell: State<'_, Arc<Shell>>) -> Res<Option<String>> {
+    Ok(shell.language())
+}
+
+#[tauri::command]
+async fn set_language(shell: State<'_, Arc<Shell>>, language: String) -> Res<String> {
+    shell.set_language(&language)
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -185,7 +195,9 @@ pub fn run() {
             get_settings,
             set_trash_days,
             get_first_run,
-            complete_onboarding
+            complete_onboarding,
+            get_language,
+            set_language
         ])
         .run(tauri::generate_context!())
         .expect("kunne ikke starte Fjell");

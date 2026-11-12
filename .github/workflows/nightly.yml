@@ -1,0 +1,78 @@
+# Jobb `nightly` (MVP-PLAN 4c restanse 5 og 13): ytelsesbudsjetter (`just bench`), full Playwright-e2e (axe, ytelse,
+# flyt, ARIA, ingen nettverk) og en Windows-kompilering av Tauri-skallet. Kjører om natten og på forespørsel,
+# ikke på hver PR (desktop.yml dekker PR). Ingen hemmeligheter og ingen kodesignering.
+# Tidsplanen er UTC; juster når referansemaskinen (åpent spørsmål 8) er avklart.
+name: nightly
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+jobs:
+  # 10 000 syntetiske bilder, skann uten endring/inkrementell og handlings-p95: avslutter med feil ved budsjettbrudd.
+  # Windows er med fordi MVP-plattformen er Windows; tallene derfra er nærmest referansemaskinen (ikke samme maskin).
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - name: just bench
+        shell: bash
+        run: just bench
+
+  # Playwright mot vite dev med MockBridge (hele settet, inkludert ytelses- og aksetestene).
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Installer avhengigheter og Chromium
+        working-directory: desktop
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Playwright (e2e, axe, ytelse)
+        working-directory: desktop
+        run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-resultater
+          path: desktop/e2e/.results
+          if-no-files-found: ignore
+
+  # fjell-desktop (Tauri-limet) kompileres kun på Windows. desktop.yml bygger og pakker allerede på PR og main;
+  # dette er et billig sikkerhetsnett som fanger avhengighetsdrift (Tauri, WebView2) uten ny pakking.
+  # `cargo check` trenger frontendDist, så vi lager en tom dist (ingen npm, ingen signering).
+  desktop-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - name: Tom frontendDist
+        shell: bash
+        run: mkdir -p desktop/dist && echo '<!doctype html><title>Fjell</title>' > desktop/dist/index.html
+      - name: cargo check fjell-desktop
+        run: cargo check --manifest-path desktop/src-tauri/Cargo.toml --workspace --all-targets --locked

@@ -84,17 +84,77 @@ describe("papirkurv mot MockBridge", () => {
     await expect(b.emptyTrash({ checked: true, count: 2 })).rejects.toMatchObject({ code: "ack_required" });
     expect((await b.getState()).trashCount).toBe(3);
   });
-  it("volum uten Papirkurv: ingenting slettet, bare permanent tilbys, aldri automatisk", async () => {
+  // Beslutning M9: `Unsupported` (volum uten Papirkurv, lang sti, UNC) lar filen ligge urørt i karantenen.
+  // Standard er «La ligge»; permanent bare via eget trinn med PermanentAck. Den gamle testen forutsatte at bare
+  // permanent ble tilbudt og at den var forvalgt; det er erstattet med strengere krav under.
+  it("volum uten Papirkurv: ingenting slettet, standard er å la ligge, aldri automatisk permanent", async () => {
     const { b, s } = await withTrash({ noBin: true });
     s.send({ type: "openPurge" });
     await s.confirm();
-    expect(s.state).toMatchObject({ phase: "confirmPurge", noBin: true, mode: "permanent" });
+    expect(s.state).toMatchObject({ phase: "confirmUnsupported", unsupported: 3, mode: "recycle" });
     expect((await b.getState()).trashCount).toBe(3);
-    s.send({ type: "setMode", mode: "recycle" });
-    expect(s.state.mode).toBe("permanent");
+    // Esc/Avbryt = La ligge: resultat med «urørt», ingenting kalt mot bridge.emptyTrash på nytt
     s.send({ type: "cancel" });
+    expect(s.state).toMatchObject({ phase: "purged", outcome: { count: 0, kept: 3 } });
+    expect((await b.getState()).trashCount).toBe(3);
+    expect((await b.getState()).freedBytes).toBe(0);
+    s.send({ type: "dismiss" });
+    expect(s.state.phase).toBe("list");
+    expect(s.state.items).toHaveLength(3);
+  });
+  it("«La ligge» (knapp) gir samme resultat som Esc", async () => {
+    const { b, s } = await withTrash({ noBin: true });
     s.send({ type: "openPurge" });
-    expect(s.state).toMatchObject({ phase: "confirmPurge", noBin: true, mode: "permanent" });
+    await s.confirm();
+    s.send({ type: "keepUnsupported" });
+    expect(s.state).toMatchObject({ phase: "purged", outcome: { kept: 3, count: 0 } });
+    expect((await b.listTrashed())).toHaveLength(3);
+  });
+  it("«Slett permanent» fra Unsupported krever avkrysning og riktig antall; Avbryt går tilbake til valgene", async () => {
+    const { b, s } = await withTrash({ noBin: true });
+    s.send({ type: "openPurge" });
+    await s.confirm();
+    s.send({ type: "deleteUnsupported" });
+    expect(s.state).toMatchObject({ phase: "confirmPermanent", mode: "permanent", ack: false });
+    await s.confirm(); // uten avkrysning skjer ingenting
+    expect(s.state.phase).toBe("confirmPermanent");
+    expect((await b.getState()).trashCount).toBe(3);
+    s.send({ type: "cancel" });
+    expect(s.state.phase).toBe("confirmUnsupported");
+    s.send({ type: "deleteUnsupported" });
+    s.send({ type: "setAck", value: true });
+    await s.confirm();
+    expect(s.state).toMatchObject({ phase: "purged", outcome: { mode: "permanent", count: 3, kept: 0 } });
+    expect((await b.getState()).trashCount).toBe(0);
+  });
+  it("delvis støtte: de som kan flyttes flyttes, resten ligger urørt og tilbys la ligge / permanent", async () => {
+    const { b, s } = await withTrash({ unsupportedCount: 2 }, 5);
+    s.send({ type: "openPurge" });
+    await s.confirm();
+    expect(s.state).toMatchObject({ phase: "confirmUnsupported", unsupported: 2, outcome: { count: 3, marked: 0 }, info: { count: 2 } });
+    expect((await b.getState()).trashCount).toBe(2);
+    s.send({ type: "keepUnsupported" });
+    expect(s.state).toMatchObject({ phase: "purged", outcome: { count: 3, kept: 2 } });
+    expect(s.state.items).toHaveLength(2);
+    // Permanent for de to resterende bruker antallet som nå står i listen (2), ikke 5
+    s.send({ type: "dismiss" });
+    s.send({ type: "openPurge" });
+    await s.confirm();
+    expect(s.state.phase).toBe("confirmUnsupported");
+    s.send({ type: "deleteUnsupported" });
+    expect(ackFor(s.state)).toEqual({ checked: false, count: 2 });
+  });
+  it("Unsupported-ark ignorerer hendelser fra andre faser", () => {
+    expect(reduceTrash(initialTrash, { type: "keepUnsupported" })).toBe(initialTrash);
+    expect(reduceTrash(initialTrash, { type: "deleteUnsupported" })).toBe(initialTrash);
+  });
+  it("bridge: Papirkurv-modus på Unsupported sletter aldri, og permanent uten ack avvises", async () => {
+    const { b } = await withTrash({ noBin: true });
+    const r = await b.emptyTrash(null);
+    expect(r).toMatchObject({ purged: 0, unsupported: 3, freedBytes: 0 });
+    expect((await b.getState()).trashCount).toBe(3);
+    await expect(b.emptyTrash({ checked: false, count: 3 })).rejects.toMatchObject({ code: "ack_required" });
+    expect((await b.getState()).trashCount).toBe(3);
   });
   it("feil under tømming: ingenting slettet, tilbake til listen", async () => {
     const { b, s } = await withTrash();

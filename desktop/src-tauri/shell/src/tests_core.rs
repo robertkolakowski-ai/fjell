@@ -427,3 +427,240 @@ fn mock_mode_reports_unsupported_for_trash_listing() {
     assert_eq!(sh.restore(&[1]).unwrap_err().code, "unsupported");
     assert!(!sh.first_run(), "ingen app-data: aldri onboarding i mock");
 }
+
+/// Starter skann via skallet og venter til den er ferdig (ikke avhengig av forrige fase).
+fn rescan(e: &Env, full: bool) {
+    e.sh.start_scan(full).unwrap();
+    let core = e.sh.core().unwrap();
+    let _ = core.fjell.wait_scan();
+}
+
+fn exact_count(e: &Env) -> u64 {
+    e.sh.state()
+        .per_kind
+        .iter()
+        .find(|k| k.kind == "exact_dup")
+        .map_or(0, |k| k.count)
+}
+
+#[test]
+fn production_source_detects_removed_files_after_restart() {
+    // T11 (restanse 12): kjente id-er fra indeksen sendes til `FsSource`, så en fil som er slettet
+    // utenfor Fjell mens appen var lukket, oppdages ved neste (inkrementelle) skann.
+    let e = env("removed");
+    e.sh.set_library(e.lib.to_str().unwrap()).unwrap(); // produksjonskilden
+    rescan(&e, true);
+    assert_eq!(exact_count(&e), 1);
+    fs::remove_file(e.lib.join("b.jpg")).unwrap(); // utenfor appen
+    let sh = Shell::with_data_dir(&e.data, e.bin.clone() as Arc<dyn RecycleBin>);
+    sh.start_scan(false).unwrap();
+    let _ = sh.core().unwrap().fjell.wait_scan();
+    let exact = sh
+        .state()
+        .per_kind
+        .into_iter()
+        .find(|k| k.kind == "exact_dup");
+    assert_eq!(
+        exact.map_or(0, |k| k.count),
+        0,
+        "fjernet fil gir ikke lenger et duplikatpar"
+    );
+}
+
+#[test]
+fn production_source_treats_empty_mount_as_offline_not_removed() {
+    // En tom mappe (frakoblet disk som viser tom monteringsmappe) skal aldri tolkes som tomt bibliotek.
+    let e = env("emptymount");
+    e.sh.set_library(e.lib.to_str().unwrap()).unwrap();
+    rescan(&e, true);
+    assert_eq!(exact_count(&e), 1);
+    for n in ["a.jpg", "b.jpg", "c.jpg"] {
+        fs::remove_file(e.lib.join(n)).unwrap();
+    }
+    rescan(&e, false);
+    assert_eq!(exact_count(&e), 1, "ingenting regnes som fjernet");
+}
+
+#[test]
+fn trashed_files_in_quarantine_are_not_reported_removed() {
+    // Papirkurv-bilder ligger i karantenen med vilje; de er ikke «aktive» og skal ikke meldes fjernet.
+    let e = env("quarantine-known");
+    e.sh.set_library(e.lib.to_str().unwrap()).unwrap();
+    rescan(&e, true);
+    let ids = e.dup_ids();
+    e.sh.decide(&ids, DecisionDto::Trash).unwrap();
+    rescan(&e, false);
+    assert_eq!(e.sh.state().trash_count, 1, "fortsatt i Nylig slettet");
+    assert_eq!(quarantined(&e.lib), 1);
+}
+
+#[test]
+fn production_source_caches_thumbnails_in_app_data_only() {
+    use fjell_core::model::{AssetSource, SourceId};
+    let e = env("thumbs");
+    // Ekte (liten) JPEG så dekoding gir miniatyr.
+    let jpg = TINY_JPEG.to_vec();
+    fs::write(e.lib.join("d.jpg"), &jpg).unwrap();
+    let lib_before = fs::read_dir(&e.lib).unwrap().count();
+    let src = crate::production_source(&e.data, &e.lib);
+    let t = src.thumbnail(&SourceId("d.jpg".into())).unwrap();
+    assert_eq!((t.w, t.h), (8, 6));
+    let cache = crate::thumb_cache_dir(&e.data);
+    assert!(cache.starts_with(&e.data) && !cache.starts_with(&e.lib));
+    assert_eq!(fs::read_dir(&cache).unwrap().count(), 1);
+    assert_eq!(
+        fs::read_dir(&e.lib).unwrap().count(),
+        lib_before,
+        "biblioteket er urørt"
+    );
+    assert_eq!(fs::read(e.lib.join("d.jpg")).unwrap(), jpg);
+    assert_eq!(src.thumbnail(&SourceId("d.jpg".into())).unwrap(), t);
+}
+
+#[test]
+fn language_is_stored_in_shell_settings_and_survives_restart() {
+    let e = env("lang");
+    assert_eq!(e.sh.language(), None, "aldri valgt");
+    assert_eq!(e.sh.set_language("en").unwrap(), "en");
+    assert_eq!(e.sh.language().as_deref(), Some("en"));
+    // Valget overlever omstart og overskrives uten å miste andre innstillinger.
+    e.sh.set_library(e.lib.to_str().unwrap()).unwrap();
+    e.sh.set_language("system").unwrap();
+    let again = Shell::with_data_dir(&e.data, e.bin.clone() as Arc<dyn RecycleBin>);
+    assert_eq!(again.language().as_deref(), Some("system"));
+    assert_eq!(again.library().as_deref(), e.lib.to_str());
+    assert!(!again.first_run());
+}
+
+#[test]
+fn language_rejects_unknown_values_and_mock_has_no_storage() {
+    let e = env("lang-bad");
+    for bad in ["", "pseudo", "nn", "de", "EN", "nb "] {
+        assert_eq!(
+            e.sh.set_language(bad).unwrap_err().code,
+            "bad_request",
+            "{bad}"
+        );
+    }
+    assert_eq!(e.sh.language(), None, "avvist verdi lagres ikke");
+    let mock = Shell::mock();
+    assert_eq!(mock.set_language("nb").unwrap_err().code, "unsupported");
+    assert_eq!(mock.language(), None);
+}
+
+#[test]
+fn unknown_language_in_file_counts_as_not_chosen() {
+    let e = env("lang-file");
+    fs::write(
+        e.data.join("shell.json"),
+        br#"{"library":null,"language":"klingon"}"#,
+    )
+    .unwrap();
+    assert_eq!(e.sh.language(), None);
+    // Gamle filer uten feltet leses fortsatt.
+    fs::write(
+        e.data.join("shell.json"),
+        br#"{"library":null,"onboarded":true}"#,
+    )
+    .unwrap();
+    assert_eq!(e.sh.language(), None);
+    assert!(!e.sh.first_run());
+}
+
+/// 8x6 px JPEG (generert én gang; testen trenger ingen bildebibliotek).
+const TINY_JPEG: [u8; 632] = [
+    255, 216, 255, 224, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 255, 219, 0, 67, 0,
+    16, 11, 12, 14, 12, 10, 16, 14, 13, 14, 18, 17, 16, 19, 24, 40, 26, 24, 22, 22, 24, 49, 35, 37,
+    29, 40, 58, 51, 61, 60, 57, 51, 56, 55, 64, 72, 92, 78, 64, 68, 87, 69, 55, 56, 80, 109, 81,
+    87, 95, 98, 103, 104, 103, 62, 77, 113, 121, 112, 100, 120, 92, 101, 103, 99, 255, 219, 0, 67,
+    1, 17, 18, 18, 24, 21, 24, 47, 26, 26, 47, 99, 66, 56, 66, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+    99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+    99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 255, 192, 0, 17, 8, 0, 6,
+    0, 8, 3, 1, 34, 0, 2, 17, 1, 3, 17, 1, 255, 196, 0, 31, 0, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 255, 196, 0, 181, 16, 0, 2, 1, 3, 3, 2, 4, 3,
+    5, 5, 4, 4, 0, 0, 1, 125, 1, 2, 3, 0, 4, 17, 5, 18, 33, 49, 65, 6, 19, 81, 97, 7, 34, 113, 20,
+    50, 129, 145, 161, 8, 35, 66, 177, 193, 21, 82, 209, 240, 36, 51, 98, 114, 130, 9, 10, 22, 23,
+    24, 25, 26, 37, 38, 39, 40, 41, 42, 52, 53, 54, 55, 56, 57, 58, 67, 68, 69, 70, 71, 72, 73, 74,
+    83, 84, 85, 86, 87, 88, 89, 90, 99, 100, 101, 102, 103, 104, 105, 106, 115, 116, 117, 118, 119,
+    120, 121, 122, 131, 132, 133, 134, 135, 136, 137, 138, 146, 147, 148, 149, 150, 151, 152, 153,
+    154, 162, 163, 164, 165, 166, 167, 168, 169, 170, 178, 179, 180, 181, 182, 183, 184, 185, 186,
+    194, 195, 196, 197, 198, 199, 200, 201, 202, 210, 211, 212, 213, 214, 215, 216, 217, 218, 225,
+    226, 227, 228, 229, 230, 231, 232, 233, 234, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250,
+    255, 196, 0, 31, 1, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+    9, 10, 11, 255, 196, 0, 181, 17, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 119, 0, 1, 2, 3,
+    17, 4, 5, 33, 49, 6, 18, 65, 81, 7, 97, 113, 19, 34, 50, 129, 8, 20, 66, 145, 161, 177, 193, 9,
+    35, 51, 82, 240, 21, 98, 114, 209, 10, 22, 36, 52, 225, 37, 241, 23, 24, 25, 26, 38, 39, 40,
+    41, 42, 53, 54, 55, 56, 57, 58, 67, 68, 69, 70, 71, 72, 73, 74, 83, 84, 85, 86, 87, 88, 89, 90,
+    99, 100, 101, 102, 103, 104, 105, 106, 115, 116, 117, 118, 119, 120, 121, 122, 130, 131, 132,
+    133, 134, 135, 136, 137, 138, 146, 147, 148, 149, 150, 151, 152, 153, 154, 162, 163, 164, 165,
+    166, 167, 168, 169, 170, 178, 179, 180, 181, 182, 183, 184, 185, 186, 194, 195, 196, 197, 198,
+    199, 200, 201, 202, 210, 211, 212, 213, 214, 215, 216, 217, 218, 226, 227, 228, 229, 230, 231,
+    232, 233, 234, 242, 243, 244, 245, 246, 247, 248, 249, 250, 255, 218, 0, 12, 3, 1, 0, 2, 17, 3,
+    17, 0, 63, 0, 109, 20, 81, 94, 89, 236, 159, 255, 217,
+];
+
+/// Bibliotek i en mappe som heter «OneDrive»: skysynket, så papirkurv nektes.
+#[test]
+fn cloud_synced_library_refuses_trash_but_allows_keep() {
+    let e = env("cloud");
+    let lib = e.root.join("OneDrive").join("bilder");
+    fs::create_dir_all(&lib).unwrap();
+    fs::write(lib.join("a.jpg"), b"same-bytes-same-bytes").unwrap();
+    fs::write(lib.join("b.jpg"), b"same-bytes-same-bytes").unwrap();
+    let src = FsSource::new(&lib).without_decoding();
+    e.sh.open_library(&lib, Arc::new(src)).unwrap();
+    assert_eq!(e.sh.state().cloud_sync, Some("onedrive"));
+    e.sh.start_scan(true).unwrap();
+    let t = Instant::now();
+    while e.sh.state().scan_phase != "done" {
+        assert!(
+            t.elapsed() < Duration::from_secs(20),
+            "skanning ble ikke ferdig"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let ids = e.dup_ids();
+    assert!(!ids.is_empty(), "skanning og forslag virker som før");
+
+    let err = e.sh.decide(&ids, DecisionDto::Trash).unwrap_err();
+    assert_eq!(err.code, "cloud_synced_readonly");
+    assert_eq!(err.detail, "onedrive");
+    assert_eq!(e.sh.state().trash_count, 0);
+    assert_eq!(quarantined(&lib), 0);
+    assert!(exists(&lib.join("a.jpg")) && exists(&lib.join("b.jpg")));
+    assert_eq!(e.dup_ids(), ids, "kortene er fortsatt ventende");
+
+    e.sh.decide(&ids, DecisionDto::Keep).unwrap();
+    assert_eq!(quarantined(&lib), 0);
+    assert!(exists(&lib.join("a.jpg")) && exists(&lib.join("b.jpg")));
+}
+
+#[test]
+fn local_library_has_no_cloud_sync_flag() {
+    let e = env("nocloud");
+    e.open();
+    assert_eq!(e.sh.state().cloud_sync, None);
+    assert_eq!(Shell::mock().state().cloud_sync, None);
+}
+
+/// Første oppstart på ekte Windows: app-data-mappen finnes ikke ennå. Tauri gir bare stien.
+/// Feilen var at indeksen åpnes før mappen opprettes (SQLite lager ikke mapper).
+#[test]
+fn set_library_works_when_app_data_dir_does_not_exist_yet() {
+    let root = std::env::temp_dir().join(format!("fjell-shell-forste-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    let (lib, data) = (
+        root.join("bibliotek"),
+        root.join("ikke").join("opprettet").join("ennå"),
+    );
+    fs::create_dir_all(&lib).unwrap();
+    fs::write(lib.join("a.jpg"), b"x").unwrap();
+    assert!(!data.exists());
+    let bin = Arc::new(FakeRecycleBin::default());
+    let sh = Shell::with_data_dir(&data, bin as Arc<dyn RecycleBin>);
+    let r = sh.set_library(lib.to_str().unwrap());
+    assert!(r.is_ok(), "set_library feilet på første oppstart: {r:?}");
+    assert!(data.is_dir(), "app-data-mappen skal opprettes");
+    assert_eq!(sh.library().as_deref(), lib.to_str());
+    let _ = fs::remove_dir_all(&root);
+}

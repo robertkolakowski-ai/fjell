@@ -86,4 +86,10 @@ export class TauriBridge implements CoreBridge {
   setTrashDays(days: number): Promise<AppSettings> {
     return this.call<AppSettings>("set_trash_days", { days });
   }
+  getLanguage(): Promise<string | null> {
+    return this.call<string | null>("get_language");
+  }
+  setLanguage(language: string): Promise<string> {
+    return this.call<string>("set_language", { language });
+  }
 }

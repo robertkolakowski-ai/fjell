@@ -11,6 +11,16 @@ on:
 permissions:
   contents: read
 jobs:
+  # cargo-deny for skallet (egen konfig: tokio er tillatt her, forbudet gjelder bare kjernen; se desktop/src-tauri/deny.toml)
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: cargo deny (desktop/src-tauri)
+        run: cargo deny --manifest-path desktop/src-tauri/Cargo.toml --config desktop/src-tauri/deny.toml check
   desktop:
     runs-on: windows-latest
     steps:

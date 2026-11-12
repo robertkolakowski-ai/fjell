@@ -152,13 +152,18 @@ export interface MessageParams {
   "trash.purge.summary": { count: number; size: string | number };
   "trash.purge.mode.recycle": Record<never, never>;
   "trash.purge.mode.permanent": Record<never, never>;
-  "trash.purge.nobin": Record<never, never>;
   "trash.permanent.title": Record<never, never>;
   "trash.permanent.ack": Record<never, never>;
   "trash.permanent.go": { count: number };
   "trash.purged.recycle": Record<never, never>;
   "trash.purged.permanent": { size: string | number };
   "trash.purge.marked": { count: number };
+  "trash.unsupported.title": Record<never, never>;
+  "trash.unsupported.body": { count: number };
+  "trash.unsupported.options": Record<never, never>;
+  "trash.unsupported.keep": Record<never, never>;
+  "trash.unsupported.delete": Record<never, never>;
+  "trash.purged.kept": { count: number };
   "trash.history": { date: string | number; size: string | number };
   "trash.error.body": Record<never, never>;
   "consequence.protected_favorite": Record<never, never>;
@@ -279,6 +284,12 @@ export interface MessageParams {
   "nav.review": Record<never, never>;
   "nav.trash": Record<never, never>;
   "nav.settings": Record<never, never>;
+  "cloud.title": { provider: string };
+  "cloud.body": Record<never, never>;
+  "cloud.tip": Record<never, never>;
+  "cloud.caveat": Record<never, never>;
+  "cloud.key.blocked": Record<never, never>;
+  "cloud.error.blocked": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;
@@ -366,6 +377,8 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "trash.restore.all",
   "trash.empty.button",
   "trash.permanent.go",
+  "trash.unsupported.keep",
+  "trash.unsupported.delete",
   "folders.title",
   "settings.title",
   "setting.language",

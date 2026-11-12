@@ -17,9 +17,9 @@ describe("identisk grensesnitt", () => {
     const names = (o: object) =>
       Object.getOwnPropertyNames(Object.getPrototypeOf(o)).filter((n) => n !== "constructor" && !n.startsWith("wait")).sort();
     const pub = [
-      "cancelScan", "completeOnboarding", "decide", "emptyTrash", "getFirstRun", "getLibrary", "getSettings", "getState",
-      "listCards", "listTrashed", "pauseScan", "pickFolder", "purge", "restore", "restoreAll", "resumeScan", "setKeeper", "setLibrary",
-      "setTrashDays", "startScan", "undo",
+      "cancelScan", "completeOnboarding", "decide", "emptyTrash", "getFirstRun", "getLanguage", "getLibrary", "getSettings",
+      "getState", "listCards", "listTrashed", "pauseScan", "pickFolder", "purge", "restore", "restoreAll", "resumeScan",
+      "setKeeper", "setLanguage", "setLibrary", "setTrashDays", "startScan", "undo",
     ];
     expect(names(new TauriBridge())).toEqual(pub);
     expect(names(new MockBridge()).filter((n) => pub.includes(n))).toEqual(pub);
@@ -151,6 +151,16 @@ describe("TauriBridge: M7-hull", () => {
       ["cancel_scan"], ["get_library"], ["set_library", { path: "D:\\Bilder" }], ["get_first_run"], ["complete_onboarding"],
       ["get_settings"], ["set_trash_days", { days: 14 }],
     ]);
+  });
+});
+
+describe("TauriBridge: språk", () => {
+  it("kaller get_language og set_language med riktige argumenter", async () => {
+    const call = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce("nb");
+    const b = new TauriBridge(call);
+    expect(await b.getLanguage()).toBeNull();
+    expect(await b.setLanguage("nb")).toBe("nb");
+    expect(call.mock.calls).toEqual([["get_language"], ["set_language", { language: "nb" }]]);
   });
 });
 
