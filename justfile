@@ -42,3 +42,11 @@ bindings:
         generate --library target/debug/libfjell_ffi.so --language swift --out-dir target/bindings/swift
     @test -s core/target/bindings/swift/fjell_ffi.swift && test -s core/target/bindings/swift/fjell_ffiFFI.h
     @echo "bindings: Swift generert i core/target/bindings/swift"
+
+# Desktop-skall (Tauri, eget workspace i desktop/src-tauri; IKKE del av `check`, krever npm og webkit/WebView2 for full bygg)
+desktop-check:
+    cargo fmt --manifest-path desktop/src-tauri/Cargo.toml -p fjell-shell -p fjell-desktop --check
+    cargo clippy --manifest-path desktop/src-tauri/Cargo.toml -p fjell-shell --all-targets --locked -- -D warnings
+    cargo test --manifest-path desktop/src-tauri/Cargo.toml -p fjell-shell --locked
+    cd desktop && npm ci --no-audit --no-fund && npm run check && npm run build
+    @if pkg-config --exists webkit2gtk-4.1 || [ "${OS:-}" = "Windows_NT" ]; then cargo clippy --manifest-path desktop/src-tauri/Cargo.toml -p fjell-desktop --locked -- -D warnings; else echo "desktop-check: hopper over fjell-desktop (mangler webkit2gtk-4.1); kjøres på windows-latest"; fi

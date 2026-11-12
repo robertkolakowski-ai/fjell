@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Minimale rettigheter: bare appens egne kommandoer, ingen filsystem- eller shell-plugin.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

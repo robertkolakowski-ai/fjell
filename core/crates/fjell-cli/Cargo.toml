@@ -10,3 +10,4 @@ workspace = true
 [dependencies]
 blake3 = "1"
 fjell-core = { path = "../fjell-core" }
+fjell-fs = { path = "../fjell-fs" }
