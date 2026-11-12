@@ -2,13 +2,39 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CoreBridge } from "./core-bridge";
 import type {
-  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, TrashedItem,
+  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, TrashedItem, UpdateCheck,
 } from "./types";
 
 export type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 
+// ---- Beta-kanal: oppdatering (M9). Eneste sted i frontend som berører oppdateringsplugin (se nonet.test.ts). ----
+/** Det vi bruker av `Update` fra @tauri-apps/plugin-updater. */
+export interface UpdateHandle {
+  version: string;
+  date?: string;
+  body?: string;
+  downloadAndInstall(onEvent: (e: { event: string; data?: { contentLength?: number; chunkLength?: number } }) => void): Promise<void>;
+}
+/** Tynt lag over pluginene, byttbart i tester. Pluginene lastes dynamisk: ingenting lastes før brukeren ber om det (eller auto er på). */
+export interface UpdaterApi {
+  /** Kjører vi i Tauri? Utenfor (nettleser/dev) finnes ingen oppdatering. */
+  available(): boolean;
+  check(): Promise<UpdateHandle | null>;
+  relaunch(): Promise<void>;
+  getVersion(): Promise<string>;
+}
+export const tauriUpdater: UpdaterApi = {
+  available: () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window,
+  check: async () => (await import("@tauri-apps/plugin-updater")).check(),
+  relaunch: async () => (await import("@tauri-apps/plugin-process")).relaunch(),
+  getVersion: async () => (await import("@tauri-apps/api/app")).getVersion(),
+};
+
 export class TauriBridge implements CoreBridge {
-  constructor(private readonly call: Invoke = invoke) {}
+  /** Funnet oppdatering fra siste sjekk; `installUpdate` bruker den. */
+  private pending: UpdateHandle | null = null;
+
+  constructor(private readonly call: Invoke = invoke, private readonly updater: UpdaterApi = tauriUpdater) {}
 
   getState(): Promise<AppState> {
     return this.call<AppState>("get_state");
@@ -71,5 +97,58 @@ export class TauriBridge implements CoreBridge {
   }
   setTrashDays(days: number): Promise<AppSettings> {
     return this.call<AppSettings>("set_trash_days", { days });
+  }
+
+  // ---- Beta-kanal: oppdatering (M9) ----
+  async getAppVersion(): Promise<string> {
+    if (!this.updater.available()) return "dev";
+    try {
+      return await this.updater.getVersion();
+    } catch {
+      return "dev";
+    }
+  }
+  async checkForUpdate(): Promise<UpdateCheck> {
+    if (!this.updater.available()) {
+      throw { code: "unsupported", detail: "Oppdatering virker bare i den installerte appen (ikke i nettleser eller utviklingsmodus)." };
+    }
+    let update: UpdateHandle | null;
+    try {
+      update = await this.updater.check();
+    } catch (e) {
+      throw { code: "update_check_failed", detail: String(e) };
+    }
+    this.pending = update;
+    if (!update) return { available: false };
+    return { available: true, version: update.version, notes: update.body ?? undefined, date: update.date ?? undefined };
+  }
+  async installUpdate(onProgress: (done: number, total: number | null) => void): Promise<void> {
+    const update = this.pending;
+    if (!update) throw { code: "no_update", detail: "Ingen oppdatering er funnet. Sjekk først." };
+    let done = 0;
+    let total: number | null = null;
+    try {
+      await update.downloadAndInstall((e) => {
+        if (e.event === "Started") {
+          total = e.data?.contentLength ?? null;
+          onProgress(0, total);
+        } else if (e.event === "Progress") {
+          done += e.data?.chunkLength ?? 0;
+          onProgress(done, total);
+        } else if (e.event === "Finished") {
+          onProgress(total ?? done, total);
+        }
+      });
+    } catch (e) {
+      throw { code: "update_install_failed", detail: String(e) };
+    }
+    this.pending = null;
+    await this.updater.relaunch();
+  }
+  getAutoUpdate(): Promise<boolean> {
+    return this.call<boolean>("get_auto_update");
+  }
+  setAutoUpdate(on: boolean): Promise<boolean> {
+    return this.call<boolean>("set_auto_update", { on });
   }
 }

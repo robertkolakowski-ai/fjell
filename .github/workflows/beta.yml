@@ -1,0 +1,184 @@
+# Beta-kanal: for hver sammenslåing til main bygges og signeres en NSIS-pakke som publiseres i en rullerende
+# GitHub Release med tag «beta» (prerelease, aldri draft), sammen med latest.json. Appen sjekker og installerer
+# oppdateringen selv (tauri-plugin-updater). Se docs/OPPDATERING.md for oppsett, rollback og nøkkelrotasjon.
+# Hemmelighet: TAURI_SIGNING_PRIVATE_KEY (minisign, uten passord). Mangler den, bygges pakken usignert uten publisering.
+name: beta
+on:
+  push:
+    branches: [main]
+    paths: ["desktop/**", "core/**", "i18n/**", "tools/**", ".github/workflows/beta.yml"]
+  workflow_dispatch:
+# Publisering køes og kanselleres aldri midt i (ellers kan release stå halvferdig, og versjonene kan komme i feil rekkefølge).
+concurrency:
+  group: beta-publish
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  beta:
+    runs-on: windows-latest
+    env:
+      VERSION: 0.1.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Hemmeligheter kan ikke brukes i `if:`; derfor via env og et utdata-flagg.
+      - name: Sjekk signeringsnøkkel
+        id: key
+        shell: pwsh
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          $signed = -not [string]::IsNullOrWhiteSpace($env:KEY)
+          $publish = $signed -and ($env:GITHUB_REF -eq "refs/heads/main")
+          "signed=$($signed.ToString().ToLower())" | Add-Content -Path $env:GITHUB_OUTPUT
+          "publish=$($publish.ToString().ToLower())" | Add-Content -Path $env:GITHUB_OUTPUT
+          if (-not $signed) {
+            $msg = "Secret TAURI_SIGNING_PRIVATE_KEY mangler. Pakken bygges USIGNERT og publiseres IKKE. Se docs/OPPDATERING.md."
+            Write-Host "::warning title=Beta ikke publisert::$msg"
+            "### Beta ikke publisert`n$msg" | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          } elseif (-not $publish) {
+            $msg = "Kjøring fra $($env:GITHUB_REF) (ikke main): bygger og tester, men publiserer ikke."
+            Write-Host "::warning title=Beta ikke publisert::$msg"
+            "### Beta ikke publisert`n$msg" | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          }
+      - name: Sett versjon ${{ env.VERSION }}
+        run: node tools/set-version.mjs "$env:VERSION"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - name: npm ci
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+      # Signert bygg: oppdateringsfilene (.sig) lages med nøkkelen fra secret (passord tomt/ikke satt).
+      - name: Bygg Tauri-appen (signert NSIS)
+        if: steps.key.outputs.signed == 'true'
+        working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --bundles nsis
+      # Uten nøkkel feiler `createUpdaterArtifacts`; slå det av for denne kjøringen (kun for røyktesten).
+      - name: Bygg Tauri-appen (usignert NSIS, uten oppdateringsfiler)
+        if: steps.key.outputs.signed != 'true'
+        working-directory: desktop
+        run: |
+          $cfg = Join-Path $env:RUNNER_TEMP "uten-oppdatering.json"
+          '{"bundle":{"createUpdaterArtifacts":false}}' | Set-Content -Path $cfg -Encoding utf8
+          npx tauri build --bundles nsis --config $cfg
+      # Røyktest som i desktop.yml: stille installasjon, appen lever 10 s, avinstaller. Kjøres FØR publisering.
+      - name: Røyktest NSIS-installasjonsprogram
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          if (-not $setup) { throw "fant ikke NSIS-installasjonsprogram" }
+          $dir = Join-Path $env:RUNNER_TEMP "fjell-smoke"
+          Start-Process -FilePath $setup.FullName -ArgumentList "/S", "/D=$dir" -Wait
+          $exe = Get-ChildItem $dir -Filter *.exe -Recurse | Where-Object { $_.Name -notmatch "^uninstall" } | Select-Object -First 1
+          if (-not $exe) { throw "ingen app-exe etter installasjon i $dir" }
+          $p = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 10
+          if ($p.HasExited) { throw "appen avsluttet av seg selv, kode $($p.ExitCode)" }
+          Stop-Process -Id $p.Id -Force
+          $un = Join-Path $dir "uninstall.exe"
+          Start-Process -FilePath $un -ArgumentList "/S" -Wait
+          Start-Sleep -Seconds 5
+          if (Test-Path $exe.FullName) { throw "appen ligger igjen etter avinstallasjon" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fjell-desktop-nsis-${{ env.VERSION }}${{ steps.key.outputs.signed == 'true' && '-signert' || '-usignert' }}
+          path: |
+            desktop/src-tauri/target/release/bundle/nsis/*.exe
+            desktop/src-tauri/target/release/bundle/nsis/*.sig
+          if-no-files-found: error
+          retention-days: 30
+      - name: Lag latest.json og utgivelsesnotat
+        if: steps.key.outputs.publish == 'true'
+        id: manifest
+        shell: pwsh
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          $dir = "desktop/src-tauri/target/release/bundle/nsis"
+          $setup = Get-ChildItem "$dir/*-setup.exe" | Select-Object -First 1
+          $sigFile = Get-Item "$($setup.FullName).sig" -ErrorAction SilentlyContinue
+          if (-not $sigFile) { throw "fant ikke $($setup.Name).sig; createUpdaterArtifacts eller nøkkelen virker ikke" }
+          $signature = (Get-Content -Raw $sigFile.FullName).Trim()
+          $sha256 = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower()
+          $sha = $env:GITHUB_SHA
+
+          # Endringer siden forrige publiserte commit (hendelsen `before`); ellers siste 10 commits (f.eks. workflow_dispatch).
+          $range = @("-n", "10", $sha)
+          if ($env:BEFORE -and $env:BEFORE -notmatch '^0+$') {
+            git cat-file -e "$($env:BEFORE)^{commit}" 2>$null
+            if ($LASTEXITCODE -eq 0) { $range = @("$($env:BEFORE)..$sha") }
+          }
+          $log = @(git log --no-merges "--pretty=format:- %s" @range | Select-Object -First 30)
+          if ($log.Count -eq 0) { $log = @("- (ingen nye commits)") }
+          $notes = ($log -join "`n")
+
+          $url = "https://github.com/$($env:GITHUB_REPOSITORY)/releases/download/beta/$([uri]::EscapeDataString($setup.Name))"
+          $manifest = [ordered]@{
+            version  = $env:VERSION
+            notes    = $notes
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{ signature = $signature; url = $url }
+            }
+          }
+          $enc = New-Object System.Text.UTF8Encoding($false)
+          [IO.File]::WriteAllText("$dir/latest.json", ($manifest | ConvertTo-Json -Depth 5), $enc)
+
+          $body = @(
+            "Rullerende beta-bygg (prerelease) for Windows. Overskrives av neste sammenslåing til main.",
+            "",
+            "- Versjon: $($env:VERSION)",
+            "- Commit: $sha",
+            "- SHA-256 ($($setup.Name)): $sha256",
+            "",
+            "Appen oppdaterer seg selv fra latest.json. Første installasjon gjøres manuelt, se docs/OPPDATERING.md.",
+            "",
+            "Endringer:",
+            $notes
+          ) -join "`n"
+          [IO.File]::WriteAllText("$dir/release-notes.md", $body, $enc)
+          "setup=$($setup.Name)" | Add-Content -Path $env:GITHUB_OUTPUT
+          Get-Content "$dir/latest.json"
+      # Rekkefølge: opplastinger først, latest.json sist (klienter skal aldri se en manifest som peker på manglende fil).
+      - name: Publiser release «beta»
+        if: steps.key.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SETUP: ${{ steps.manifest.outputs.setup }}
+        run: |
+          $dir = "desktop/src-tauri/target/release/bundle/nsis"
+          $notes = "$dir/release-notes.md"
+          gh release view beta *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create beta --prerelease --target $env:GITHUB_SHA --title "Fjell beta $($env:VERSION)" --notes-file $notes
+            if ($LASTEXITCODE -ne 0) { throw "gh release create feilet" }
+          } else {
+            # Flytt taggen til nytt commit slik at releasen viser riktig kilde (tag-push utløser ikke denne workflowen).
+            git tag -f beta $env:GITHUB_SHA
+            git push --force origin refs/tags/beta
+            if ($LASTEXITCODE -ne 0) { throw "kunne ikke flytte taggen beta" }
+            gh release edit beta --prerelease --draft=false --title "Fjell beta $($env:VERSION)" --notes-file $notes
+            if ($LASTEXITCODE -ne 0) { throw "gh release edit feilet" }
+          }
+          gh release upload beta "$dir/$($env:SETUP)" "$dir/$($env:SETUP).sig" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "opplasting av pakke og signatur feilet" }
+          gh release upload beta "$dir/latest.json" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "opplasting av latest.json feilet" }
+          # Rydd bort eldre pakker (filnavnet inneholder versjonen) etter at ny manifest er på plass.
+          $keep = @($env:SETUP, "$($env:SETUP).sig", "latest.json")
+          foreach ($name in (gh release view beta --json assets --jq '.assets[].name')) {
+            if ($keep -notcontains $name) { gh release delete-asset beta $name --yes }
+          }
+          "### Beta $($env:VERSION) publisert`nhttps://github.com/$($env:GITHUB_REPOSITORY)/releases/tag/beta" | Add-Content -Path $env:GITHUB_STEP_SUMMARY

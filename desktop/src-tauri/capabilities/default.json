@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Minimale rettigheter: bare appens egne kommandoer, ingen filsystem- eller shell-plugin.",
+  "description": "Minimale rettigheter: appens egne kommandoer, oppdatering (sjekk og installer) og omstart etter oppdatering. Ingen filsystem- eller shell-plugin.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "updater:default", "process:allow-restart"]
 }

@@ -1,6 +1,6 @@
 // CoreBridge: felles grensesnitt for Tauri og mock. All UI går via dette (ingen direkte invoke).
 import type {
-  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, TrashedItem,
+  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, TrashedItem, UpdateCheck,
 } from "./types";
 
 export interface CoreBridge {
@@ -40,4 +40,15 @@ export interface CoreBridge {
   getSettings(): Promise<AppSettings>;
   /** Papirkurvfrist i dager (1 til 365). Gjelder nye elementer. */
   setTrashDays(days: number): Promise<AppSettings>;
+
+  // ---- Beta-kanal: oppdatering (M9) ----
+  /** Installert appversjon. «dev» utenfor den installerte appen. */
+  getAppVersion(): Promise<string>;
+  /** Spør oppdateringstjenesten (sender bare appversjon og operativsystem). Kalles bare når brukeren ber om det, eller ved oppstart når auto er på. */
+  checkForUpdate(): Promise<UpdateCheck>;
+  /** Laster ned, installerer og starter appen på nytt. `total` er null når størrelsen er ukjent. Kalles aldri uten at brukeren har trykket. */
+  installUpdate(onProgress: (done: number, total: number | null) => void): Promise<void>;
+  /** «Sjekk automatisk ved oppstart». Standard av. */
+  getAutoUpdate(): Promise<boolean>;
+  setAutoUpdate(on: boolean): Promise<boolean>;
 }

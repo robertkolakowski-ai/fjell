@@ -114,7 +114,8 @@ Kjente åpne funn (ikke skjult): `Review.svelte` setter inn `role=status` med fe
 | 11 | Prisene i `RELEASE.md` er veiledende; åpne spørsmål 5–17 | Krever beslutning | Produkteier |
 | 12 | Tauri-skallet må kalle `FsSource::with_known_ids` (T11) og koble `thumbcache` inn i `FsSource` | Ikke verifisert | Kobling og test på Windows |
 | 13 | `just bench` og Playwright er ikke koblet på CI; Playwright kjørt bare i system-Chrome på Linux | Ikke verifisert | CI-jobb og `nightly` |
-| 14 | `cargo deny` for `desktop/src-tauri` feiler (se over) | Krever beslutning | Egen `deny`-konfigurasjon for skallet, eller akseptér unntaket |
+| 14 | `cargo deny` for `desktop/src-tauri` feiler (se over) | Delvis løst | `desktop/src-tauri/deny.toml` finnes og `cargo deny` passerer lokalt (unntak RUSTSEC-2024-0370, CDLA-Permissive-2.0 tillatt); CI-jobben `deny` i `core.yml` peker ennå bare på kjernen. Egen `deny`-konfigurasjon for skallet, eller akseptér unntaket |
+| 15 | Oppdatering uten ny nedlasting fra GitHub (beta-kanal, M9): `beta.yml` bygger og signerer NSIS-pakke ved hver sammenslåing til main og publiserer i rullerende release «beta» med `latest.json`; appen sjekker og installerer selv (kun på brukerens kommando, valgfri sjekk ved oppstart, standard av; blokkert mens skanning pågår) | Bygget, ikke kjørt på Windows | Produkteier må (1) legge privat minisign-nøkkel i GitHub-secret `TAURI_SIGNING_PRIVATE_KEY` (uten den bygges pakken usignert og publiseres ikke), (2) installere første beta-versjon manuelt én gang, (3) kjøre `beta.yml` og prøve hele kjeden mot en ekte release. Se `docs/OPPDATERING.md`. Ikke kjørt: workflowen, `tauri build`, `fjell-desktop`-limet, signering, `check`/`downloadAndInstall`/`relaunch`, SmartScreen (usignert Authenticode) |
 
 ## 5. Omfang og risiko (0–3 måneder)
 

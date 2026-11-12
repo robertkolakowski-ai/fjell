@@ -17,6 +17,7 @@
   import Review from "./screens/Review.svelte";
   import Settings from "./screens/Settings.svelte";
   import Trash from "./screens/Trash.svelte";
+  import { runStartupCheck } from "./screens/updateFlow";
 
   /** Overstyr bridge (tester). Standard: createBridge() i bridge/bridge.ts (Tauri hvis til stede, ellers Mock). */
   interface Props { bridge?: CoreBridge }
@@ -32,6 +33,8 @@
   onMount(() => {
     void shouldShowOnboarding(bridge, $route).then((yes) => { if (yes) navigate({ name: "onboarding" }); });
   });
+  // Stille oppdateringssjekk ved oppstart, bare når brukeren har slått på «Sjekk automatisk ved oppstart» (standard av). Installerer aldri.
+  onMount(() => void runStartupCheck(bridge));
   // F1: hurtigtaster for gjeldende skjerm (kortmodus har egen dialog). Esc lukker via <dialog>.
   function windowKey(e: KeyboardEvent): void {
     if (isHelpKey(e, $route)) { e.preventDefault(); helpOpen = !helpOpen; }

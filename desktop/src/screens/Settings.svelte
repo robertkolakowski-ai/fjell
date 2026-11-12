@@ -1,5 +1,5 @@
 <!-- Innstillinger (UX-5/6): språk (nb, en eller følg Windows), papirkurvfrist (liste), karantenemappe (info) og standard for
-     «Tøm» (info). Ingen skyvebrytere, ingen lyd- eller varselvalg (ikke bygget). Tilstand i settingsState.ts, flyt i settingsFlow.ts.
+     «Tøm» (info). Ingen skyvebrytere (unntak: «Sjekk automatisk ved oppstart» i Oppdateringer), ingen lyd- eller varselvalg (ikke bygget). Tilstand i settingsState.ts, flyt i settingsFlow.ts.
      Språkvalget lagres i nettleserlagring av i18n-runtime (ikke i skallet) inntil skallet får egen innstillingslagring. -->
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
@@ -7,6 +7,7 @@
   import { useBridge } from "../context";
   import { Button, LiveRegion } from "../lib";
   import { getLanguage, setLanguage, tr } from "../lib/i18n";
+  import UpdateSection from "./UpdateSection.svelte";
   import { SettingsSession } from "./settingsFlow";
   import { initialSettings, LANGUAGE_CHOICES, trashDayOptions, type LanguageChoice, type SettingsState } from "./settingsState";
 
@@ -80,6 +81,8 @@
       <p>{$tr("settings.empty.default")}</p>
     </div>
   {/if}
+
+  <UpdateSection bridge={b} />
 </section>
 
 <style>

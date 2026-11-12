@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CoreBridge } from "./core-bridge";
 import { MockBridge } from "./mock-bridge";
-import { TauriBridge } from "./tauri-bridge";
+import { TauriBridge, type UpdateHandle, type UpdaterApi } from "./tauri-bridge";
 import { groupCards } from "./groups";
 
 // Type-test: begge klassene må være gjensidig tilordnebare med CoreBridge og ha samme nøkler.
@@ -17,9 +17,9 @@ describe("identisk grensesnitt", () => {
     const names = (o: object) =>
       Object.getOwnPropertyNames(Object.getPrototypeOf(o)).filter((n) => n !== "constructor" && !n.startsWith("wait")).sort();
     const pub = [
-      "cancelScan", "completeOnboarding", "decide", "emptyTrash", "getFirstRun", "getLibrary", "getSettings", "getState",
-      "listCards", "listTrashed", "pauseScan", "purge", "restore", "restoreAll", "resumeScan", "setKeeper", "setLibrary",
-      "setTrashDays", "startScan", "undo",
+      "cancelScan", "checkForUpdate", "completeOnboarding", "decide", "emptyTrash", "getAppVersion", "getAutoUpdate", "getFirstRun",
+      "getLibrary", "getSettings", "getState", "installUpdate", "listCards", "listTrashed", "pauseScan", "purge", "restore",
+      "restoreAll", "resumeScan", "setAutoUpdate", "setKeeper", "setLibrary", "setTrashDays", "startScan", "undo",
     ];
     expect(names(new TauriBridge())).toEqual(pub);
     expect(names(new MockBridge()).filter((n) => pub.includes(n))).toEqual(pub);
@@ -169,5 +169,93 @@ describe("MockBridge: papirkurvliste og gjenoppretting", () => {
     await m.decide([(await m.listCards("blurry", 1)).cards[0].id], "trash");
     await m.emptyTrash();
     expect(await m.listTrashed()).toEqual([]);
+  });
+});
+
+// ---- Beta-kanal: oppdatering (M9) ----
+function updater(over: Partial<UpdaterApi> = {}): UpdaterApi & { relaunch: ReturnType<typeof vi.fn> } {
+  return { available: () => true, check: async () => null, getVersion: async () => "0.1.7", ...over, relaunch: vi.fn().mockResolvedValue(undefined) } as never;
+}
+const handle = (events: { event: string; data?: { contentLength?: number; chunkLength?: number } }[], fail = false): UpdateHandle => ({
+  version: "0.1.8", date: "2026-11-12T10:00:00Z", body: "Notater",
+  downloadAndInstall: async (cb) => { for (const e of events) cb(e); if (fail) throw new Error("signatur"); },
+});
+
+describe("TauriBridge: oppdatering", () => {
+  it("auto-valget går via get_auto_update/set_auto_update", async () => {
+    const call = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const b = new TauriBridge(call, updater());
+    expect(await b.getAutoUpdate()).toBe(false);
+    expect(await b.setAutoUpdate(true)).toBe(true);
+    expect(call.mock.calls).toEqual([["get_auto_update"], ["set_auto_update", { on: true }]]);
+  });
+  it("utenfor Tauri: versjon «dev» og forklarende feil ved sjekk (ingen plugin kalles)", async () => {
+    const check = vi.fn();
+    const b = new TauriBridge(vi.fn(), updater({ available: () => false, check }));
+    expect(await b.getAppVersion()).toBe("dev");
+    await expect(b.checkForUpdate()).rejects.toMatchObject({ code: "unsupported" });
+    expect(check).not.toHaveBeenCalled();
+  });
+  it("versjon fra getVersion", async () => {
+    expect(await new TauriBridge(vi.fn(), updater()).getAppVersion()).toBe("0.1.7");
+  });
+  it("ingen ny versjon", async () => {
+    expect(await new TauriBridge(vi.fn(), updater()).checkForUpdate()).toEqual({ available: false });
+  });
+  it("ny versjon gir versjon, notater og dato", async () => {
+    const b = new TauriBridge(vi.fn(), updater({ check: async () => handle([]) }));
+    expect(await b.checkForUpdate()).toEqual({ available: true, version: "0.1.8", notes: "Notater", date: "2026-11-12T10:00:00Z" });
+  });
+  it("sjekk som feiler gir update_check_failed", async () => {
+    const b = new TauriBridge(vi.fn(), updater({ check: async () => { throw new Error("nett"); } }));
+    await expect(b.checkForUpdate()).rejects.toMatchObject({ code: "update_check_failed" });
+  });
+  it("installasjon gir fremdrift, og starter på nytt etterpå", async () => {
+    const u = updater({ check: async () => handle([{ event: "Started", data: { contentLength: 100 } }, { event: "Progress", data: { chunkLength: 40 } }, { event: "Progress", data: { chunkLength: 60 } }, { event: "Finished" }]) });
+    const b = new TauriBridge(vi.fn(), u);
+    await b.checkForUpdate();
+    const seen: [number, number | null][] = [];
+    await b.installUpdate((d, t) => seen.push([d, t]));
+    expect(seen).toEqual([[0, 100], [40, 100], [100, 100], [100, 100]]);
+    expect(u.relaunch).toHaveBeenCalledTimes(1);
+  });
+  it("ukjent størrelse gir total null", async () => {
+    const b = new TauriBridge(vi.fn(), updater({ check: async () => handle([{ event: "Started", data: {} }, { event: "Progress", data: { chunkLength: 5 } }]) }));
+    await b.checkForUpdate();
+    const seen: [number, number | null][] = [];
+    await b.installUpdate((d, t) => seen.push([d, t]));
+    expect(seen).toEqual([[0, null], [5, null]]);
+  });
+  it("installasjon som feiler starter ikke på nytt", async () => {
+    const u = updater({ check: async () => handle([], true) });
+    const b = new TauriBridge(vi.fn(), u);
+    await b.checkForUpdate();
+    await expect(b.installUpdate(() => undefined)).rejects.toMatchObject({ code: "update_install_failed" });
+    expect(u.relaunch).not.toHaveBeenCalled();
+  });
+  it("installasjon uten forutgående sjekk gjør ingenting", async () => {
+    const u = updater();
+    await expect(new TauriBridge(vi.fn(), u).installUpdate(() => undefined)).rejects.toMatchObject({ code: "no_update" });
+    expect(u.relaunch).not.toHaveBeenCalled();
+  });
+});
+
+describe("MockBridge: oppdatering", () => {
+  it("none, available og error", async () => {
+    expect(await new MockBridge().checkForUpdate()).toEqual({ available: false });
+    expect(await new MockBridge({ update: "available" }).checkForUpdate()).toMatchObject({ available: true, version: "0.1.99" });
+    await expect(new MockBridge({ update: "error" }).checkForUpdate()).rejects.toMatchObject({ code: "update_check_failed" });
+  });
+  it("installasjon gir fremdrift fra 0 til total", async () => {
+    const seen: number[] = [];
+    await new MockBridge({ update: "available" }).installUpdate((d) => seen.push(d));
+    expect(seen[0]).toBe(0);
+    expect(seen[seen.length - 1]).toBe(24_000_000);
+  });
+  it("auto er av som standard og kan slås på", async () => {
+    const b = new MockBridge();
+    expect(await b.getAutoUpdate()).toBe(false);
+    expect(await b.setAutoUpdate(true)).toBe(true);
+    expect(await b.getAutoUpdate()).toBe(true);
   });
 });

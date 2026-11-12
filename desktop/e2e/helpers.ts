@@ -2,12 +2,12 @@ import type { Page } from "@playwright/test";
 
 export type Lang = "nb" | "en" | "pseudo";
 
-/** Åpner appen på en hash-rute med gitt språk, mock uten ventetid. */
-export async function open(page: Page, hash = "#/", lang: Lang = "nb", delay = 0): Promise<void> {
+/** Åpner appen på en hash-rute med gitt språk, mock uten ventetid. `extra` er flere dev-parametre, f.eks. `&mockUpdate=available`. */
+export async function open(page: Page, hash = "#/", lang: Lang = "nb", delay = 0, extra = ""): Promise<void> {
   await page.addInitScript((l) => {
     try { localStorage.setItem("fjell.language", l); } catch { /* ignorer */ }
   }, lang);
-  await page.goto(`/?mockDelay=${delay}${hash}`);
+  await page.goto(`/?mockDelay=${delay}${extra}${hash}`);
   await page.locator("h1").first().waitFor();
 }
 

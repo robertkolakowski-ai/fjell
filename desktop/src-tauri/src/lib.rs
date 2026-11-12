@@ -5,7 +5,8 @@
 //! `cancel_scan`, `list_cards`, `decide_cards`, `set_keeper`, `undo`, `trash_summary`,
 //! `empty_trash`, `set_library`, `get_library`, `pause_scan`, `resume_scan`, `list_trashed`,
 //! `restore_trashed`, `restore_all_trashed`, `get_settings`, `set_trash_days`, `get_first_run`,
-//! `complete_onboarding`. Ingen logikk her; ingen sletting utenom
+//! `complete_onboarding`, `get_auto_update`, `set_auto_update`. Plugins: `updater` (bare
+//! skrivebord) og `process` (omstart etter oppdatering); sjekk/installasjon kalles fra frontend. Ingen logikk her; ingen sletting utenom
 //! `Shell::empty` (Papirkurv som standard, beslutning 17).
 //!
 //! Alle kommandoer er `async` slik at filarbeid ikke kjører på hovedtråden (< 100 ms-målet);
@@ -156,9 +157,24 @@ async fn complete_onboarding(shell: State<'_, Arc<Shell>>) -> Res<()> {
     shell.complete_onboarding()
 }
 
+/// «Sjekk automatisk ved oppstart» (beta-kanalen). Standard av.
+#[tauri::command]
+async fn get_auto_update(shell: State<'_, Arc<Shell>>) -> Res<bool> {
+    Ok(shell.auto_update())
+}
+
+#[tauri::command]
+async fn set_auto_update(shell: State<'_, Arc<Shell>>, on: bool) -> Res<bool> {
+    shell.set_auto_update(on)
+}
+
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            #[cfg(desktop)]
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
             let dir = app.path().app_data_dir()?;
             app.manage(Arc::new(Shell::with_data_dir(dir, default_recycle_bin())));
             Ok(())
@@ -183,7 +199,9 @@ pub fn run() {
             get_settings,
             set_trash_days,
             get_first_run,
-            complete_onboarding
+            complete_onboarding,
+            get_auto_update,
+            set_auto_update
         ])
         .run(tauri::generate_context!())
         .expect("kunne ikke starte Fjell");

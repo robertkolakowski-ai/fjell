@@ -275,6 +275,28 @@ export interface MessageParams {
   "nav.review": Record<never, never>;
   "nav.trash": Record<never, never>;
   "nav.settings": Record<never, never>;
+  "update.title": Record<never, never>;
+  "update.version": { version: string | number };
+  "update.check": Record<never, never>;
+  "update.install": Record<never, never>;
+  "update.status.checking": Record<never, never>;
+  "update.status.none": Record<never, never>;
+  "update.status.available": { version: string | number };
+  "update.released": { date: string | number };
+  "update.notes.title": Record<never, never>;
+  "update.error.check": Record<never, never>;
+  "update.error.unsupported": Record<never, never>;
+  "update.status.installing": { version: string | number };
+  "update.progress.label": Record<never, never>;
+  "update.progress.known": { done: string | number; percent: string | number; total: string | number };
+  "update.progress.unknown": { done: string | number };
+  "update.status.restarting": Record<never, never>;
+  "update.error.install": Record<never, never>;
+  "update.blocked": Record<never, never>;
+  "update.auto.label": Record<never, never>;
+  "update.auto.note": Record<never, never>;
+  "update.auto.error": Record<never, never>;
+  "home.update.banner": { version: string | number };
 }
 
 export type MessageKey = keyof MessageParams;
@@ -388,4 +410,8 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "nav.review",
   "nav.trash",
   "nav.settings",
+  "update.title",
+  "update.check",
+  "update.install",
+  "update.auto.label",
 ]);

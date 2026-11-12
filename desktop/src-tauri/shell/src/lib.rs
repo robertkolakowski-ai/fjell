@@ -375,6 +375,22 @@ impl Shell {
         Ok(())
     }
 
+    /// «Sjekk automatisk ved oppstart». Standard `false`; alltid `false` uten app-data (mock).
+    pub fn auto_update(&self) -> bool {
+        match &self.data_dir {
+            Some(d) => config::auto_update(d),
+            None => false,
+        }
+    }
+
+    /// Lagrer valget i `shell.json` og returnerer den lagrede verdien. Uten app-data (mock) lagres ingenting.
+    pub fn set_auto_update(&self, on: bool) -> Result<bool, ErrorDto> {
+        if let Some(d) = &self.data_dir {
+            config::set_auto_update(d, on).map_err(|e| ErrorDto::new("internal", e.to_string()))?;
+        }
+        Ok(self.auto_update())
+    }
+
     /// «Tøm»: Papirkurv som standard; permanent bare med `permanent` (avkrysning + riktig antall).
     /// Bare i ekte modus; mocken har ingen filer å tømme.
     pub fn empty(

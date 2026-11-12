@@ -9,6 +9,7 @@
   import { Button, LiveRegion, Ring } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { formatHash, navigate } from "../router";
+  import { pendingUpdate } from "./updateFlow";
   import FolderDialog from "./FolderDialog.svelte";
   import { addFolder, controlScan, type ScanNote } from "./homeFlow";
   import { initialHome, kindOf, neverScanned, pendingCount, reduceHome, ringFraction, type HomeEvent, type HomeView } from "./homeState";
@@ -79,6 +80,12 @@
     <p role="alert">{$tr("home.error.body")}</p>
     <Button onclick={retry}>{$tr("common.retry")}</Button>
   {:else if summary}
+    {#if $pendingUpdate}
+      <div class="banner" role="status">
+        <p>{$tr("home.update.banner", { version: $pendingUpdate.version })}</p>
+        <a href={formatHash({ name: "settings" })}>{$tr("nav.settings")}</a>
+      </div>
+    {/if}
     {#if summary.trashExpired > 0}
       <div class="banner" role="status">
         <p>{$tr("home.expired.banner", { count: summary.trashExpired })}</p>

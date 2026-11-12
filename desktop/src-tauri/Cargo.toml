@@ -32,3 +32,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 fjell-shell = { path = "shell" }
+tauri-plugin-process = "2"
+
+# Oppdatering (beta-kanalen) er bare for skrivebord; mobil kommer etter MVP.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"
