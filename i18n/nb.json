@@ -3,6 +3,17 @@
   "onb.start.button": { "t": "Kom i gang", "ctx": "Primærknapp på første onboarding-skjerm", "len": "short" },
   "home.ring.caption": { "t": "{size} kan ryddes", "ctx": "Under ringen på Hjem. {size} = formatert filstørrelse" },
   "review.bar.trash": { "t": "{count, plural, one {Flytt # til papirkurv} other {Flytt # til papirkurv}} ({size})", "ctx": "Bunnlinje i Gjennomgang. {count} = antall bilder, {size} = formatert filstørrelse", "len": "short" },
+  "reason.exact_copy": { "t": "Identisk kopi", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.visual_duplicate": { "t": "Lignende bilde", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.higher_resolution": { "t": "Høyere oppløsning", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.less_compressed": { "t": "Mindre komprimert", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.sharper": { "t": "Skarpere", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.older": { "t": "Eldst", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.screenshot": { "t": "Skjermbilde", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.shot_platform_flag": { "t": "I albumet «Skjermbilder»", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.shot_screen_size": { "t": "Skjermstørrelse", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.shot_no_camera_exif": { "t": "Ingen kamerainfo", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.shot_png": { "t": "PNG-format", "ctx": "Begrunnelsesmerke", "len": "short" },
   "reason.blurry": { "t": "Uskarpt ({pct})", "ctx": "Begrunnelsesmerke. {pct} = formatert prosent", "len": "short" },
   "trash.freed.note": { "t": "Plassen frigjøres først når du tømmer papirkurven.", "ctx": "Info i Papirkurv" }
 }

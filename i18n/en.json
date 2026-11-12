@@ -3,6 +3,17 @@
   "onb.start.button": { "t": "Get started", "ctx": "Primary button on the first onboarding screen", "len": "short" },
   "home.ring.caption": { "t": "{size} can be cleaned up", "ctx": "Under the ring on Home. {size} = formatted file size" },
   "review.bar.trash": { "t": "{count, plural, one {Move # to trash} other {Move # to trash}} ({size})", "ctx": "Bottom bar in Review. {count} = number of photos, {size} = formatted file size", "len": "short" },
+  "reason.exact_copy": { "t": "Identical copy", "ctx": "Reason chip", "len": "short" },
+  "reason.visual_duplicate": { "t": "Similar photo", "ctx": "Reason chip", "len": "short" },
+  "reason.higher_resolution": { "t": "Higher resolution", "ctx": "Reason chip", "len": "short" },
+  "reason.less_compressed": { "t": "Less compressed", "ctx": "Reason chip", "len": "short" },
+  "reason.sharper": { "t": "Sharper", "ctx": "Reason chip", "len": "short" },
+  "reason.older": { "t": "Oldest", "ctx": "Reason chip", "len": "short" },
+  "reason.screenshot": { "t": "Screenshot", "ctx": "Reason chip", "len": "short" },
+  "reason.shot_platform_flag": { "t": "In the Screenshots album", "ctx": "Reason chip", "len": "short" },
+  "reason.shot_screen_size": { "t": "Screen-sized image", "ctx": "Reason chip", "len": "short" },
+  "reason.shot_no_camera_exif": { "t": "No camera info", "ctx": "Reason chip", "len": "short" },
+  "reason.shot_png": { "t": "PNG format", "ctx": "Reason chip", "len": "short" },
   "reason.blurry": { "t": "Blurry ({pct})", "ctx": "Reason chip. {pct} = formatted percentage", "len": "short" },
   "trash.freed.note": { "t": "Space is freed only when you empty the trash.", "ctx": "Info in Trash" }
 }
