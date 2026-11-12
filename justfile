@@ -34,6 +34,11 @@ i18n:
 bench:
     @echo "bench: ikke implementert ennå (M1+)"
 
-# Stub: UniFFI-bindinger kommer i M4 (docs/mvp/MVP-PLAN.md)
+# Swift-bindinger fra UniFFI (library mode) til core/target/bindings/swift. Sjekkes ikke inn.
+# Krever bare cargo; selve Swift-kompileringen (xcframework) skjer på macOS-runner (CI-jobb `ios`).
 bindings:
-    @echo "bindings: ikke implementert ennå (M4)"
+    cargo build --manifest-path core/Cargo.toml -p fjell-ffi --locked
+    cd core && cargo run -p fjell-ffi --features bindgen --bin uniffi-bindgen --locked -- \
+        generate --library target/debug/libfjell_ffi.so --language swift --out-dir target/bindings/swift
+    @test -s core/target/bindings/swift/fjell_ffi.swift && test -s core/target/bindings/swift/fjell_ffiFFI.h
+    @echo "bindings: Swift generert i core/target/bindings/swift"

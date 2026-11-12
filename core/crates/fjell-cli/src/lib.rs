@@ -4,6 +4,8 @@
 //! Grensesnitt:
 //! - `fsource::FsSource`: `AssetSource` over en mappe, kun lesing.
 //! - `cmd::{scan, list}`: kommandoene, skriver til en `Write`.
+//! - `flow::{index, trash, undo, purge}`: fullflyt mot ekte kjerne (`Fjell`), purge bare i temp-kopi.
 
 pub mod cmd;
+pub mod flow;
 pub mod fsource;

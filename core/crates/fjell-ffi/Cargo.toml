@@ -7,5 +7,18 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[features]
+# Bindgen-binæren (`just bindings`); trekker inn uniffi_bindgen og er ikke med i vanlig bygg.
+bindgen = ["uniffi/cli"]
+
 [dependencies]
 fjell-core = { path = "../fjell-core" }
+uniffi = "0.29"
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen"]

@@ -1,6 +1,6 @@
 //! `commit`, `restore`, `keep` og `undo` (PLAN-TRYGGHET 2.1, 3 og 4.2). Del av `actions`.
 //!
-//! Grensesnitt: `Actions::commit(&Plan, &Acks) -> Option<BatchId>`, `restore(ids)`, `keep(ids)`,
+//! Grensesnitt: `Actions::commit(&Plan, &Acks) -> Option<BatchId>` (og `commit_with_keeps`: «behold» i samme batch), `restore(ids)`, `keep(ids)`,
 //! `undo() -> UndoOutcome`. Hver er én transaksjon; tom mengde gir ingen batch (T19).
 //! `commit` bruker aldri planens egne tall: tilstand, flagg og bytes leses på nytt og må gi samme
 //! digest (I12). Beskyttede bilder trengs ack per kategori (I7); massesletting trenger `MassAck`.
@@ -21,8 +21,19 @@ pub struct UndoOutcome {
 
 impl Actions {
     pub fn commit(&mut self, plan: &Plan, acks: &Acks) -> Result<MaybeBatch> {
+        self.commit_with_keeps(plan, acks, &[])
+    }
+
+    /// Som `commit`, men `keeps` (avviste forslag, «behold») skrives i samme batch, så ett angre
+    /// tilbakestiller hele beslutningsrunden (`api::decide_many`). Bilder i planen hoppes over i `keeps`.
+    pub fn commit_with_keeps(
+        &mut self,
+        plan: &Plan,
+        acks: &Acks,
+        keeps: &[AssetId],
+    ) -> Result<MaybeBatch> {
         if plan.items.is_empty() {
-            return Ok(None);
+            return self.keep(keeps);
         }
         let now = self.clock.now();
         if now - plan.created_at > self.cfg.plan_ttl_secs {
@@ -72,7 +83,7 @@ impl Actions {
             return Err(ActionError::AckRequired(missing));
         }
         let expires_at = now + self.trash_secs()?;
-        let ops = plan
+        let mut ops: Vec<RowOp> = plan
             .items
             .iter()
             .map(|i| RowOp::Trash {
@@ -81,6 +92,12 @@ impl Actions {
                 expires_at,
             })
             .collect();
+        let keeps: Vec<AssetId> = dedupe(keeps)
+            .into_iter()
+            .filter(|k| !ids.contains(k))
+            .collect();
+        self.snapshot(&keeps)?; // ukjent id gir `UnknownAsset`
+        ops.extend(keeps.into_iter().map(|id| RowOp::Keep { id }));
         Ok(self.store.apply_batch(&BatchSpec {
             ts: now,
             cause: Cause::User,

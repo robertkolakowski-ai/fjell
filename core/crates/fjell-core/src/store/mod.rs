@@ -7,10 +7,17 @@
 //! - `migrate::MIGRATIONS` / `migrate::migrate_to`: migreringene som SQL-filer (`NNN_*.sql`).
 //! - Skriver er én tilkobling (`Store`), lesing bruker egen tilkobling (`Store::reader`).
 //!
-//! Status (M1): skjema og migrering 1 med triggere. Spørringer (upsert, work_set m.m.) kommer senere i K6.
+//! Status (M1): skjema og migrering 1 med triggere.
+//! Status (M4, undermoduler `index`, `groups`, `cards`): K6-delene indekseringen trenger (`upsert_assets`,
+//! `work_set`, `put_fingerprints`, `index_rows`), utskifting av grupper/forslag og kortspørringer.
 //! Status (M3, undermodul `ops`): trygg sletting. `apply_batch` (én transaksjon per batch), `undo_top`,
 //! `reconcile_removed`, lesespørringer for plan/utløp/oppsummering.
 
+mod cards;
+mod groups;
+mod index;
+#[cfg(test)]
+mod index_tests;
 mod migrate;
 #[cfg(test)]
 mod migrate_tests;
@@ -23,6 +30,9 @@ mod reconcile;
 use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 
+pub use cards::{CardRow, SuggestionRow};
+pub use groups::{GroupSpec, GroupingStats, LoneSuggestion};
+pub use index::{FingerprintRow, HashRow, IndexRow, UpsertStats, WorkItem, MAX_FAILS};
 pub use migrate::{migrate_to, MIGRATIONS};
 pub use ops::{BatchSpec, Cause, RowOp, UndoResult};
 pub use ops_read::{AssetRow, PendingSuggestion};
