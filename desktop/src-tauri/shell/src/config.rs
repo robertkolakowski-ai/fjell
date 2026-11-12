@@ -1,6 +1,6 @@
 //! Skallets egen lille konfigurasjon i app-data: sist valgte mappe og indeksfil per mappe.
 //!
-//! Grensesnitt: `last_library`, `save_library`, `db_path`. Ingenting her berører bildefiler.
+//! Grensesnitt: `last_library`, `save_library`, `db_path`, `language`, `set_language`. Ingenting her berører bildefiler.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -14,7 +14,13 @@ struct Config {
     /// Onboarding er vist (første gang). Settes når første skann startes; vises aldri på nytt.
     #[serde(default)]
     onboarded: bool,
+    /// Språkvalg: `system`, `nb` eller `en`. `None` = aldri valgt (frontend faller da tilbake på sitt eget valg).
+    #[serde(default)]
+    language: Option<String>,
 }
+
+/// Språkvalg frontend kan lagre. `pseudo` er et testlokale og er ikke et brukervalg.
+pub const LANGUAGES: [&str; 3] = ["system", "nb", "en"];
 
 fn read(data_dir: &Path) -> Config {
     fs::read(data_dir.join(FILE))
@@ -42,6 +48,19 @@ pub fn save_library(data_dir: &Path, library: &Path) -> std::io::Result<()> {
 pub fn set_onboarded(data_dir: &Path) -> std::io::Result<()> {
     let mut c = read(data_dir);
     c.onboarded = true;
+    write(data_dir, &c)
+}
+
+/// Lagret språkvalg. Ukjent verdi i filen (hånd-redigert, nyere versjon) regnes som ikke valgt.
+pub fn language(data_dir: &Path) -> Option<String> {
+    read(data_dir)
+        .language
+        .filter(|l| LANGUAGES.contains(&l.as_str()))
+}
+
+pub fn set_language(data_dir: &Path, language: &str) -> std::io::Result<()> {
+    let mut c = read(data_dir);
+    c.language = Some(language.to_string());
     write(data_dir, &c)
 }
 

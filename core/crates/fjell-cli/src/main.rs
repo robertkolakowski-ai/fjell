@@ -8,7 +8,7 @@ use fjell_cli::{cmd, fsource::FsSource};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "bruk: fjell-cli <skann|liste> <mappe>\n      fjell-cli <index|trash|undo|purge> <mappe> --db <fil> [--yes] [--fs-temp] [id...]\n      fjell-cli perf [--n 10000] [--rows 50000] [--rounds 500] [--dir <mappe>]";
+const USAGE: &str = "bruk: fjell-cli <skann|liste> <mappe>\n      fjell-cli <index|trash|undo|purge> <mappe> --db <fil> [--yes] [--fs-temp] [id...]\n      fjell-cli perf [--n 10000] [--rows 50000] [--rounds 500] [--dir <mappe>]\n      fjell-cli calibrate --dir <mappe> --labels <csv> [--max-dist N] [--max-span N] [--tight-dist N] [--rows N]";
 
 fn flow_cmd(c: &str, args: &[String]) -> Result<(), FlowError> {
     let (mut db, mut yes, mut tmp) = (None, false, false);
@@ -64,6 +64,43 @@ fn perf_cmd(args: &[String]) -> ExitCode {
     }
 }
 
+fn calibrate_cmd(args: &[String]) -> ExitCode {
+    let mut o = fjell_cli::calibrate::Options::default();
+    let (mut dir, mut labels) = (None, None);
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        let num = |v: Option<&String>| v.and_then(|s| s.parse::<u32>().ok());
+        match a.as_str() {
+            "--dir" => dir = it.next().map(PathBuf::from),
+            "--labels" => labels = it.next().map(PathBuf::from),
+            "--max-dist" => o.params.max_dist = num(it.next()).unwrap_or(o.params.max_dist),
+            "--max-span" => o.params.max_span = num(it.next()).unwrap_or(o.params.max_span),
+            "--tight-dist" => o.params.tight_dist = num(it.next()).unwrap_or(o.params.tight_dist),
+            "--rows" => o.rows = num(it.next()).map_or(o.rows, |n| n as usize),
+            _ => {
+                eprintln!("{USAGE}");
+                return ExitCode::from(2);
+            }
+        }
+    }
+    let (Some(dir), Some(labels)) = (dir, labels) else {
+        eprintln!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    // Bare lesing: filsystemadapteren med dekoding, ingen cache, ingen indeks.
+    let src = fjell_fs::FsSource::new(dir);
+    match fjell_cli::calibrate::run(&src, &labels, &o, &mut std::io::stdout().lock()) {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("feil: {e}");
+            ExitCode::from(match e {
+                FlowError::Usage(_) => 2,
+                _ => 1,
+            })
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(c) = args.first() else {
@@ -83,6 +120,9 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         };
+    }
+    if c == "calibrate" {
+        return calibrate_cmd(&args[1..]);
     }
     if c == "perf" {
         return perf_cmd(&args[1..]);

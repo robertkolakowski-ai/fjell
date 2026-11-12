@@ -4,7 +4,7 @@
 //! Papirkurv), `dto`, `core` (ett åpent bibliotek), `config` (sist valgte mappe).
 //! Grensesnitt: `Shell::mock()` (bare tester/dev), `Shell::with_data_dir(dir, bin)` (ekte),
 //! `set_library`, `library`, `state`, `start_scan`, `cancel_scan`, `cards`, `decide`,
-//! `decide_confirmed`, `set_keeper`, `undo`, `trash_summary`, `empty`.
+//! `decide_confirmed`, `set_keeper`, `undo`, `trash_summary`, `empty`, `language`, `set_language`.
 //! Tauri-kommandoene i `fjell-desktop` er tynne omslag rundt disse.
 //!
 //! Sletting (beslutning 17): trash flytter til karantene med angre; «Tøm» går via Papirkurv
@@ -31,6 +31,8 @@ use fjell_core::model::{
     AssetId, AssetSource, CardId, Clock, ConsequenceCode, GroupId, ProtectFlags, ReasonCode,
     SuggestionKind,
 };
+use fjell_core::store::Store;
+use fjell_fs::thumbcache::{ThumbCache, DEFAULT_MAX_BYTES};
 use fjell_fs::{FsSource, RecycleBin, RecycleError};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -65,6 +67,27 @@ pub fn default_recycle_bin() -> Arc<dyn RecycleBin> {
     {
         Arc::new(NoRecycleBin)
     }
+}
+
+/// Kilden skallet bruker i ekte modus (se `Shell::production_source`).
+fn production_source(data_dir: &Path, lib: &Path) -> FsSource {
+    let db = config::db_path(data_dir, lib);
+    FsSource::new(lib)
+        // T11: indeksens aktive bilder, så fjernede filer oppdages også etter omstart. Lesefeil gir
+        // tom liste (ingen fjerninger), aldri gjetting. Før første skann finnes ikke indeksen ennå.
+        .with_known_ids(Box::new(move || {
+            Store::active_source_ids_at(&db).unwrap_or_default()
+        }))
+        // Miniatyrer bufres bare i appens datamappe (aldri i biblioteket) og kan slettes uten tap.
+        .with_thumb_cache(ThumbCache::new(
+            thumb_cache_dir(data_dir),
+            DEFAULT_MAX_BYTES,
+        ))
+}
+
+/// Miniatyrbufferen: `<app-data>/cache/thumbs`.
+pub(crate) fn thumb_cache_dir(data_dir: &Path) -> PathBuf {
+    data_dir.join("cache").join("thumbs")
 }
 
 type Parts = (Arc<dyn FjellApi>, Option<Arc<Core>>);
@@ -121,7 +144,7 @@ impl Shell {
             last_full: AtomicBool::new(false),
         };
         if let Some(lib) = config::last_library(&data_dir) {
-            let _ = sh.open_library(&lib, Arc::new(FsSource::new(&lib)));
+            let _ = sh.open_library(&lib, Arc::new(production_source(&data_dir, &lib)));
         }
         sh
     }
@@ -129,7 +152,11 @@ impl Shell {
     /// Velger biblioteksmappe (fra mappevelger i Tauri-limet) og husker valget.
     pub fn set_library(&self, path: &str) -> Result<StateDto, ErrorDto> {
         let lib = PathBuf::from(path);
-        self.open_library(&lib, Arc::new(FsSource::new(&lib)))?;
+        let dir = self
+            .data_dir
+            .as_ref()
+            .ok_or_else(|| ErrorDto::bad_request("ingen app-data-mappe"))?;
+        self.open_library(&lib, Arc::new(production_source(dir, &lib)))?;
         if let Some(d) = &self.data_dir {
             // Valget huskes best effort; mislykket lagring stopper ikke bruken.
             let _ = config::save_library(d, &lib);
@@ -201,7 +228,18 @@ impl Shell {
         };
         let mut st = StateDto::from_core(backend, &api.home_summary(), &api.settings());
         st.scan_paused = self.paused.load(Ordering::SeqCst);
+        st.cloud_sync = self.cloud_sync();
         st
+    }
+
+    /// Skyleverandør for gjeldende bibliotek (kun ekte modus), etter kjente mappenavn.
+    fn cloud_sync(&self) -> Option<&'static str> {
+        match &*self.read() {
+            Inner::Core(c) => {
+                fjell_fs::cloud_provider(&c.library.to_string_lossy()).map(|p| p.code())
+            }
+            _ => None,
+        }
     }
 
     /// Starter skanning og returnerer straks; fremdrift leses via `state()` (`scan_*`).
@@ -271,6 +309,12 @@ impl Shell {
         confirmed: &[String],
     ) -> Result<u64, ErrorDto> {
         let (api, core) = self.parts()?;
+        // Skysynket bibliotek: papirkurv nektes før noe endres (Behold er trygt og tillatt).
+        if matches!(decision, DecisionDto::Trash) {
+            if let Some(p) = self.cloud_sync() {
+                return Err(ErrorDto::new("cloud_synced_readonly", p));
+            }
+        }
         let codes = parse_codes(confirmed)?;
         let d = match decision {
             DecisionDto::Trash => Decision::Trash,
@@ -364,6 +408,27 @@ impl Shell {
         }
         self.parts()?.0.set_settings(Settings { trash_days: days });
         self.settings()
+    }
+
+    /// Lagret språkvalg (`"system"`, `"nb"` eller `"en"`). `None` = aldri valgt (eller mock uten
+    /// app-data): frontend bruker da sitt eget valg og kan migrere det med `set_language`.
+    pub fn language(&self) -> Option<String> {
+        self.data_dir.as_deref().and_then(config::language)
+    }
+
+    /// Lagrer språkvalget i skallets innstillinger. Ukjent verdi (også `pseudo`) gir `bad_request`;
+    /// uten app-data (mock) `unsupported`. Returnerer lagret verdi.
+    pub fn set_language(&self, language: &str) -> Result<String, ErrorDto> {
+        if !config::LANGUAGES.contains(&language) {
+            return Err(ErrorDto::bad_request("language"));
+        }
+        let dir = self
+            .data_dir
+            .as_ref()
+            .ok_or_else(|| ErrorDto::new("unsupported", "mock"))?;
+        config::set_language(dir, language)
+            .map_err(|e| ErrorDto::new("internal", e.to_string()))?;
+        Ok(language.to_string())
     }
 
     /// Første gang appen kjøres (ingen mappe valgt, onboarding ikke fullført). Alltid `false` uten app-data.

@@ -1,15 +1,15 @@
 <!-- Papirkurv (UX-5, PLAN-UX-I18N 3.6): «Nylig slettet» med forklaring, utløpsvarsel, liste per bilde (Utløpt / Utløper snart /
      Andre) med «Gjenopprett» og «Gjenopprett alt» (umiddelbart, uten bekreftelse), Tøm-ark (Windows Papirkurv som standard,
-     permanent med eget trinn og avkrysning), resultat og historikk. Tilstand i trashState.ts, flyt i trashFlow.ts.
+     permanent med eget trinn og avkrysning; filer Papirkurv ikke kan ta ligger urørt i karantenen til brukeren velger), resultat og historikk. Tilstand i trashState.ts, flyt i trashFlow.ts.
      Ikke med ennå: miniatyrer i listen (raden viser filnavn, størrelse og datoer). -->
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import type { CoreBridge } from "../bridge/core-bridge";
   import { useBridge } from "../context";
   import { Button, LiveRegion } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { TrashSession } from "./trashFlow";
-  import { daysLeft, hasExpired, initialTrash, sectionsOf, type TrashSectionId, type TrashState } from "./trashState";
+  import { daysLeft, hasExpired, initialTrash, sectionsOf, type PurgeOutcome, type TrashSectionId, type TrashState } from "./trashState";
 
   interface Props {
     bridge?: CoreBridge;
@@ -22,18 +22,22 @@
   let view: TrashState = $state(initialTrash);
   let sheet: HTMLDialogElement | undefined = $state();
 
-  const sheetOpen = $derived(view.phase === "confirmPurge" || view.phase === "confirmPermanent" || view.phase === "purging");
+  const sheetOpen = $derived(view.phase === "confirmPurge" || view.phase === "confirmUnsupported" || view.phase === "confirmPermanent" || view.phase === "purging");
   const info = $derived(view.info);
   const nowS = Math.floor(Date.now() / 1000);
   const sections = $derived(sectionsOf(view.items, nowS));
   const sectionKey = { expired: "trash.section.expired", soon: "trash.section.soon", other: "trash.section.other" } as const satisfies Record<TrashSectionId, string>;
   const canRestore = $derived(view.phase === "list" && !view.restoring);
   const outcome = $derived(view.outcome);
+  /** Hovedlinjen i resultatet. Tom når ingenting ble flyttet eller slettet (bare «ligger urørt»). */
+  const outcomeText = (o: PurgeOutcome): string =>
+    o.mode === "permanent" ? $tr("trash.purged.permanent", { size: fmt.bytes(o.freedBytes) })
+    : o.count > 0 ? $tr("trash.purged.recycle") : "";
   const announce = $derived(
     view.restored !== null ? $tr("restore.done", { count: view.restored })
     : view.restoreFailed ? $tr("restore.failed")
     : view.phase === "purged" && outcome
-      ? outcome.mode === "permanent" ? $tr("trash.purged.permanent", { size: fmt.bytes(outcome.freedBytes) }) : $tr("trash.purged.recycle")
+      ? [outcomeText(outcome), outcome.kept > 0 ? $tr("trash.purged.kept", { count: outcome.kept }) : ""].filter(Boolean).join(" ")
       : "",
   );
 
@@ -42,6 +46,15 @@
     if (!sheet) return;
     if (sheetOpen && !sheet.open) sheet.showModal();
     else if (!sheetOpen && sheet.open) sheet.close();
+  });
+  // Innholdet i arket byttes mens det er åpent (knappen med fokus fjernes): sett fokus på første valg i det nye trinnet.
+  // «La ligge i karantenen» er standard og først; i permanent-trinnet er det avkrysningen.
+  $effect(() => {
+    const p = view.phase;
+    if (p !== "confirmUnsupported" && p !== "confirmPermanent") return;
+    void tick().then(() => {
+      sheet?.querySelector<HTMLElement>(p === "confirmPermanent" ? ".ack input" : ".dlg-actions button")?.focus();
+    });
   });
   onMount(() => void session.load());
   onDestroy(() => session.dispose());
@@ -61,7 +74,8 @@
 
     {#if view.phase === "purged" && outcome}
       <div class="done" role="status">
-        <p>{outcome.mode === "permanent" ? $tr("trash.purged.permanent", { size: fmt.bytes(outcome.freedBytes) }) : $tr("trash.purged.recycle")}</p>
+        {#if outcomeText(outcome)}<p>{outcomeText(outcome)}</p>{/if}
+        {#if outcome.kept > 0}<p>{$tr("trash.purged.kept", { count: outcome.kept })}</p>{/if}
         {#if outcome.marked > 0}<p>{$tr("trash.purge.marked", { count: outcome.marked })}</p>{/if}
         <Button onclick={() => session.send({ type: "dismiss" })}>{$tr("common.done")}</Button>
       </div>
@@ -132,15 +146,22 @@
           <Button onclick={() => session.send({ type: "cancel" })}>{$tr("common.cancel")}</Button>
           <Button disabled={!view.ack} onclick={() => void session.confirm()}>{$tr("trash.permanent.go", { count: info.count })}</Button>
         </div>
+      {:else if view.phase === "confirmUnsupported"}
+        <!-- Filer Papirkurv ikke kan ta ligger urørt i karantenen. «La ligge» er standard og første i fokusrekkefølgen;
+             den destruktive knappen er sist og fører til eget trinn med avkrysning (PermanentAck). -->
+        <h2 id="tr-t">{$tr("trash.unsupported.title")}</h2>
+        <p role="alert">{$tr("trash.unsupported.body", { count: view.unsupported })}</p>
+        <p>{$tr("trash.unsupported.options")}</p>
+        <div class="dlg-actions">
+          <Button variant="primary" onclick={() => session.send({ type: "keepUnsupported" })}>{$tr("trash.unsupported.keep")}</Button>
+          <Button onclick={() => session.send({ type: "deleteUnsupported" })}>{$tr("trash.unsupported.delete")}</Button>
+        </div>
       {:else}
         <h2 id="tr-t">{$tr("trash.purge.title")}</h2>
         <p>{$tr("trash.purge.summary", { count: info.count, size: fmt.bytes(info.bytes) })}</p>
-        {#if view.noBin}<p role="alert">{$tr("trash.purge.nobin")}</p>{/if}
         <fieldset disabled={view.phase === "purging"}>
           <legend class="sr-only">{$tr("trash.purge.title")}</legend>
-          {#if !view.noBin}
-            <label><input type="radio" name="mode" checked={view.mode === "recycle"} onchange={() => session.send({ type: "setMode", mode: "recycle" })} /> {$tr("trash.purge.mode.recycle")}</label>
-          {/if}
+          <label><input type="radio" name="mode" checked={view.mode === "recycle"} onchange={() => session.send({ type: "setMode", mode: "recycle" })} /> {$tr("trash.purge.mode.recycle")}</label>
           <label><input type="radio" name="mode" checked={view.mode === "permanent"} onchange={() => session.send({ type: "setMode", mode: "permanent" })} /> {$tr("trash.purge.mode.permanent")}</label>
         </fieldset>
         <div class="dlg-actions">

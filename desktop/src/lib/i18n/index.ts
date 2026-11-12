@@ -3,8 +3,10 @@
 //   import { t, tr, setLanguage } from "$lib/i18n";   // i Svelte: {$tr("home.title")} (reaktiv) eller t(...) (engangs)
 //
 // Språkvalg: «system» (standard) følger navigator.languages (WebView2 = Windows-visningsspråk), ellers nb/en.
-// «pseudo» finnes for UI-tester og er ikke et brukervalg. Valget lagres i localStorage («fjell.language»)
-// inntil Innstillinger får egen lagring. Manglende oversettelse faller nøkkelvis tilbake til nb (nn kommer etter MVP).
+// «pseudo» finnes for UI-tester og er ikke et brukervalg og sendes aldri til skallet.
+// Lagring: skallet (Tauri, `Shell::language`/`set_language`) er sannhet når det finnes; localStorage
+// («fjell.language») er reserve utenfor Tauri og ved feil, og kilde for engangsmigrering (se `initLanguage`).
+// Manglende oversettelse faller nøkkelvis tilbake til nb (nn kommer etter MVP).
 import { formatMessage, type Params } from "./icu";
 import { formatBytes, formatDate, formatNumber, formatPercent } from "./format";
 import type { MessageKey, MessageParams } from "./strings/keys";
@@ -38,14 +40,15 @@ export function resolveSystemLocale(languages: readonly string[]): LocaleId {
   return FALLBACK_LOCALE;
 }
 
-function readStorage(): LanguagePref {
+/** Lagret valg i localStorage, eller null når intet gyldig valg er lagret (eller lagring er blokkert). */
+function readStored(): LanguagePref | null {
   try {
     const v = globalThis.localStorage?.getItem(STORAGE_KEY);
     if (v === "nb" || v === "en" || v === "pseudo" || v === "system") return v;
   } catch {
     /* lagring kan være blokkert; standard gjelder */
   }
-  return "system";
+  return null;
 }
 
 function systemLanguages(): readonly string[] {
@@ -74,7 +77,7 @@ function makeT(locale: LocaleId): TFunction {
     formatMessage(lookup(locale, key), params ?? {}, ctx, (n) => warnOnce(`${key}: manglende parameter «${n}»`))) as TFunction;
 }
 
-let pref: LanguagePref = readStorage();
+let pref: LanguagePref = readStored() ?? "system";
 let locale: LocaleId = pref === "system" ? resolveSystemLocale(systemLanguages()) : pref;
 let current: TFunction = makeT(locale);
 const listeners = new Set<(t: TFunction) => void>();
@@ -107,8 +110,15 @@ export function getIntlLocale(): string {
   return INTL[locale];
 }
 
-/** Bytt språk (fra Innstillinger `setting.language`). `languages` er bare til test. */
-export function setLanguage(next: LanguagePref, languages: readonly string[] = systemLanguages()): void {
+/** Det skallet tilbyr (CoreBridge oppfyller dette). Verdier: «system», «nb», «en». */
+export interface LanguageStore {
+  getLanguage(): Promise<string | null>;
+  setLanguage(language: string): Promise<unknown>;
+}
+let store: LanguageStore | null = null;
+let chosenByUser = false;
+
+function apply(next: LanguagePref, languages: readonly string[]): void {
   pref = next;
   locale = next === "system" ? resolveSystemLocale(languages) : next;
   current = makeT(locale);
@@ -119,6 +129,51 @@ export function setLanguage(next: LanguagePref, languages: readonly string[] = s
   }
   applyDocumentLang();
   for (const fn of listeners) fn(current);
+}
+
+function saveToShell(next: LanguagePref): void {
+  if (!store || next === "pseudo") return;
+  store.setLanguage(next).catch((e: unknown) => warnOnce(`kunne ikke lagre språk i skallet (${String(e)})`));
+}
+
+/**
+ * Oppstart: spør skallet. Lagret verdi vinner. `null` (aldri valgt) => behold localStorage-valget og
+ * migrer det med `set_language` (kun et eksplisitt, ikke-pseudo valg; ellers forblir skallet uten valg).
+ * Feil eller manglende skall => localStorage/system som før. Valgte brukeren noe mens vi ventet, vinner det.
+ */
+export async function initLanguage(s: LanguageStore, languages: readonly string[] = systemLanguages()): Promise<LanguagePref> {
+  store = s;
+  let saved: string | null;
+  try {
+    saved = await s.getLanguage();
+  } catch (e) {
+    warnOnce(`kunne ikke lese språk fra skallet (${String(e)})`);
+    return pref;
+  }
+  if (chosenByUser) {
+    saveToShell(pref);
+    return pref;
+  }
+  if (saved === "system" || saved === "nb" || saved === "en") {
+    apply(saved, languages);
+    return pref;
+  }
+  const local = readStored();
+  if (local !== null && local !== "pseudo") saveToShell(local);
+  return pref;
+}
+
+/** Bytt språk (fra Innstillinger `setting.language`). Lagres i skallet når det er koblet til. `languages` er bare til test. */
+export function setLanguage(next: LanguagePref, languages: readonly string[] = systemLanguages()): void {
+  chosenByUser = true;
+  apply(next, languages);
+  saveToShell(next);
+}
+
+/** Bare til test: nullstiller skall-kobling og «valgt av bruker». */
+export function _resetLanguageStoreForTest(): void {
+  store = null;
+  chosenByUser = false;
 }
 
 /** Formatterere bundet til gjeldende språk. */

@@ -16,8 +16,11 @@
     /** Sekundære handlinger (f.eks. «Angre», «Velg alle»), vises før primærknappen. */
     secondary?: Snippet;
     ariaLabel?: string;
+    /** Sperret med forklaring (aria-disabled + aria-describedby), ikke skjult: knappen kan fokuseres. Ingenting annonseres som mulig. */
+    blocked?: boolean;
+    describedby?: string;
   }
-  let { label, disabled = false, onclick, announce, secondary, ariaLabel }: Props = $props();
+  let { label, disabled = false, onclick, announce, secondary, ariaLabel, blocked = false, describedby }: Props = $props();
   // Bunnlinjen er fixed og vokser ved lang tekst, 200 % skalering og stor skrift. Avstandsholderen følger den målte høyden
   // (ellers dekker linjen siste rad: UX-6, e2e/herding.spec.ts). Minimum er den gamle faste verdien.
   let barHeight = $state(0);
@@ -39,10 +42,10 @@
   <div class="inner">
     {#if secondary}<div class="sec">{@render secondary()}</div>{/if}
     <div class="primary">
-      <Button variant="primary" {disabled} {onclick}>{label}</Button>
+      <Button variant="primary" {disabled} {onclick} ariaDisabled={blocked} ariaDescribedby={blocked ? describedby : undefined}>{label}</Button>
     </div>
   </div>
-  <LiveRegion message={disabled ? "" : (announce ?? label)} delay={300} />
+  <LiveRegion message={disabled || blocked ? "" : (announce ?? label)} delay={300} />
 </div>
 
 <style>
