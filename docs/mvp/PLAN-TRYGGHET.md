@@ -48,17 +48,17 @@ Selected -> Explained -> Confirmed -> AwaitingSystem -> Purged | PartiallyPurged
 
 | Tilstand | Betyr | Overgang | Vakt / effekt |
 |---|---|---|---|
-| Draft | Brukervalg (swipe, gruppeforslag, «velg alle uskarpe») | `plan()` | Ingen skriving. |
+| Draft | Brukervalg (kortmodus, gruppeforslag, «velg alle uskarpe») | `plan()` | Ingen skriving. |
 | Planned | `Plan{ids, summary, digest, codes}` finnes, intet er endret | `commit()` | Planen er ikke eldre enn 5 min og digest stemmer med dagens tilstand, ellers `PlanStale` (ny plan). |
 | AckPending | Planen inneholder beskyttede bilder eller er massesletting | `commit(acks)` | `ProtectedAck(ids)` per kategori; `MassAck` ved terskel (se 4). Uten dekkende ack: `AckRequired(codes)`. |
 | Committed | Én transaksjon: tilstand + `action_log` med nytt `batch_id` | `undo()` | Alt eller ingenting. |
 | Undone | Invers batch skrevet (`inverse_of = batch_id`) | - | Hopper over bilder hvis tilstand ≠ tilstand etter batch (rapporteres). |
 | Selected | Brukeren åpner «Nylig slettet» og velger (standard: utløpte, øvrige må velges) | `begin_purge(ids)` | Bare `trashed`. Gir `PurgeIntent{summary, digest}`. |
-| Explained | UI har vist forklaring av systemdialogen (antall, at dialogen er systemets, at den ikke kan angres i Fjell) | `confirm_purge(intent)` | Brukeren trykker eksplisitt. Gir `PurgeTicket` (omslutter `Confirmed`, gyldig 10 min, i minnet). |
-| Confirmed | Fjells bekreftelse gitt | UI kaller adapter `delete(ids)` | Ticket brukes én gang. |
-| AwaitingSystem | iOS `PHAssetChangeRequest.deleteAssets` | adapter returnerer per id: Deleted / Cancelled / Failed | Kjernen er ikke involvert. |
+| Explained | UI har vist forklaring i appens ark (antall, valg mellom Windows Papirkurv (standard) og permanent sletting, at permanent ikke kan angres) | `confirm_purge(intent, mode)` | Brukeren trykker eksplisitt. Permanent krever i tillegg `PermanentAck` (avkrysning + knapp med antall). Gir `PurgeTicket` (omslutter `Confirmed` og modus, gyldig 10 min, i minnet). |
+| Confirmed | Fjells bekreftelse gitt | Rust-kommando kaller adapter `delete(ids, mode)` (aldri frontend direkte) | Ticket brukes én gang. |
+| AwaitingSystem | Windows: `IFileOperation` (Papirkurv, `FOFX_RECYCLEONDELETE`) eller permanent sletting | adapter returnerer per id: Deleted / Cancelled / Failed / `Unsupported` (volum uten Papirkurv; aldri stille fallback til permanent) | Kjernen er ikke involvert. |
 | Purged / PartiallyPurged | `finish_purge(ticket, results)` | - | Bare id-er med Deleted settes til `purged`. Resten forblir `trashed` (ingen tap). |
-| Aborted | Bruker avbrøt systemdialogen, ticket utløp, eller app døde | - | Ingen tilstandsendring. Avstemming tar eventuelle slettinger som skjedde likevel. |
+| Aborted | Bruker avbrøt arket, ticket utløp, `Unsupported` ble ikke bekreftet som permanent, eller app døde | - | Ingen tilstandsendring. Avstemming tar eventuelle slettinger som skjedde likevel. |
 
 Krasj mellom plattformsletting og databaseskriving: neste skanning ser at `source_id` er borte og avstemmer til `purged` (`cause=external`). Ingen egen journal trengs.
 
@@ -66,13 +66,13 @@ Krasj mellom plattformsletting og databaseskriving: neste skanning ser at `sourc
 
 | Tema | Beslutning |
 |---|---|
-| Papirkurv | `asset.state = trashed`. Originalen røres ikke. Bildet ligger fortsatt i galleriet til «Tøm». UI må si det («Merket, ikke slettet fra telefonen»). |
-| Angre | Stabel av batcher. `undo()` inverterer siste ikke-angrede batch i én transaksjon. Både swipe (1 bilde) og gruppe (n bilder) er én batch. Batch som inneholder `purge` kan ikke angres (`NotUndoable`), UI skjuler knappen. Angre gjelder i økt og ved neste oppstart (siste batch ligger i `action_log`). |
+| Papirkurv | `asset.state = trashed` er sannheten. På PC speiles den av flytting til appens karantene (ARKITEKTUR 20); innholdet røres aldri. Der flytting ikke er mulig forblir filen på plass og UI sier «Merket, ikke flyttet». Plass frigjøres ikke før «Tøm». |
+| Angre | Stabel av batcher. `undo()` inverterer siste ikke-angrede batch i én transaksjon. Både kort-beslutning (1 bilde) og gruppe (n bilder) er én batch. Batch som inneholder `purge` kan ikke angres (`NotUndoable`), UI skjuler knappen. Angre gjelder i økt og ved neste oppstart (siste batch ligger i `action_log`). |
 | Idempotens | `trash` på allerede trashed er no-op uten loggrad. Dobbelt `undo` inverterer ikke to ganger. |
 | Frist | `trash_days` = 30 (setting). Endring gjelder bare nye elementer (forkorting skal aldri plutselig utløpe eksisterende). |
 | Utløp | `expire_due()` kjøres ved oppstart og i bakgrunnsskanning. Returnerer `ExpiryNotice{count, bytes}` én gang per element (`expired_notified_at`). UI viser lokalt varsel og banner. Elementene blir liggende og kan gjenopprettes. Kjernen sletter aldri. |
 | Tøm | Hele eller delmengde. Utløpte er forhåndsvalgt, ikke-utløpte må velges. |
-| Lagring | `TrashSummary{trashed_count, trashed_bytes, expired_count}`. «Kan frigjøres» = `trashed_bytes`. «Frigjort» telles først etter `finish_purge`. iOS: sletting havner i systemets «Nylig slettet» (30 dager), plass frigjøres først når den tømmes. Verifiseres på iPhone før tekst låses. |
+| Lagring | `TrashSummary{trashed_count, trashed_bytes, expired_count}`. «Kan frigjøres» = `trashed_bytes`. «Frigjort» telles først etter `finish_purge` med modus permanent. Papirkurv-modus: filen er i Windows Papirkurv og plass frigjøres når brukeren tømmer den (UI: «Flyttet til Windows Papirkurv»). `action_log` lagrer modus på `purge`-rader. |
 
 ## 4. Konsekvensforhåndsvisning, beskyttelse, masse-sletting
 
@@ -93,22 +93,22 @@ Krasj mellom plattformsletting og databaseskriving: neste skanning ser at `sourc
 
 | Kategori | Kilde | MVP | Krav |
 |---|---|---|---|
-| Favoritt | adapter-flagg | Ja | Aldri forhåndsvalgt. Egen bekreftelse. |
-| Delt album | adapter (album + `shared`) | Ja | Samme. Teksten sier at andre kan miste bildet. |
-| Redigert | adapter (PhotoKit adjustments) | Ja, der plattformen gir det | Samme. |
+| Favoritt | adapter-flagg (PC: stjernerangering ≥ 4 i filens metadata/Windows-egenskap; mobil: plattformflagg) | Ja | Aldri forhåndsvalgt. Egen bekreftelse. |
+| Delt album | adapter (album + `shared`; settes ikke på PC) | Nei på PC (flagget reservert til mobil etter MVP) | Samme. Teksten sier at andre kan miste bildet. |
+| Redigert | adapter (settes ikke på PC; mobil: plattformens redigeringsflagg) | Nei på PC (reservert til mobil etter MVP) | Samme. |
 | Mange ansikter fra nære personer | krever ansiktsmodell | Nei (post-MVP, flagget reservert) | Dokumenter i UI-plan at denne beskyttelsen mangler i MVP. |
 
 Regler:
 - Beskyttede bilder er aldri med i standardutvalget for masseforslag («slett alle uskarpe»). De vises i egen seksjon med eksplisitt valg.
 - `ProtectedAck` lister id-er og kategorier. En ack for Favorite dekker ikke SharedAlbum.
-- Swipe på beskyttet kort åpner bekreftelse før `commit`, med knappealternativ (a11y).
+- Beslutning om «Papirkurv» på beskyttet kort (tast, mus-dra eller knapp) åpner bekreftelse før `commit` (a11y: samme ark for alle tre).
 - `suggest` skal foretrekke beskyttet medlem som behold-kandidat. Hvis forslaget likevel sletter beskyttet bilde, kreves ack.
 
 ### 4.3 Masse-sletting og sikkerhetskopi-sjekk
 
 - Terskel `MassDelete`: ≥ 50 bilder eller ≥ 1 GB i én `commit` eller `begin_purge` (setting, startverdi).
-- Plattformene eksponerer ikke pålitelig opplastingsstatus (iCloud/Google Foto). MVP-ansvar: `BackupState::Unknown` gir advarsel «Fjell kan ikke se om disse er sikkerhetskopiert» og krever `MassAck` (avkrysning). Hvis adapter senere gir `Verified/Unverified`, brukes det uten kjerneendring.
-- For «Tøm» gjelder terskelen alltid på mengden som sendes til systemdialogen.
+- Plattformene eksponerer ikke pålitelig sikkerhetskopistatus (på PC: OneDrive, Google Foto, sikkerhetskopiprogrammer; på mobil iCloud/Google Foto). MVP-ansvar: `BackupState::Unknown` gir advarsel «Fjell kan ikke se om disse er sikkerhetskopiert» og krever `MassAck` (avkrysning). Hvis adapter senere gir `Verified/Unverified`, brukes det uten kjerneendring.
+- For «Tøm» gjelder terskelen alltid på mengden som sendes til Papirkurv eller slettes permanent.
 
 ### 4.4 Tørrkjøring
 
@@ -147,7 +147,7 @@ Modellbasert test: referansemodell (`HashMap<AssetId, State>` + stabel) kjøres 
 
 | ID | Scenario | Forventet | Nivå |
 |---|---|---|---|
-| T1 | Swipe slett, så angre | Tilbake til `active`; én batch på hver vei; < 10 ms kjernekall | Enhet + perf |
+| T1 | Kort-beslutning «slett», så angre | Tilbake til `active`; én batch på hver vei; < 10 ms kjernekall | Enhet + perf |
 | T2 | Gruppeforslag (5 bilder, behold 1), angre | Alle 4 tilbake som én batch | Enhet |
 | T3 | Masseforslag 124 bilder (1,8 GB), 3 i album «Bryllup» | Summary: 124 / 1,8 GB, `albums=[Bryllup:3]`, `MassDelete`, `BackupUnknown`; krever `MassAck` | Enhet + UI |
 | T4 | Favoritt er sletteforslag i gruppe | `AckRequired(ProtectedFavorite)`; uten ack uendret; `suggest` foretrekker favoritten som behold | Enhet |
@@ -155,7 +155,7 @@ Modellbasert test: referansemodell (`HashMap<AssetId, State>` + stabel) kjøres 
 | T6 | Dry-run av alle ventende forslag | Ingen skriving (`total_changes`); påfølgende `commit` gir samme mengde | Egenskap |
 | T7 | Plan blir gammel (bilde gjenopprettet/endret mellom plan og commit) | `PlanStale`, ingenting skrevet | Enhet |
 | T8 | 31 dager frem (`Clock`) | Elementer `trashed`, `ExpiryNotice` én gang, restore virker, ingen sletting | Egenskap |
-| T9 | iOS-dialog: bruker avbryter | Alle forblir `trashed`; ingen logg `purge` | Adapter-fake + UI |
+| T9 | Tøm: bruker avbryter i arket | Alle forblir `trashed`; ingen logg `purge` | Adapter-fake + UI |
 | T10 | Delvis (7 av 10 slettet) | 7 `purged`, 3 `trashed`; rapport viser 7/3 | Adapter-fake |
 | T11 | App drepes etter plattformsletting, før DB | Neste skanning avstemmer til `purged` (`cause=external`) | Integrasjon (`fjell-cli`) |
 | T12 | Bilde slettet utenfor Fjell mens `trashed` | Avstemmes til `purged`; angre hopper over det og rapporterer | Integrasjon |
@@ -167,10 +167,14 @@ Modellbasert test: referansemodell (`HashMap<AssetId, State>` + stabel) kjøres 
 | T18 | 50 000 id-er i én batch | Chunking under SQLite-variabelgrense; fortsatt én transaksjon | Enhet |
 | T19 | Tom mengde, duplikat-id-er, ukjent id | Tom: no-op uten batch; duplikater dedupes; ukjent: `UnknownAsset` | Enhet |
 | T20 | Kontrakt: alle koder oversatt | `ConsequenceCode` og `PlatformDialogNext` finnes i nb og en | i18n |
-| T21 | UI nb (+30 %) for bekreftelser og systemdialog-forklaring | Ingen avkapping; knapper nåbare | UI |
-| T22 | VoiceOver på bekreftelse og «Tøm» | Etiketter finnes; swipe og knapp gir samme resultat | UI |
+| T21 | UI nb (+30 %) for bekreftelser og Tøm-forklaring (Papirkurv/permanent) | Ingen avkapping; knapper nåbare | UI |
+| T22 | Narrator og NVDA på bekreftelse og «Tøm» | Etiketter finnes; tastatur og knapp gir samme resultat | UI (manuell + axe) |
 | T23 | Fixture-sjekksum etter full skanning, alle ops og `FsAdapter.delete` bare på temp-kopi | Original-fixture uendret | Integrasjon |
 | T24 | Migrering legger til triggere og kolonner | Fra forrige og fra tom db gir lik skjemadump; triggere virker | Migrering |
+| T25 | Karantene: `stage` så `unstage` (samme volum) | Fil tilbake på opprinnelig sti, sjekksum lik; manifest ryddet; kollisjon gir `navn (gjenopprettet).ext` | Integrasjon (temp-kopi) |
+| T26 | App drepes mellom `commit` og `stage` (og mellom `stage` og manifest) | Oppstartsavstemming gjenoppretter samsvar mellom manifest, filer og indeks; ingen fil mistet | Integrasjon |
+| T27 | Ekstern disk/nettverksrot frakoblet under skanning | `Unavailable`, ingen `purged` (`cause=external`), ingenting forsvinner fra papirkurv-visning | Integrasjon |
+| T28 | Permanent uten `PermanentAck`; volum uten Papirkurv | `AckRequired`, ingen `delete` kalt; `Unsupported` gir tilbud om permanent, aldri automatisk | Enhet + adapter-fake |
 
 ## 7. Ytelse
 
@@ -180,21 +184,21 @@ Modellbasert test: referansemodell (`HashMap<AssetId, State>` + stabel) kjøres 
 | `plan()` for 1 000 id-er | < 10 ms | Indeks på `asset(id)`, `asset_album(asset_id)` |
 | `trash_summary()` | < 5 ms | `idx(state)` |
 | `trash`/`undo` av > 200 bilder (f.eks. 312 fra onboarding) | < 100 ms ende til ende med optimistisk UI. Mål: 1 000 id-er < 50 ms | Egen perf-test; unntatt 10 ms-porten |
-| Purge (systemdialog) | Utenfor 100 ms-budsjettet | Styres av plattformen. UI viser fremdrift. Kjernens del (`finish_purge`) < 10 ms per 200 id-er |
+| Purge (Papirkurv/permanent) | Utenfor 100 ms-budsjettet | Styres av filsystemet (antall filer, antivirus, nettverk). UI viser fremdrift og kan avbryte mellom filer. Kjernens del (`finish_purge`) < 10 ms per 200 id-er |
 
 ## 8. Leveranser og rekkefølge
 
 1. `model`: `ProtectFlag`, `ConsequenceCode`, `Plan`, `Acks`, `Confirmed` (privat konstruktør), `PurgeTicket`. Ingen I/O.
 2. `store`: migrering (kolonner + triggere), `set_state(batch)`, `pop_batch`, avstemming.
 3. `actions`: `plan`, `commit`, `undo`, `expire_due`, `begin_purge`, `confirm_purge`, `finish_purge`.
-4. Modelltest + proptest (I1–I16) før noen UI. Deretter T1–T24.
+4. Modelltest + proptest (I1–I16) før noen UI. Deretter T1–T24 (T25–T28 hører til M5, desktop-adapter).
 5. `api`-flate for UI. `fjell-cli` kommandoer `plan`, `trash`, `undo`, `purge --fs-temp` for integrasjon.
 
 Faser følger CLAUDE.md: én fase, én gren, én PR.
 
 ## 9. Åpne punkter
 
-- iOS: bekreft på referanseenhet hva som frigjør plass når (tekst i UI låses etterpå).
+- PC: bekreft Papirkurv-oppførsel per volumtype (lokal disk, ekstern disk, nettverksstasjon) og at `IFileOperation` gir per-id-utfall; UI-tekst låses etterpå.
 - Terskler `MassDelete` (50 / 1 GB) og plangyldighet (5 min) kalibreres i brukertest.
 - Ansiktsbeskyttelse (nære personer) er post-MVP og krever modellvalg.
 
@@ -206,10 +210,10 @@ Faser følger CLAUDE.md: én fase, én gren, én PR.
 |---|---|
 | Arkitekt / data (`store`, `model`) | **Skjema:** `asset.protect_flags INTEGER` (bitmaske Favorite, SharedAlbum, Edited, Faces-reservert); tabeller `album(id, name, shared)` og `asset_album(asset_id, album_id)`; `asset.expired_notified_at`; `action_log.inverse_of`, `action_log.prev_sugg_status`, `action_log.cause` (user, expiry, external, undo); triggere for I2, I3, I14. `upsert_assets` skal bevare `state`, `trashed_at`, `expires_at` (I13). `set_state(batch)` må være én transaksjon. |
 | Arkitekt | Bekreft at `purge(ids, Confirmed)` i `actions` betyr «oppdater indeks etter plattformens svar» (ikke selve slettingen), og at `Confirmed`/`PurgeTicket` lages i `api` via `begin_purge` / `confirm_purge`. |
-| Plattformadaptere (iOS, fs) | `AssetMeta` med `is_favorite`, `in_shared_album`, `is_edited`, albumliste (id, navn, delt), valgfri `BackupState`. Adapter-operasjon `delete(ids) -> Vec<(AssetId, Deleted\|Cancelled\|Failed)>` som bare UI kaller med gyldig ticket. `list_changes` må kunne melde slettede kilder (til avstemming). |
+| Plattformadaptere (fs/Windows; mobil etter MVP) | `AssetMeta` med `is_favorite`, `in_shared_album`, `is_edited`, albumliste (id, navn, delt; på PC: overordnet mappe), valgfri `BackupState`. Adapter-operasjoner `delete(ids, mode) -> Vec<(AssetId, Deleted\|Cancelled\|Failed\|Unsupported)>` og `Quarantine { stage, unstage }` (ARKITEKTUR 20, 22), `delete` bare med gyldig ticket fra Rust-kommando. `list_changes` må kunne melde slettede kilder (til avstemming), men aldri frakoblet rot. |
 | Pipeline (`scan`) | Avstemming av borte kilder til `purged` (`cause=external`). Skanning rører ikke `state` ellers. Trashed bilder utelates fra klynging og kort. |
 | Forslag (`suggest`) | Foretrekk beskyttet medlem som behold. Aldri forslag som sletter alle aktive medlemmer i en gruppe. `ReasonCode` per bilde leveres til `Plan`. |
-| UI/UX-plan | Bekreftelsesflyt per kategori, `MassAck`, forklaring før systemdialog, «Nylig slettet» med tre tall (merket / kan frigjøres / frigjort), banner for utløp, tydelig «ikke slettet fra telefonen ennå». Alle med knappealternativ til swipe. |
+| UI/UX-plan | Bekreftelsesflyt per kategori, `MassAck`, forklaring før Tøm (Papirkurv vs permanent, `PermanentAck`), «Nylig slettet» med tre tall (merket / kan frigjøres / frigjort), banner for utløp, tydelig «ikke slettet fra maskinen ennå». Alle med knappealternativ til hurtigtaster og mus. |
 | i18n-plan | nb/en-tekster for alle `ConsequenceCode`, feilkoder (`AckRequired`, `PlanStale`, `PurgeStale`, `NotUndoable`, `AlreadyPurged`, `UnknownAsset`) og dialogforklaringer. Lokalt varsel for utløp. |
 | Test/CI-plan | `proptest` for I1–I16 i `core`-jobben, `Clock`-fake og `FakeAdapter` (utfall per id), feilinjeksjon i `store`, migreringstest for triggere (T24), perf-test med trash/undo/plan i `nightly`. |
 
