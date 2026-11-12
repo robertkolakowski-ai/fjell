@@ -111,6 +111,7 @@ dependencies = [
 name = "fjell-core"
 version = "0.0.0"
 dependencies = [
+ "blake3",
  "proptest",
  "rusqlite",
 ]

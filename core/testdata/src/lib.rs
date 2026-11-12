@@ -1,6 +1,6 @@
 //! Golden-korpus og deterministisk generator (PLAN-KJERNE del 2, K0).
 //! Grensesnitt: `corpus::generate(out, seed)`; moduler: `rng`, `ops`, `synth`, `manifest`.
-//! Frittstående crate, ingen avhengighet til fjell-core. Generert data ligger i
+//! Frittstående crate; fjell-core er bare dev-avhengighet for golden-testene i `tests/`. Generert data ligger i
 //! `core/testdata/generated/` (gitignorert) og lages ved behov.
 
 // Pikselløkker med indekser er klarere enn iteratorer her.
