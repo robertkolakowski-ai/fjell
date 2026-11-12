@@ -14,11 +14,16 @@
 //!   mappen. Uten `with_known_ids` meldes ingen fjerninger. Frakoblet rot er `Unavailable`, aldri
 //!   fjernet, og en tom gjennomgang når det finnes kjente filer regnes som frakoblet (tom
 //!   monteringsmappe), også `Unavailable`. Ved `since = None` meldes ingen fjerninger.
+//! - Miniatyrbuffer (`with_thumb_cache`): bare på disk under bufferens egen mappe (appens datamappe),
+//!   aldri i eller under biblioteksroten (da ignoreres bufferen). Nøkkelen er hex av (rot, id, mtime,
+//!   størrelse), så en endret fil gir ny nøkkel. Skyplassholdere og avslått dekoding når aldri bufferen.
+//!   Feil i bufferen er alltid bom, aldri feil for brukeren. Originalfiler leses bare.
 
 use crate::locality::{default_probe, LocalProbe};
 use crate::path::{os_path, resolve, strip_extended};
 use crate::quarantine::QUARANTINE_DIR;
 use crate::thumb;
+use crate::thumbcache::ThumbCache;
 use fjell_core::model::{
     AssetMeta, AssetSource, ChangeSet, ChangeToken, Kind, ProtectFlags, SourceError, SourceId,
     Thumb,
@@ -37,6 +42,22 @@ pub struct FsSource {
     local: LocalProbe,
     decode: bool,
     known: Option<KnownIds>,
+    cache: Option<ThumbCache>,
+}
+
+/// 128-bit nøkkel (to FNV-1a med ulike startverdier) som hex. Bare hex-tegn, så den aldri kan
+/// forlate bufferens mappe (`ThumbCache` avviser alt annet).
+fn cache_key(parts: &[&[u8]]) -> String {
+    let mut a: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut b: u64 = 0x9e37_79b9_7f4a_7c15;
+    for p in parts {
+        // Lengdeprefiks så («ab», «c») og («a», «bc») gir ulike nøkler.
+        for byte in (p.len() as u64).to_le_bytes().iter().chain(p.iter()) {
+            a = (a ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3);
+            b = (b ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3) ^ (b >> 29);
+        }
+    }
+    format!("{a:016x}{b:016x}")
 }
 
 fn mime_and_kind(path: &Path) -> Option<(&'static str, Kind)> {
@@ -65,12 +86,25 @@ impl FsSource {
             local: default_probe(),
             decode: true,
             known: None,
+            cache: None,
         }
     }
 
     /// Gir adapteren indeksens kjente id-er, så fjernede filer også oppdages etter omstart.
     pub fn with_known_ids(mut self, f: KnownIds) -> FsSource {
         self.known = Some(f);
+        self
+    }
+
+    /// Slår på miniatyrbuffer på disk. Bufferen må ligge utenfor biblioteket (appens datamappe):
+    /// ligger `cache.dir()` i eller under roten, ignoreres den, så ingenting skrives i brukerens mapper.
+    pub fn with_thumb_cache(mut self, cache: ThumbCache) -> FsSource {
+        // Sammenlign både som oppgitt og kanonisert (symlenker, ulik skrivemåte), så vi heller dropper
+        // bufferen enn risikerer å skrive i brukerens mapper.
+        let canon = |p: &Path| fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        let inside = cache.dir().starts_with(&self.root)
+            || canon(cache.dir()).starts_with(canon(&self.root));
+        self.cache = (!inside).then_some(cache);
         self
     }
 
@@ -234,7 +268,29 @@ impl AssetSource for FsSource {
         if !self.decode {
             return Err(SourceError::Unavailable);
         }
-        thumb::make_thumb(&os_path(&p))
+        let key = self.cache.as_ref().map(|_| {
+            let t = md
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .unwrap_or_default();
+            cache_key(&[
+                self.root.to_string_lossy().as_bytes(),
+                id.0.as_bytes(),
+                &t.as_nanos().to_le_bytes(),
+                &md.len().to_le_bytes(),
+            ])
+        });
+        if let (Some(c), Some(k)) = (&self.cache, &key) {
+            if let Some(hit) = c.get(k) {
+                return Ok(hit);
+            }
+        }
+        let made = thumb::make_thumb(&os_path(&p))?;
+        if let (Some(c), Some(k)) = (&self.cache, &key) {
+            let _ = c.put(k, &made);
+        }
+        Ok(made)
     }
 
     fn read_bytes(&self, id: &SourceId) -> Result<Box<dyn Read + Send>, SourceError> {

@@ -3,6 +3,7 @@
 //! kan sette inn panikk og krok), `dump(&Fx)` (grupper og forslag uten id-er som kan variere).
 //! Undermoduler: `scan` (K7-1…4, 7…9, 11), `robust` (K7-5, K7-6, K7-12, frist, avstemming).
 
+mod migrate;
 mod robust;
 mod scan;
 

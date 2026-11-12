@@ -12,6 +12,8 @@ export interface MockOptions {
   trashDays?: number;
   /** Simuler volum uten Papirkurv (nettverksstasjon): Papirkurv-modus gir `unsupported`. */
   noBin?: boolean;
+  /** Antall filer (de siste i «Nylig slettet») som Papirkurv ikke kan ta: lang sti uten 8.3-navn, UNC. Resten flyttes. */
+  unsupportedCount?: number;
   /** Klokke (ms siden epoch). Tester styrer utløp med denne. */
   now?: () => number;
   /** Valgt mappe. Standard: en mappe er valgt. `null` = ingen (start av skann gir `no_library`). */
@@ -62,6 +64,7 @@ export class MockBridge implements CoreBridge {
   private freed = 0;
   private freedSince: number | null = null;
   private readonly noBin: boolean;
+  private readonly unsupportedCount: number;
   private readonly delayMs: number;
   private days: number;
   private readonly now: () => number;
@@ -77,6 +80,7 @@ export class MockBridge implements CoreBridge {
     this.delayMs = opts.delayMs ?? 0;
     this.days = opts.trashDays ?? 30;
     this.noBin = opts.noBin ?? false;
+    this.unsupportedCount = Math.max(0, Math.floor(opts.unsupportedCount ?? 0));
     this.now = opts.now ?? Date.now;
     this.library = opts.library === undefined ? "C:\\Bilder" : opts.library;
     this.firstRun = opts.firstRun ?? false;
@@ -284,11 +288,13 @@ export class MockBridge implements CoreBridge {
     const bytes = this.trashed.reduce((sum, c) => sum + c.bytes, 0);
     const none: EmptyResult = { purged: 0, keptTrashed: 0, unsupported: 0, cancelled: 0, unavailable: 0, freedBytes: 0 };
     if (permanent === null) {
-      // Papirkurv-modus: filene forlater karantenen, men plassen er ikke frigjort ennå.
-      if (this.noBin) return { ...none, unsupported: n, keptTrashed: n };
-      this.trashed = [];
-      this.batches = this.batches.filter((b) => b.decision !== "trash");
-      return { ...none, purged: n };
+      // Papirkurv-modus: filer Papirkurv ikke kan ta (`Unsupported`) blir liggende i karantenen, urørt. Aldri stille sletting.
+      const stay = this.noBin ? n : Math.min(n, this.unsupportedCount);
+      const moved = this.trashed.slice(0, n - stay);
+      const ids = new Set(moved.map((c) => c.id));
+      this.trashed = this.trashed.slice(n - stay);
+      this.batches = this.batches.filter((b) => b.decision !== "trash" || !b.ids.every((i) => ids.has(i)));
+      return { ...none, purged: moved.length, keptTrashed: stay, unsupported: stay };
     }
     // Permanent krever avkrysning og riktig antall (PermanentAck). Aldri uten.
     if (!permanent.checked || permanent.count !== n) throw err("ack_required", "permanent");

@@ -1,10 +1,11 @@
 // Papirkurv («Nylig slettet», PLAN-UX-I18N 3.6 og 4): ViewState + ren reduce. Ingen I/O.
 // Tøm: appens ark med valg Windows Papirkurv (standard) eller permanent. Permanent har eget trinn med avkrysning
-// (PermanentAck: checked + riktig antall). Volum uten Papirkurv: bare permanent, aldri automatisk.
+// (PermanentAck: checked + riktig antall). Filer Papirkurv ikke kan ta (`Unsupported`: volum uten Papirkurv, lang sti,
+// UNC) blir liggende urørt i karantenen. Brukeren velger «La ligge» (standard) eller «Slett permanent» (egen bekreftelse).
 import type { AppState, BridgeError, EmptyResult, PermanentAck, TrashedItem } from "../bridge/types";
 
 export type PurgeMode = "recycle" | "permanent";
-export type TrashPhase = "loading" | "empty" | "list" | "confirmPurge" | "confirmPermanent" | "purging" | "purged" | "error";
+export type TrashPhase = "loading" | "empty" | "list" | "confirmPurge" | "confirmUnsupported" | "confirmPermanent" | "purging" | "purged" | "error";
 
 export interface TrashInfo {
   count: number;
@@ -20,6 +21,8 @@ export interface PurgeOutcome {
   count: number;
   /** Elementer som ikke kunne flyttes og ligger fortsatt i «Nylig slettet». */
   marked: number;
+  /** Elementer Papirkurv ikke støtter: ligger urørt i karantenemappen (ikke slettet). */
+  kept: number;
   freedBytes: number;
 }
 
@@ -38,8 +41,10 @@ export interface TrashState {
   restoreFailed: boolean;
   mode: PurgeMode;
   ack: boolean;
-  /** Volumet har ikke Papirkurv: bare permanent tilbys. */
-  noBin: boolean;
+  /** Antall filer Papirkurv ikke kunne ta i siste forsøk (`Unsupported`). De ligger urørt i karantenen. */
+  unsupported: number;
+  /** Permanent-trinnet ble åpnet fra «kan ikke flyttes»-arket: Avbryt går tilbake dit. */
+  fromUnsupported: boolean;
   outcome: PurgeOutcome | null;
   error: BridgeError | null;
 }
@@ -58,6 +63,10 @@ export type TrashEvent =
   | { type: "continue" }
   | { type: "setAck"; value: boolean }
   | { type: "cancel" }
+  /** «La ligge i karantenen» (standard i `Unsupported`-arket). Ingenting endres. */
+  | { type: "keepUnsupported" }
+  /** «Slett permanent …» i `Unsupported`-arket: går til permanent-trinnet med avkrysning. */
+  | { type: "deleteUnsupported" }
   /** Slett permanent trykket. Krever avkrysning. */
   | { type: "confirmPermanent" }
   | { type: "purged"; mode: PurgeMode; result: EmptyResult }
@@ -67,7 +76,7 @@ export type TrashEvent =
 
 export const initialTrash: TrashState = {
   phase: "loading", info: null, items: [], selected: new Set(), restoring: false, restored: null, restoreFailed: false,
-  mode: "recycle", ack: false, noBin: false, outcome: null, error: null,
+  mode: "recycle", ack: false, unsupported: 0, fromUnsupported: false, outcome: null, error: null,
 };
 
 export type TrashSectionId = "expired" | "soon" | "other";
@@ -102,6 +111,12 @@ export const infoOf = (s: AppState): TrashInfo => ({
 export const ackFor = (s: TrashState): PermanentAck | null =>
   s.mode === "permanent" && s.info ? { checked: s.ack, count: s.info.count } : null;
 
+/** «La ligge»: lukk arket og vis resultatet (det som ble flyttet, og at resten ligger urørt). */
+const keepUnsupported = (s: TrashState): TrashState => {
+  const o = s.outcome ?? { mode: "recycle" as const, count: 0, marked: 0, kept: 0, freedBytes: 0 };
+  return { ...s, phase: "purged", ack: false, fromUnsupported: false, outcome: { ...o, kept: s.unsupported }, unsupported: 0 };
+};
+
 const listOf = (info: TrashInfo): TrashPhase => (info.count === 0 ? "empty" : "list");
 
 export function reduceTrash(s: TrashState, e: TrashEvent): TrashState {
@@ -114,7 +129,7 @@ export function reduceTrash(s: TrashState, e: TrashEvent): TrashState {
       const live = new Set(items.map((i) => i.asset));
       const selected = new Set([...s.selected].filter((a) => live.has(a)));
       // Under og rett etter tømming beholdes ark/resultat; ny tilstand fra kjernen oppdaterer bare tallene.
-      if (s.phase === "purging" || s.phase === "purged" || s.phase === "confirmPurge" || s.phase === "confirmPermanent") return { ...s, info, items, selected };
+      if (s.phase === "purging" || s.phase === "purged" || s.phase === "confirmPurge" || s.phase === "confirmUnsupported" || s.phase === "confirmPermanent") return { ...s, info, items, selected };
       return { ...s, phase: listOf(info), info, items, selected, error: null };
     }
     case "failed":
@@ -138,9 +153,9 @@ export function reduceTrash(s: TrashState, e: TrashEvent): TrashState {
       return s.restoring ? { ...s, restoring: false, restoreFailed: true } : s;
     case "openPurge":
       if (s.phase !== "list" || !s.info) return s;
-      return { ...s, phase: "confirmPurge", mode: s.noBin ? "permanent" : "recycle", ack: false, error: null };
+      return { ...s, phase: "confirmPurge", mode: "recycle", ack: false, unsupported: 0, fromUnsupported: false, error: null };
     case "setMode":
-      return s.phase === "confirmPurge" && !(s.noBin && e.mode === "recycle") ? { ...s, mode: e.mode } : s;
+      return s.phase === "confirmPurge" ? { ...s, mode: e.mode } : s;
     case "continue":
       if (s.phase !== "confirmPurge") return s;
       return s.mode === "permanent" ? { ...s, phase: "confirmPermanent", ack: false } : { ...s, phase: "purging" };
@@ -149,17 +164,24 @@ export function reduceTrash(s: TrashState, e: TrashEvent): TrashState {
     case "confirmPermanent":
       return s.phase === "confirmPermanent" && s.ack ? { ...s, phase: "purging" } : s;
     case "cancel":
+      // Esc eller Avbryt i `Unsupported`-arket er det samme som «La ligge». Fra permanent-trinnet tilbake til valgene.
+      if (s.phase === "confirmUnsupported") return keepUnsupported(s);
+      if (s.phase === "confirmPermanent" && s.fromUnsupported) return { ...s, phase: "confirmUnsupported", mode: "recycle", ack: false };
       return s.phase === "confirmPurge" || s.phase === "confirmPermanent" ? { ...s, phase: "list", ack: false } : s;
+    case "keepUnsupported":
+      return s.phase === "confirmUnsupported" ? keepUnsupported(s) : s;
+    case "deleteUnsupported":
+      return s.phase === "confirmUnsupported" ? { ...s, phase: "confirmPermanent", mode: "permanent", ack: false, fromUnsupported: true } : s;
     case "purged": {
       const r = e.result;
-      // Papirkurv-modus på volum uten Papirkurv: ingenting er flyttet. Tilbake til arket med bare permanent.
-      if (e.mode === "recycle" && r.purged === 0 && r.unsupported > 0) {
-        return { ...s, phase: "confirmPurge", noBin: true, mode: "permanent", ack: false };
-      }
-      return {
-        ...s, phase: "purged", ack: false,
-        outcome: { mode: e.mode, count: r.purged, marked: r.keptTrashed, freedBytes: r.freedBytes },
+      const outcome: PurgeOutcome = {
+        mode: e.mode, count: r.purged, marked: Math.max(0, r.keptTrashed - r.unsupported), kept: 0, freedBytes: r.freedBytes,
       };
+      // Papirkurv-modus med filer som ikke støttes: de ligger urørt i karantenen. Brukeren velger, aldri stille sletting.
+      if (e.mode === "recycle" && r.unsupported > 0) {
+        return { ...s, phase: "confirmUnsupported", unsupported: r.unsupported, fromUnsupported: false, mode: "recycle", ack: false, outcome };
+      }
+      return { ...s, phase: "purged", ack: false, fromUnsupported: false, unsupported: 0, outcome };
     }
     case "purgeFailed":
       // Ingenting er slettet: tilbake til listen med feilmelding.
