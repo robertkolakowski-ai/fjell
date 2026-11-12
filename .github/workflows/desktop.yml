@@ -58,9 +58,15 @@ jobs:
           name: playwright-resultater
           path: desktop/e2e/.results
           if-no-files-found: ignore
+      # PR-bygg har ikke (og skal ikke ha) den private oppdateringsnøkkelen: slå av oppdateringsartefakter her.
+      # Signerte bygg lages bare av beta.yml fra main.
       - name: Bygg Tauri-appen (usignert NSIS)
         working-directory: desktop
-        run: npx tauri build --bundles nsis
+        shell: pwsh
+        run: |
+          $cfg = Join-Path $env:RUNNER_TEMP "uten-oppdatering.json"
+          '{"bundle":{"createUpdaterArtifacts":false}}' | Set-Content -Path $cfg -Encoding utf8
+          npx tauri build --bundles nsis --config $cfg
       # Røyktest: stille installasjon, appen starter og lever 10 s uten krasj, avslutt, avinstaller.
       # (Appen har ingen --version; en GUI-start er det enkleste som beviser at pakken fungerer.)
       - name: Røyktest NSIS-installasjonsprogram
