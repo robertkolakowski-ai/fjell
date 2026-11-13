@@ -21,11 +21,16 @@
 mod fast;
 mod full;
 mod groups;
+mod keeper;
 mod progress;
 #[cfg(test)]
 pub(crate) mod tests;
 
-pub use groups::{compute, compute_with, refresh_groups, GroupEngine, Grouping, LOW_INFO_BIT};
+pub(crate) use groups::member;
+pub use groups::{
+    compute, compute_with, compute_with_rules, refresh_groups, GroupEngine, Grouping, LOW_INFO_BIT,
+};
+pub use keeper::{is_protected, pick_group, pick_keeper, Pick, RuleCtx};
 pub use progress::{Phase, Progress, Snapshot, DEFAULT_INTERVAL};
 
 use crate::model::{AssetId, AssetSource, ChangeToken, Clock, SourceError, ALGO_VER};

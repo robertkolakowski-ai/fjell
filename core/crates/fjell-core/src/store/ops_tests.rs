@@ -133,6 +133,7 @@ fn i16_schema_has_no_image_data_or_free_text() {
         "asset.mime",
         "grp.kind",
         "grp.keeper_reason",
+        "grp.keeper_rule", // regelnøkkel + mappesti (som asset.source_id), aldri fritekst
         "suggestion.kind",
         "suggestion.reason_code",
         "suggestion.status",

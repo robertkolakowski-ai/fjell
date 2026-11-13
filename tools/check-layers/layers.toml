@@ -5,6 +5,6 @@
 [layers]
 L4 = ["api"]
 L3 = ["pipeline"]
-L2 = ["cluster", "suggest", "actions"]
+L2 = ["cluster", "suggest", "actions", "rules"]
 L1 = ["store", "hash", "quality", "screenshot"]
 L0 = ["model"]
