@@ -91,7 +91,16 @@ jobs:
           $p = Start-Process -FilePath $exe.FullName -PassThru
           Start-Sleep -Seconds 10
           if ($p.HasExited) { throw "appen avsluttet av seg selv, kode $($p.ExitCode)" }
-          Stop-Process -Id $p.Id -Force
+          # Oppgradering MENS appen kjører (som «Installer og start på nytt» i appen: /P /UPDATE). Produkteier så
+          # «Kunne ikke avslutte Fjell» her. Installasjonsprogrammet skal selv få avsluttet appen og fullføre med kode 0.
+          $up = Start-Process -FilePath $setup.FullName -ArgumentList "/P", "/UPDATE", "/D=$dir" -PassThru
+          if (-not $up.WaitForExit(180000)) { Stop-Process -Id $up.Id -Force; throw "oppgradering mens appen kjørte: installasjonsprogrammet hang (over 180 s)" }
+          if ($up.ExitCode -ne 0) { throw "oppgradering mens appen kjørte feilet, kode $($up.ExitCode) (Kunne ikke avslutte Fjell?)" }
+          if (-not (Test-Path $exe.FullName)) { throw "app-exe mangler etter oppgradering" }
+          Start-Sleep -Seconds 3
+          $left = Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($exe.Name)) -ErrorAction SilentlyContinue
+          if ($left) { Write-Host "NB: appprosess lever etter oppgradering (id $($left.Id -join ','))"; $left | Stop-Process -Force }
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
           $un = Join-Path $dir "uninstall.exe"
           Start-Process -FilePath $un -ArgumentList "/S" -Wait
           Start-Sleep -Seconds 5
