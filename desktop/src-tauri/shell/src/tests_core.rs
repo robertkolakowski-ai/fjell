@@ -388,6 +388,19 @@ fn first_run_until_onboarding_done_or_library_chosen() {
 }
 
 #[test]
+fn update_download_url_points_at_same_release_as_updater_endpoint() {
+    let url = Shell::mock().update_download_url();
+    let conf = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../tauri.conf.json"))
+        .unwrap();
+    let base = url.strip_suffix("/tag/beta").expect("slutter på /tag/beta");
+    assert!(url.starts_with("https://github.com/"));
+    assert!(
+        conf.contains(&format!("\"{base}/download/beta/latest.json\"")),
+        "reserveveien skal peke på samme utgivelse som plugins.updater.endpoints"
+    );
+}
+
+#[test]
 fn auto_update_is_off_by_default_persists_and_keeps_other_config() {
     let e = env("autoupd");
     assert!(!e.sh.auto_update(), "standard er av");

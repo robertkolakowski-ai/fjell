@@ -2,15 +2,17 @@ import { get } from "svelte/store";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MockBridge, type MockOptions } from "../bridge/mock-bridge";
 import { pendingUpdate, runStartupCheck, UpdateSession } from "./updateFlow";
-import { initialUpdate, installBlocked, isScanning, progressPercent, reduceUpdate, type UpdateView } from "./updateState";
+import { memoryAttempts, olderThan, type AttemptStore } from "./updateAttempt";
+import { initialUpdate, installBlocked, isScanning, progressPercent, reduceUpdate, showManual, type UpdateView } from "./updateState";
 
 beforeEach(() => pendingUpdate.set(null));
 
-async function session(opts: MockOptions = {}) {
+async function session(opts: MockOptions = {}, attempts: AttemptStore = memoryAttempts(), version?: string, clipboard = vi.fn().mockResolvedValue(undefined)) {
   const b = new MockBridge(opts);
-  const s = new UpdateSession(b);
+  if (version) vi.spyOn(b, "getAppVersion").mockResolvedValue(version);
+  const s = new UpdateSession(b, undefined, attempts, clipboard);
   await s.load();
-  return { b, s };
+  return { b, s, attempts, clipboard };
 }
 
 describe("oppdatering: reducer", () => {
@@ -151,6 +153,94 @@ describe("oppdatering: flyt", () => {
     s.dispose();
     await s.check();
     expect(s.state.status).toBe("idle");
+  });
+});
+
+describe("oppdatering: reserveveien (manuell nedlasting)", () => {
+  it("versjonssammenligning: bare rene tallversjoner, «dev» er aldri eldre", () => {
+    expect(olderThan("0.1.9", "0.1.10")).toBe(true);
+    expect(olderThan("0.1.10", "0.1.10")).toBe(false);
+    expect(olderThan("0.2.0", "0.1.10")).toBe(false);
+    expect(olderThan("0.1", "0.1.1")).toBe(true);
+    expect(olderThan("dev", "0.1.10")).toBe(false);
+    expect(olderThan("0.1.9", "tull")).toBe(false);
+  });
+  it("load leser adressen fra bridge; reserveveien vises ikke uten feil", async () => {
+    const { s } = await session({ update: "available" });
+    expect(s.state.downloadUrl).toMatch(/releases\/tag\/beta$/);
+    expect(showManual(s.state)).toBe(false);
+    await s.check();
+    expect(showManual(s.state)).toBe(false);
+  });
+  it("installasjon som kaster: reserveveien vises, merket ryddes, og lenken kan kopieres", async () => {
+    const { s, attempts, clipboard } = await session({ update: "fail" });
+    await s.check();
+    await s.install();
+    expect(s.state).toMatchObject({ status: "installFailed", error: { code: "update_install_failed" } });
+    expect(showManual(s.state)).toBe(true);
+    expect(attempts.get()).toBeNull();
+    expect(await s.copyLink()).toBe(true);
+    expect(clipboard).toHaveBeenCalledWith(s.state.downloadUrl);
+    expect(s.state.copied).toBe("ok");
+  });
+  it("installasjon som stopper (update_install_stalled) gir samme reservevei", async () => {
+    const { b, s } = await session({ update: "available" });
+    vi.spyOn(b, "installUpdate").mockRejectedValueOnce({ code: "update_install_stalled", detail: "" });
+    await s.check();
+    await s.install();
+    expect(s.state).toMatchObject({ status: "installFailed", error: { code: "update_install_stalled" } });
+    expect(showManual(s.state)).toBe(true);
+  });
+  it("kopiering som feiler gir melding, og lenken står fortsatt", async () => {
+    const { s } = await session({ update: "fail" }, memoryAttempts(), undefined, vi.fn().mockRejectedValue(new Error("nektet")));
+    await s.check();
+    await s.install();
+    expect(await s.copyLink()).toBe(false);
+    expect(s.state).toMatchObject({ copied: "failed", status: "installFailed" });
+    expect(showManual(s.state)).toBe(true);
+  });
+  it("uten adresse (bridge feiler) vises ingen reservevei, men feilmeldingen står", async () => {
+    const b = new MockBridge({ update: "fail" });
+    vi.spyOn(b, "getUpdateDownloadUrl").mockRejectedValue({ code: "internal", detail: "" });
+    const s = new UpdateSession(b, undefined, memoryAttempts());
+    await s.load();
+    await s.check();
+    await s.install();
+    expect(s.state.status).toBe("installFailed");
+    expect(showManual(s.state)).toBe(false);
+    expect(await s.copyLink()).toBe(false);
+  });
+  it("install setter merket før installasjonen starter (appen avsluttes av installeren på Windows)", async () => {
+    const { b, s, attempts } = await session({ update: "available" });
+    let during: string | null = "ikke lest";
+    vi.spyOn(b, "installUpdate").mockImplementationOnce(async () => { during = attempts.get(); });
+    await s.check();
+    await s.install();
+    expect(during).toBe("0.1.99");
+  });
+  it("neste start med samme gamle versjon: «ikke fullført» og reserveveien vises; nytt forsøk skjuler den", async () => {
+    const { s, attempts } = await session({ update: "available" }, memoryAttempts("0.1.99"), "0.1.98");
+    expect(s.state).toMatchObject({ incomplete: "0.1.99", version: "0.1.98", status: "idle" });
+    expect(showManual(s.state)).toBe(true);
+    expect(attempts.get()).toBe("0.1.99");
+    await s.check();
+    expect(showManual(s.state)).toBe(true);
+    await s.install();
+    expect(s.state.incomplete).toBeNull();
+    expect(showManual(s.state)).toBe(false);
+  });
+  it("neste start med ny versjon (installasjonen lyktes, også manuelt til nyere): merket ryddes, ingen melding", async () => {
+    for (const v of ["0.1.99", "0.1.100"]) {
+      const { s, attempts } = await session({}, memoryAttempts("0.1.99"), v);
+      expect(s.state.incomplete).toBeNull();
+      expect(showManual(s.state)).toBe(false);
+      expect(attempts.get()).toBeNull();
+    }
+  });
+  it("utenfor installert app («dev»): merket ryddes uten melding", async () => {
+    const { s, attempts } = await session({}, memoryAttempts("0.1.99"));
+    expect(s.state.incomplete).toBeNull();
+    expect(attempts.get()).toBeNull();
   });
 });
 

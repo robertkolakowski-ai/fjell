@@ -1,5 +1,5 @@
 // Hjelpere for oppdateringstesten (update.spec.ts): overvåker, prosess- og versjonssjekker, lokal oppdateringsserver. Kun Windows.
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +8,7 @@ import { powershell } from "./ps";
 const here = dirname(fileURLToPath(import.meta.url));
 export const WATCH_SCRIPT = join(here, "../scripts/update-e2e/watch.ps1");
 export const SERVE_SCRIPT = join(here, "../scripts/update-e2e/serve.mjs");
+export const SUSPEND_SCRIPT = join(here, "../scripts/update-e2e/suspend.ps1");
 
 /** Tekst i installervinduer (UIA-linjer i overvåkerloggen) som betyr at installasjonen er avbrutt. */
 export const FAIL_RE = /avbrutt|aborted|kunne ikke avslutte|kan ikke avslutte|could not (close|quit|exit|terminate)|unable to (close|quit|exit)|failed to (close|kill|quit|terminate)|error opening file|feil ved/i;
@@ -29,6 +30,21 @@ export const installerStartLine = (log: string): string | null => readLog(log).s
 
 export function isAlive(pid: number): boolean {
   try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
+/** Suspenderer prosessen (alle tråder): en «hengt» instans som ikke svarer, men holder exe-filen låst. Returnerer skriptets utskrift. */
+export function suspendProcess(pid: number): string {
+  const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", SUSPEND_SCRIPT, "-ProcessId", String(pid)], { encoding: "utf8", timeout: 60_000 });
+  if (r.status !== 0) throw new Error(`suspend.ps1 feilet (kode ${r.status}): ${r.stderr || r.stdout}`);
+  return r.stdout.trim();
+}
+/** Prosesser som tilhører en NSIS-avinstallering (uninstall.exe eller kopien Au_.exe/Un_A.exe i TEMP). */
+export function uninstallerProcs(): number[] {
+  const out = powershell("$r = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^(uninstall|Au_|Un_[A-Z]?)\\.exe$' } | ForEach-Object { [int]$_.ProcessId }); ConvertTo-Json -InputObject $r -Compress");
+  return out ? (JSON.parse(out) as number[]) : [];
+}
+export function killUninstallers(): void {
+  powershell("Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^(uninstall|Au_|Un_[A-Z]?)\\.exe$' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }");
 }
 
 /** Installer-prosesser (kommandolinje med /UPDATE, eller navn som Fjell*setup*). */

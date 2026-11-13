@@ -1,6 +1,8 @@
 <!-- Oppdateringer (M9): versjon, «Se etter oppdatering», status i live region, «Installer og start på nytt» med fremdrift,
      bryter «Sjekk automatisk ved oppstart» (standard av). Sjekk skjer bare på knappetrykk eller når auto er på (App.svelte).
      Aldri automatisk installasjon, og ingen installasjon mens skanning pågår (aria-disabled + forklaring, knappen beholder fokus).
+     Reservevei: feiler installasjonen (eller ble en tidligere installasjon aldri fullført), vises adressen til siste utgivelse med
+     «Kopier lenke». Appen åpner aldri adressen selv (ingen opener-/shell-plugin).
      Tilstand i updateState.ts, flyt i updateFlow.ts. Notatene fra utgivelsen vises som ren tekst (aldri som HTML). -->
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
@@ -9,7 +11,7 @@
   import { Button, Card, LiveRegion } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { UpdateSession } from "./updateFlow";
-  import { initialUpdate, installBlocked, progressPercent, type UpdateView } from "./updateState";
+  import { initialUpdate, installBlocked, progressPercent, showManual, type UpdateView } from "./updateState";
 
   interface Props {
     bridge?: CoreBridge;
@@ -22,11 +24,15 @@
   const session = new UpdateSession(b, (s) => (view = s));
   let view: UpdateView = $state(initialUpdate);
   let timer: ReturnType<typeof setInterval> | undefined;
+  let urlEl: HTMLElement | undefined = $state();
 
   const found = $derived(view.found);
   const blocked = $derived(installBlocked(view));
   const busy = $derived(view.status === "checking" || view.status === "installing" || view.status === "restarting");
   const showInstall = $derived(found !== null && (view.status === "available" || view.status === "installing" || view.status === "restarting" || view.status === "installFailed"));
+  const manual = $derived(showManual(view));
+  const incomplete = $derived(view.incomplete !== null && view.status !== "installing" && view.status !== "restarting" && view.status !== "installFailed");
+  const copyMessage = $derived(view.copied === "ok" ? $tr("update.manual.copied") : view.copied === "failed" ? $tr("update.manual.failed") : "");
   const pct = $derived(progressPercent(view.done, view.total));
   const released = $derived.by(() => {
     const t = found?.date ? Date.parse(found.date) : NaN;
@@ -42,7 +48,7 @@
       case "error": return view.error?.code === "unsupported" ? $tr("update.error.unsupported") : $tr("update.error.check");
       case "installing": return $tr("update.status.installing", { version: found?.version ?? "" });
       case "restarting": return $tr("update.status.restarting");
-      case "installFailed": return $tr("update.error.install");
+      case "installFailed": return view.error?.code === "update_install_stalled" ? $tr("update.error.stalled") : $tr("update.error.install");
       default: return "";
     }
   });
@@ -54,6 +60,10 @@
 
   function check(): void { if (!busy) void session.check(); }
   function install(): void { if (!busy && !blocked) void session.install(); }
+  /** Kopierer lenken. Går det ikke, merkes lenken så brukeren kan kopiere selv (Ctrl+C). */
+  async function copy(): Promise<void> {
+    if (!(await session.copyLink()) && urlEl) globalThis.getSelection?.()?.selectAllChildren(urlEl);
+  }
 
   // Mens en ny versjon venter: les skannstatus på nytt, så knappen åpnes når skannet er pauset, avbrutt eller ferdig.
   $effect(() => {
@@ -85,6 +95,27 @@
 
   {#if blocked}
     <p id="update-blocked" class="muted">{$tr("update.blocked")}</p>
+  {/if}
+
+  {#if view.status === "available" && !blocked}
+    <p class="muted">{$tr("update.install.note")}</p>
+  {/if}
+
+  {#if incomplete}
+    <p class="status err">{$tr("update.error.incomplete", { version: view.incomplete ?? "", current: view.version ?? "" })}</p>
+  {/if}
+
+  {#if manual}
+    <div class="manual">
+      <h3>{$tr("update.manual.title")}</h3>
+      <p>{$tr("update.manual.text")}</p>
+      <div class="link">
+        <p bind:this={urlEl} class="url">{view.downloadUrl ?? ""}</p>
+        <Button onclick={() => void copy()}>{$tr("update.manual.copy")}</Button>
+      </div>
+      <LiveRegion message={copyMessage} />
+      {#if copyMessage !== ""}<p class="muted">{copyMessage}</p>{/if}
+    </div>
   {/if}
 
   {#if view.status === "installing" || view.status === "restarting"}
@@ -134,6 +165,13 @@
   .status { flex: 1 1 14rem; min-inline-size: 0; }
   .status.err { font-weight: var(--fw-semibold); }
   .text { white-space: pre-line; overflow-wrap: anywhere; }
+  .manual { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md); }
+  .link { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+  /* Hele lenken er alltid synlig (brytes ved behov) og merkes med ett klikk. */
+  .url {
+    flex: 1 1 16rem; min-inline-size: 0; padding: var(--space-2) var(--space-3); font-size: var(--fs-sm); overflow-wrap: anywhere; user-select: all;
+    background: var(--c-surface-sunken); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-sm);
+  }
   .notes { display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-md); background: var(--c-surface-sunken); }
   .progress { display: grid; gap: var(--space-1); }
   .track { block-size: 0.75rem; overflow: hidden; border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-pill); background: var(--c-surface-sunken); }

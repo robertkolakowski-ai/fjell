@@ -2,7 +2,16 @@
 import { writable } from "svelte/store";
 import type { CoreBridge } from "../bridge/core-bridge";
 import type { BridgeError, UpdateCheck } from "../bridge/types";
+import { localAttempts, olderThan, type AttemptStore } from "./updateAttempt";
 import { initialUpdate, isScanning, reduceUpdate, type UpdateEvent, type UpdateView } from "./updateState";
+
+/** Skriver tekst til utklippstavlen. Standard: nettleserens Clipboard API (ingen Tauri-plugin, ingen ekstra rettighet). */
+export type ClipboardWrite = (text: string) => Promise<void>;
+const browserClipboard: ClipboardWrite = async (text) => {
+  const c = globalThis.navigator?.clipboard;
+  if (!c) throw new Error("clipboard utilgjengelig");
+  await c.writeText(text);
+};
 
 /** Funnet ny versjon (fra stille sjekk ved oppstart eller fra knappen). Hjem viser banner når den er satt. Aldri installasjon. */
 export const pendingUpdate = writable<{ version: string } | null>(null);
@@ -11,7 +20,12 @@ export class UpdateSession {
   state: UpdateView = initialUpdate;
   private gone = false;
 
-  constructor(private readonly b: CoreBridge, private readonly onChange: (s: UpdateView) => void = () => undefined) {}
+  constructor(
+    private readonly b: CoreBridge,
+    private readonly onChange: (s: UpdateView) => void = () => undefined,
+    private readonly attempts: AttemptStore = localAttempts,
+    private readonly clipboard: ClipboardWrite = browserClipboard,
+  ) {}
 
   send(e: UpdateEvent): void {
     if (this.gone) return;
@@ -20,13 +34,32 @@ export class UpdateSession {
   }
   dispose(): void { this.gone = true; }
 
-  /** Leser versjon, auto-valg og skannstatus. Ingen nettverkskall (bridge sender ingenting her). */
+  /** Leser versjon, auto-valg, skannstatus og adressen for manuell nedlasting. Ingen nettverkskall (bridge sender ingenting her). */
   async load(): Promise<void> {
     await Promise.all([
-      this.b.getAppVersion().then((version) => this.send({ type: "version", version }), () => this.send({ type: "version", version: "dev" })),
+      this.b.getAppVersion().then((version) => this.send({ type: "version", version }), () => this.send({ type: "version", version: "dev" })).then(() => this.checkAttempt()),
+      this.b.getUpdateDownloadUrl().then((url) => this.send({ type: "downloadUrl", url }), () => undefined),
       this.b.getAutoUpdate().then((on) => this.send({ type: "auto", on }), () => undefined),
       this.refreshScan(),
     ]);
+  }
+
+  /** Startet vi en installasjon som aldri ble fullført? (Merket finnes, og versjonen er fortsatt eldre.) Ellers ryddes merket. */
+  private checkAttempt(): void {
+    const target = this.attempts.get();
+    if (target === null) return;
+    if (olderThan(this.state.version ?? "", target)) this.send({ type: "incomplete", version: target });
+    else this.attempts.clear();
+  }
+
+  /** «Kopier lenke» (manuell nedlasting). Feil gir melding; lenken står uansett synlig og kan merkes. */
+  async copyLink(): Promise<boolean> {
+    const url = this.state.downloadUrl;
+    if (!url) return false;
+    let ok = true;
+    try { await this.clipboard(url); } catch { ok = false; }
+    this.send({ type: "copied", ok });
+    return ok;
   }
 
   async refreshScan(): Promise<void> {
@@ -56,10 +89,13 @@ export class UpdateSession {
     if (this.state.scanning) return;
     this.send({ type: "installing" });
     if (this.state.status !== "installing") return;
+    // Merket overlever at appen avsluttes av installeren; ryddes ved neste start når versjonen er ny (checkAttempt).
+    this.attempts.set(s.found.version);
     try {
       await this.b.installUpdate((done, total) => this.send({ type: "progress", done, total }));
       this.send({ type: "restarting" });
     } catch (e) {
+      this.attempts.clear(); // feilen vises nå; ikke gjenta den som «ikke fullført» ved neste start
       this.send({ type: "installFailed", error: e as BridgeError });
     }
   }

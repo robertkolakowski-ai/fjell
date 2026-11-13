@@ -100,6 +100,60 @@ test("feil (frakoblet): forklaring med hva brukeren kan gjøre, og ny sjekk er m
   await expect(page.getByText(/Ny versjon .* er tilgjengelig/)).toHaveCount(0);
 });
 
+test("installasjon feiler: reserveveien viser lenke til manuell nedlasting, «Kopier lenke» virker, og nytt forsøk er mulig", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await open(page, "#/settings", "nb", 0, "&mockUpdate=fail");
+  await expect(section(page).getByRole("heading", { name: "Installer manuelt" })).toHaveCount(0);
+  await check(page).click();
+  // Før installasjonen: brukeren får vite at appen lukkes.
+  await expect(section(page).getByText("Fjell lukkes mens den nye versjonen installeres")).toBeVisible();
+  await expect(section(page).getByRole("heading", { name: "Installer manuelt" })).toHaveCount(0);
+  await install(page).click();
+  await expect(status(page)).toContainText("Kunne ikke installere oppdateringen");
+  await expect(section(page).getByRole("heading", { name: "Installer manuelt" })).toBeVisible();
+  await expect(section(page).getByText("Lukk Fjell før du kjører filen")).toBeVisible();
+  const url = section(page).locator(".manual .url");
+  await expect(url).toHaveText(/\/releases\/tag\/beta$/);
+  await section(page).getByRole("button", { name: "Kopier lenke" }).click();
+  await expect(section(page).locator(".manual [role=status]")).toHaveText("Lenken er kopiert.");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await url.textContent());
+  // Lenken åpnes aldri av appen: den er ren tekst, ikke en <a>.
+  await expect(section(page).locator(".manual a")).toHaveCount(0);
+  // «Installer og start på nytt» står fortsatt og kan prøves igjen.
+  await expect(install(page)).not.toHaveAttribute("aria-disabled", "true");
+  await axe(page, "installasjon feilet, reservevei");
+});
+
+test("installasjon feiler og utklippstavlen er sperret: melding, og lenken merkes så den kan kopieres med Ctrl+C", async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new Error("nektet")) }, configurable: true }); });
+  await open(page, "#/settings", "nb", 0, "&mockUpdate=fail");
+  await check(page).click();
+  await install(page).click();
+  await section(page).getByRole("button", { name: "Kopier lenke" }).click();
+  await expect(section(page).locator(".manual [role=status]")).toContainText("Kunne ikke kopiere lenken");
+  expect(await page.evaluate(() => getSelection()?.toString())).toMatch(/\/releases\/tag\/beta$/);
+});
+
+test("reserveveien på smal skjerm, 200 % og pseudo-lokale (+30 %): hele lenken synlig, ingen avkutting", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.addInitScript(() => { document.addEventListener("DOMContentLoaded", () => { document.documentElement.style.fontSize = "200%"; }); });
+  await open(page, "#/settings", "pseudo", 0, "&mockUpdate=fail");
+  await page.locator(".update .row button").first().click();
+  await page.locator(".update .row button").nth(1).click();
+  await page.locator(".update .manual").waitFor();
+  const problems = await page.evaluate(() => {
+    const out: string[] = [];
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>(".update *"))) {
+      if (el.closest(".sr-only") || !el.getBoundingClientRect().width) continue;
+      if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== "visible") out.push(`${el.tagName}.${el.className} avkuttet bredde`);
+      if (el.tagName === "BUTTON" && el.scrollHeight > el.clientHeight + 1) out.push("knapp avkuttet høyde");
+    }
+    if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 1) out.push("horisontal rulling på siden");
+    return out;
+  });
+  expect(problems, problems.join("\n")).toEqual([]);
+});
+
 test("skanning pågår: installasjon er aria-disabled med forklaring, og åpnes når skannet pauses", async ({ page }) => {
   test.setTimeout(90_000);
   await open(page, "#/", "nb", 0, "&mockUpdate=available&mockScanPolls=1000");

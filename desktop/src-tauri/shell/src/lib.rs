@@ -55,6 +55,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Siste utgivelse i beta-kanalen (samme repo og tag som oppdateringsendepunktet i `tauri.conf.json`).
+const UPDATE_DOWNLOAD_URL: &str = "https://github.com/robertkolakowski-ai/fjell/releases/tag/beta";
+
 struct SysClock;
 impl Clock for SysClock {
     fn now(&self) -> i64 {
@@ -655,6 +658,12 @@ impl Shell {
             config::set_onboarded(d).map_err(|e| ErrorDto::new("internal", e.to_string()))?;
         }
         Ok(())
+    }
+
+    /// Adressen der brukeren selv kan laste ned siste installasjonsfil (reservevei når oppdatering i appen feiler,
+    /// docs/OPPDATERING.md). Appen åpner aldri adressen selv: den vises som tekst og kan kopieres.
+    pub fn update_download_url(&self) -> &'static str {
+        UPDATE_DOWNLOAD_URL
     }
 
     /// «Sjekk automatisk ved oppstart». Standard `false`; alltid `false` uten app-data (mock).

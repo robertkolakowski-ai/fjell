@@ -18,7 +18,7 @@ describe("identisk grensesnitt", () => {
       Object.getOwnPropertyNames(Object.getPrototypeOf(o)).filter((n) => n !== "constructor" && !n.startsWith("wait")).sort();
     const pub = [
       "addLibraryRoot", "cancelScan", "checkForUpdate", "completeOnboarding", "decide", "emptyTrash", "getAppVersion", "getAutoUpdate",
-      "getFirstRun", "getLanguage", "getLibrary", "getSettings", "getState", "getThumbnail", "installUpdate", "listCards", "listLibraryRoots", "listTrashed",
+      "getFirstRun", "getLanguage", "getLibrary", "getSettings", "getState", "getThumbnail", "getUpdateDownloadUrl", "installUpdate", "listCards", "listLibraryRoots", "listTrashed",
       "pauseScan", "pickFolder", "purge", "removeLibraryRoot", "restore", "restoreAll", "resumeScan", "setAutoUpdate", "setKeeper", "setLanguage",
       "setLibrary", "setTrashDays", "startScan", "undo",
     ];
@@ -268,6 +268,45 @@ describe("TauriBridge: oppdatering", () => {
     await b.checkForUpdate();
     await expect(b.installUpdate(() => undefined)).rejects.toMatchObject({ code: "update_install_failed" });
     expect(u.relaunch).not.toHaveBeenCalled();
+  });
+  it("installasjon som stopper etter nedlasting (appen lever fortsatt) gir update_install_stalled", async () => {
+    vi.useFakeTimers();
+    try {
+      const hang: UpdateHandle = { version: "0.1.8", downloadAndInstall: (cb) => { cb({ event: "Finished" }); return new Promise(() => undefined); } };
+      const u = updater({ check: async () => hang });
+      const b = new TauriBridge(vi.fn(), u, undefined, 5000);
+      await b.checkForUpdate();
+      const p = b.installUpdate(() => undefined);
+      const seen = expect(p).rejects.toMatchObject({ code: "update_install_stalled" });
+      await vi.advanceTimersByTimeAsync(5000);
+      await seen;
+      expect(u.relaunch).not.toHaveBeenCalled();
+      // Kan prøves igjen: funnet oppdatering er beholdt.
+      const again = b.installUpdate(() => undefined);
+      const seen2 = expect(again).rejects.toMatchObject({ code: "update_install_stalled" });
+      await vi.advanceTimersByTimeAsync(5000);
+      await seen2;
+    } finally { vi.useRealTimers(); }
+  });
+  it("ingen stopp-klokke før nedlastingen er ferdig (treg nedlasting er ikke en feil)", async () => {
+    vi.useFakeTimers();
+    try {
+      let finish: () => void = () => undefined;
+      const slow: UpdateHandle = { version: "0.1.8", downloadAndInstall: (cb) => { cb({ event: "Started", data: {} }); return new Promise<void>((r) => { finish = r; }); } };
+      const u = updater({ check: async () => slow });
+      const b = new TauriBridge(vi.fn(), u, undefined, 5000);
+      await b.checkForUpdate();
+      const p = b.installUpdate(() => undefined);
+      await vi.advanceTimersByTimeAsync(60_000);
+      finish();
+      await p;
+      expect(u.relaunch).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
+  });
+  it("adressen for manuell nedlasting kommer fra skallet (get_update_download_url), ikke fra frontend", async () => {
+    const call = vi.fn().mockResolvedValueOnce("adresse-fra-skallet");
+    expect(await new TauriBridge(call, updater()).getUpdateDownloadUrl()).toBe("adresse-fra-skallet");
+    expect(call.mock.calls).toEqual([["get_update_download_url"]]);
   });
   it("installasjon uten forutgående sjekk gjør ingenting", async () => {
     const u = updater();

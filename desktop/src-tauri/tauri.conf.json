@@ -30,7 +30,8 @@
         "installMode": "currentUser",
         "compression": "lzma",
         "languages": ["Norwegian", "English"],
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "installerHooks": "installer-hooks.nsh"
       }
     }
   },

@@ -5,7 +5,7 @@
 //! `cancel_scan`, `list_cards`, `decide_cards`, `set_keeper`, `undo`, `trash_summary`,
 //! `empty_trash`, `set_library`, `get_library`, `list_library_roots`, `add_library_root`, `remove_library_root`, `pause_scan`, `resume_scan`, `list_trashed`,
 //! `restore_trashed`, `restore_all_trashed`, `get_thumbnail`, `get_settings`, `set_trash_days`, `get_first_run`,
-//! `complete_onboarding`, `get_auto_update`, `set_auto_update`, `get_language`, `set_language`. Plugins: `dialog` (mappevalg),
+//! `complete_onboarding`, `get_auto_update`, `set_auto_update`, `get_update_download_url`, `get_language`, `set_language`. Plugins: `dialog` (mappevalg),
 //! `updater` (bare skrivebord) og `process` (omstart etter oppdatering); sjekk/installasjon kalles fra frontend. Ingen logikk her; ingen sletting utenom
 //! `Shell::empty` (Papirkurv som standard, beslutning 17).
 //!
@@ -206,6 +206,12 @@ async fn set_auto_update(shell: State<'_, Arc<Shell>>, on: bool) -> Res<bool> {
     shell.set_auto_update(on)
 }
 
+/// Reservevei når oppdatering i appen feiler: adressen til siste utgivelse (vises som tekst, åpnes aldri av appen).
+#[tauri::command]
+async fn get_update_download_url(shell: State<'_, Arc<Shell>>) -> Res<String> {
+    Ok(shell.update_download_url().to_string())
+}
+
 #[tauri::command]
 async fn get_language(shell: State<'_, Arc<Shell>>) -> Res<Option<String>> {
     Ok(shell.language())
@@ -255,6 +261,7 @@ pub fn run() {
             complete_onboarding,
             get_auto_update,
             set_auto_update,
+            get_update_download_url,
             get_language,
             set_language
         ])

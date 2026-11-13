@@ -23,7 +23,7 @@ export interface MockOptions {
   firstRun?: boolean;
   /** Antall `getState`-kall skannet blir stående i «analyserer» før det er ferdig (tester av pause/fortsett/avbryt). Standard 0 = straks ferdig. */
   scanPolls?: number;
-  /** Oppdatering (M9). none = ingen ny versjon, available = ny versjon, error = sjekk feiler (frakoblet), slow = ny versjon med treg installasjon (fremdrift synlig). Standard: none. */
+  /** Oppdatering (M9). none = ingen ny versjon, available = ny versjon, error = sjekk feiler (frakoblet), slow = ny versjon med treg installasjon (fremdrift synlig), fail = ny versjon der installasjonen feiler (reserveveien vises). Standard: none. */
   update?: MockUpdate;
   /** «Sjekk automatisk ved oppstart». Standard: false. */
   autoUpdate?: boolean;
@@ -64,8 +64,8 @@ export function mockThumbSvg(id: number): Thumbnail {
   return { url: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`, width: w, height: hgt };
 }
 
-export type MockUpdate = "none" | "available" | "error" | "slow";
-export const MOCK_UPDATES: readonly MockUpdate[] = ["none", "available", "error", "slow"];
+export type MockUpdate = "none" | "available" | "error" | "slow" | "fail";
+export const MOCK_UPDATES: readonly MockUpdate[] = ["none", "available", "error", "slow", "fail"];
 
 const DAY = 86_400;
 const QUARANTINE = ".fjell-karantene";
@@ -470,7 +470,13 @@ export class MockBridge implements CoreBridge {
     };
   }
 
+  /** Mock: en lokal adresse (ingen eksterne URL-er i frontend, se nonet.test.ts). Ekte adresse kommer fra skallet. */
+  async getUpdateDownloadUrl(): Promise<string> {
+    return "http://localhost/fjell/releases/tag/beta";
+  }
+
   async installUpdate(onProgress: (done: number, total: number | null) => void): Promise<void> {
+    if (this.update === "fail") { onProgress(0, null); throw err("update_install_failed", "mock"); }
     if (this.update !== "available" && this.update !== "slow") throw err("no_update");
     const total = 24_000_000;
     const steps = this.update === "slow" ? 8 : 2;
