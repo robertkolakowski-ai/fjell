@@ -242,6 +242,7 @@ pub(crate) fn scan_with<H: StoreHandle>(
         s.set_setting(CURSOR_KEY, &changes.next_token.0)?;
         Ok::<_, StoreError>((stats, purged))
     })?;
+    drop(changes); // hele endringslisten (metadata for alle nye bilder) trengs ikke videre; frigjør før analysen.
     report.new = stats.new;
     report.changed = stats.changed;
     report.removed = purged.len() as u64;
