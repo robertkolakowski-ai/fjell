@@ -176,7 +176,7 @@ impl FjellApi for Fjell {
         let mut rows = self
             .actions()
             .store()
-            .pending_cards(kind, limit + 1, after)
+            .pending_cards(kind, limit.saturating_add(1), after)
             .map_err(internal)?;
         let more = rows.len() > limit;
         rows.truncate(limit);

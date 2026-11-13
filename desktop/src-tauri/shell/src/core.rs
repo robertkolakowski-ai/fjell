@@ -1,7 +1,7 @@
 //! Ekte kjerne for ett bibliotek: `Fjell` + `FsSource` + indeks i app-data + karantene + «Tøm».
 //!
 //! Avhenger av: `fjell-core::api` (`Fjell`), `fjell-fs` (`FsQuarantine`, `FsDeleter`, `RecycleBin`).
-//! Grensesnitt: `Core::open`, `stage_trashed`, `restore_undone`, `reconcile`, `empty`.
+//! Grensesnitt: `Core::open`, `flow`, `stage_trashed`, `undo`, `restore`, `reconcile`, `empty`.
 //!
 //! Regler (CLAUDE.md, ARKITEKTUR 17/20/22):
 //! - Trash er indeks + flytting til karantene (rename); undo flytter tilbake. Aldri sletting.
@@ -9,6 +9,11 @@
 //!   Permanent krever `PermanentAck` (avkrysning + riktig antall), og `Unsupported` volum faller
 //!   aldri stille tilbake til permanent.
 //! - Rekkefølge: indeksen først, filflytting etterpå. Brudd midt imellom rettes av `reconcile`.
+//! - Invariant (F1/F2/F4): «Tøm» sletter bare filer som på Tøm-tidspunktet er i «Nylig slettet» OG som
+//!   karantenen faktisk inneholder. Derfor (1) holder hver sammensatt overgang (trash + flytting,
+//!   angre, gjenoppretting, «Tøm», avstemming) `flow`-låsen fra indeksendring til filflytting er
+//!   ferdig, (2) følger indeksen filen når karantenen gjenoppretter til et annet navn (`relocate`),
+//!   og (3) legges filen tilbake i karantenen når en gjenoppretting angres (`restage_trashed`).
 
 use crate::dto::{EmptyDto, ErrorDto, PermanentAckDto, RestoreDto, TrashedDto};
 use fjell_core::api::{Fjell, FjellApi};
@@ -17,15 +22,23 @@ use fjell_core::model::{
 };
 use fjell_core::store::Store;
 use fjell_fs::{
-    DeleteMode, DeleteResult, FsDeleter, FsQuarantine, PermanentAck, Quarantine, RecycleBin,
+    DeleteMode, DeleteResult, FsDeleter, FsQuarantine, PermanentAck, Quarantine, Reconciled,
+    RecycleBin,
 };
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 pub(crate) struct Core {
     pub fjell: Arc<Fjell>,
     pub library: PathBuf,
     quarantine: Arc<FsQuarantine>,
+    /// Én om gangen av overgangene som endrer både indeks og karantene (se invarianten øverst).
+    flow: Mutex<()>,
+}
+
+/// Mappen i en `SourceId` (alt før siste `/`).
+fn folder(s: &SourceId) -> &str {
+    s.0.rsplit_once('/').map_or("", |x| x.0)
 }
 
 /// Siste sti-ledd (Windows- og Unix-skille). Aldri hele stien til frontend.
@@ -62,6 +75,7 @@ impl Core {
             fjell: Arc::new(Fjell::new(store, source, clock)),
             library: library.to_path_buf(),
             quarantine: Arc::new(FsQuarantine::in_library(library)),
+            flow: Mutex::new(()),
         };
         core.reconcile();
         Ok(core)
@@ -69,6 +83,11 @@ impl Core {
 
     /// Alle id-er i «Nylig slettet». Leser indeksen med egen lesetilkobling; faller tilbake til
     /// det som ligger i karantene hvis lesing ikke er mulig.
+    /// Låsen for sammensatte overganger. Tas FØR indeksen endres og holdes til filene er flyttet.
+    pub fn flow(&self) -> MutexGuard<'_, ()> {
+        self.flow.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     fn trashed_ids(&self) -> Vec<AssetId> {
         let from_db = self.fjell.with_store(|s| {
             let conn = s.reader().ok().flatten()?;
@@ -139,6 +158,7 @@ impl Core {
     /// Gjenoppretter `ids` (bare de som ligger i «Nylig slettet» telles). Indeksen først, så flyttes
     /// filene tilbake fra karantenen. Feil ved flytting lar filen ligge; `reconcile` retter det ved oppstart.
     pub fn restore(&self, ids: &[u64]) -> Result<RestoreDto, ErrorDto> {
+        let _flow = self.flow();
         let trashed = self.trashed_ids();
         let wanted: Vec<AssetId> = ids
             .iter()
@@ -149,7 +169,7 @@ impl Core {
             return Ok(RestoreDto::default());
         }
         self.fjell.restore_assets(&wanted).map_err(ErrorDto::from)?;
-        self.restore_undone();
+        self.unstage_active();
         Ok(RestoreDto {
             restored: wanted.len() as u64,
         })
@@ -162,20 +182,61 @@ impl Core {
 
     /// Oppstart: filer i karantene som ikke lenger er `trashed` flyttes tilbake (avbrutt angre).
     pub fn reconcile(&self) {
+        let _flow = self.flow();
         let ids = self.trashed_ids();
         let trashed = self.fjell.sources_for(&ids);
-        let _ = self.quarantine.reconcile(&trashed);
+        for (id, r) in self.quarantine.reconcile(&trashed) {
+            if let Reconciled::Restored(now) = r {
+                self.relocate(id, &now);
+            }
+        }
+    }
+
+    /// Karantenen la filen på `now`. Er det et annet navn i samme mappe enn indeksen har
+    /// (navnekollisjon), pekes indeksen dit; ellers ville neste trash av kortet flytte, og «Tøm»
+    /// slette, den fremmede filen som ligger på den opprinnelige stien (F1).
+    fn relocate(&self, id: AssetId, now: &SourceId) {
+        let old = self.fjell.sources_for(&[id]);
+        let Some((_, old)) = old.first() else { return };
+        if old != now && folder(old) == folder(now) {
+            let _ = self.fjell.relocate_source(id, now);
+        }
     }
 
     /// Etter vellykket trash: flytt filene til karantene (batch-id fra kjernen). Feil (annet volum,
     /// frakoblet) lar filen ligge: den er da «Merket, ikke flyttet» og originalen er urørt.
+    /// Kalleren holder `flow` fra før indeksen ble endret.
     pub fn stage_trashed(&self, batch: BatchId, assets: &[AssetId]) {
         let items = self.fjell.sources_for(assets);
         let _ = self.quarantine.stage(batch, &items);
     }
 
-    /// Etter angre: alt i karantene som ikke lenger er `trashed` flyttes tilbake.
-    pub fn restore_undone(&self) {
+    /// Angre siste batch (indeks), og bring karantenen i samsvar begge veier: angret trash flyttes
+    /// tilbake, og angret gjenoppretting legges tilbake i karantenen (F4). Gir angret batch-id.
+    pub fn undo(&self) -> Result<u64, ErrorDto> {
+        let _flow = self.flow();
+        let batch = self.fjell.undo().map_err(ErrorDto::from)?.batch;
+        self.unstage_active();
+        self.restage_trashed(batch);
+        Ok(batch.0)
+    }
+
+    /// Alt som er `trashed` i indeksen, men ikke ligger i karantenen, flyttes dit (samme regler som
+    /// `stage_trashed`: feil lar filen ligge urørt som «Merket, ikke flyttet»).
+    fn restage_trashed(&self, batch: BatchId) {
+        let staged: Vec<AssetId> = self.quarantine.staged().into_iter().map(|s| s.0).collect();
+        let missing: Vec<AssetId> = self
+            .trashed_ids()
+            .into_iter()
+            .filter(|a| !staged.contains(a))
+            .collect();
+        if !missing.is_empty() {
+            self.stage_trashed(batch, &missing);
+        }
+    }
+
+    /// Alt i karantene som ikke lenger er `trashed` flyttes tilbake. Kalleren holder `flow`.
+    fn unstage_active(&self) {
         let ids: Vec<AssetId> = self.quarantine.staged().into_iter().map(|s| s.0).collect();
         let rows = self
             .fjell
@@ -188,7 +249,11 @@ impl Core {
             .map(|(i, _)| i)
             .collect();
         if !back.is_empty() {
-            let _ = self.quarantine.unstage(&back);
+            for (id, r) in self.quarantine.unstage(&back) {
+                if let Ok(now) = r {
+                    self.relocate(id, &now);
+                }
+            }
         }
     }
 
@@ -206,6 +271,9 @@ impl Core {
                 None => return Err(ErrorDto::new("ack_required", "permanent")),
             },
         };
+        // Låsen holdes fra billetten lages til siste fil er behandlet: ingen gjenoppretting eller
+        // angre kan flytte en fil mellom bekreftelsen og slettingen (F2).
+        let _flow = self.flow();
         let ids = self.trashed_ids();
         if ids.is_empty() {
             return Ok(EmptyDto::default());

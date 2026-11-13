@@ -106,7 +106,7 @@ Kjente åpne funn (ikke skjult): funnet om `role=status` med ferdig tekst i `Rev
 - **Windows-sjekkliste:** `docs/mvp/WINDOWS-TEST.md` finnes (30 rader, ikke utført av noen).
 
 
-**P-runden (arbeidstre m11/kjerne-herding, målt kun på Linux, ikke committet):** `just check` exit 0 (252 bestått, 0 feilet, 11 ignorerte reprodusenter); `cargo test -p fjell-fs` exit 0; `cargo deny --manifest-path core/Cargo.toml check` exit 0 (advisories, bans, licenses, sources ok). Dekoding (WIC) er bygget men ikke kjørt på Windows eller mot ekte HEIC (4c nr. 19), ytelsestall for 50 000/100 000 rader viser overlineær full fase og RSS over budsjett (nr. 20), og red team fant åpne funn, to av dem høye (nr. 21). M5 og M4 er dermed ikke tryggere enn før på Windows og ved Tøm/Gjenopprett-flyten.
+**P-runden (arbeidstre m11/kjerne-herding, målt kun på Linux, ikke committet):** `just check` exit 0 (252 bestått, 0 feilet, 11 ignorerte reprodusenter); `cargo test -p fjell-fs` exit 0; `cargo deny --manifest-path core/Cargo.toml check` exit 0 (advisories, bans, licenses, sources ok). Dekoding (WIC) er bygget men ikke kjørt på Windows eller mot ekte HEIC (4c nr. 19), ytelsestall for 50 000/100 000 rader viser overlineær full fase og RSS over budsjett (nr. 20), og red team fant åpne funn, to av dem høye (nr. 21). Etter rettelser i m15 (ikke committet, kun Linux): de høye funnene F1/F2/F4 er rettet i produksjonskoden og dekket av skalltester, men fire reprodusenter står fortsatt ignorert (RT-02, F1, F4, KR-3), flere lavere funn er utsatt, og ingenting er prøvd på Windows (se `docs/redteam/SAMMENLIGNING.md`). M5 og M4 er dermed ikke tryggere enn før på Windows og ved Tøm/Gjenopprett-flyten.
 
 ## 4c. MVP-restanse
 

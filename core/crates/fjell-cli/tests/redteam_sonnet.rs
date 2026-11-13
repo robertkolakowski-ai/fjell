@@ -40,7 +40,6 @@ impl Clock for Zero {
 /// flyttet), og feilhåndteringen fjerner ALLE manifestoppføringer for id-en. Filen ligger da i
 /// karantenen uten manifest: `unstage` gir NotFound og Angre/Gjenopprett er umulig.
 #[test]
-#[ignore = "BUG: stage med duplisert id i ett kall sletter manifestoppføringen til den vellykkede flyttingen (fil foreldreløs)"]
 fn rt01_stage_duplicate_id_in_one_call_keeps_file_restorable() {
     let lib = tempdir("rt01");
     fs::write(lib.join("a.jpg"), b"data").unwrap();
@@ -98,7 +97,6 @@ fn rt02_stage_reused_id_must_not_report_ok_without_moving() {
 /// RT-03: manifestet er data på disk (kan komme fra synket mappe). `stored` valideres ikke:
 /// `unstage` flytter en fil UTENFOR karantenen (her utenfor biblioteket) inn i biblioteket.
 #[test]
-#[ignore = "BUG: manifest.stored valideres ikke (../), unstage/locate kan treffe filer utenfor karantenen"]
 fn rt03_manifest_stored_traversal_does_not_touch_foreign_files() {
     let base = tempdir("rt03");
     let lib = base.join("lib");
@@ -129,7 +127,6 @@ fn rt03_manifest_stored_traversal_does_not_touch_foreign_files() {
 /// den eneste kopien (og «beholderen» peker på samme fil).
 #[cfg(unix)]
 #[test]
-#[ignore = "BUG: skanning følger symlenkesløyfer; samme fil indekseres under flere source_id (duplikat av seg selv)"]
 fn rt04a_symlink_loop_lists_each_physical_file_once() {
     let root = tempdir("rt04a");
     fs::write(root.join("x.jpg"), b"only-copy").unwrap();
@@ -141,7 +138,6 @@ fn rt04a_symlink_loop_lists_each_physical_file_once() {
 /// alfabetisk første (symlenken), og «duplikatet» som foreslås slettet er den ekte filen.
 #[cfg(unix)]
 #[test]
-#[ignore = "BUG: symlenke til fil regnes som eksakt duplikat; den ekte filen kan foreslås slettet, keeper blir hengende"]
 fn rt04b_file_symlink_is_not_a_duplicate_of_its_target() {
     let root = tempdir("rt04b");
     fs::write(root.join("x.jpg"), b"only-copy").unwrap();
@@ -175,7 +171,6 @@ fn assert_unique_physical_files(root: &Path) {
 /// RT-05: sjekken «indeksfilen må ligge utenfor kildemappen» er leksikalsk. En kilde-sti med
 /// `..` omgår den, og indeksen (SQLite + WAL) skrives i brukerens mappe.
 #[test]
-#[ignore = "BUG: flow::open sjekker db.starts_with(dir) leksikalsk; dir med `..` (eller symlenke) omgår vernet"]
 fn rt05_index_db_inside_source_dir_is_rejected_even_with_dotdot() {
     let lib = tempdir("rt05");
     fs::create_dir_all(lib.join("sub")).unwrap();
@@ -194,7 +189,6 @@ fn rt05_index_db_inside_source_dir_is_rejected_even_with_dotdot() {
 /// RT-06: `cards(kind, usize::MAX, ..)` regner `limit + 1` uten overflow-vern: panikk i debug,
 /// i release blir grensen 0 og siden tom (kort «forsvinner»).
 #[test]
-#[ignore = "BUG: FjellApi::cards overflow på limit = usize::MAX (limit + 1)"]
 fn rt06_cards_limit_max_does_not_panic_or_return_empty() {
     let root = tempdir("rt06");
     let work = tempdir("rt06w");

@@ -17,6 +17,10 @@ pub mod dto;
 mod tests;
 #[cfg(test)]
 mod tests_core;
+#[cfg(test)]
+mod tests_flow;
+#[cfg(test)]
+mod tests_review;
 
 use crate::core::Core;
 use dto::{
@@ -332,9 +336,11 @@ impl Shell {
                 .collect(),
             _ => Vec::new(),
         };
+        // Indeks + flytting til karantene er én overgang (ingen «Tøm»/gjenoppretting imellom).
+        let _flow = core.as_ref().map(|c| c.flow());
         let batch =
             api.decide_many_confirmed(ids.iter().map(|i| (CardId(*i), d)).collect(), codes)?;
-        if let Some(c) = core {
+        if let Some(c) = &core {
             if !assets.is_empty() {
                 c.stage_trashed(batch, &assets);
             }
@@ -351,11 +357,10 @@ impl Shell {
 
     pub fn undo(&self) -> Result<u64, ErrorDto> {
         let (api, core) = self.parts()?;
-        let batch = api.undo()?.batch.0;
-        if let Some(c) = core {
-            c.restore_undone();
+        match core {
+            Some(c) => c.undo(),
+            None => Ok(api.undo()?.batch.0),
         }
-        Ok(batch)
     }
 
     pub fn trash_summary(&self) -> Result<TrashSummaryDto, ErrorDto> {

@@ -245,7 +245,6 @@ fn f2_tom_sletter_fil_som_ble_gjenopprettet_etter_bekreftelsen() {
 /// å slette en fil utenfor karantenen og utenfor biblioteket. `original` valideres (`resolve`),
 /// `stored` ikke.
 #[test]
-#[ignore = "BUG: manifestfeltet `stored` valideres ikke; Tøm kan slette en fil utenfor karantenen/biblioteket"]
 fn f3_manifest_stored_med_dotdot_sletter_fil_utenfor_biblioteket() {
     let e = Env::new("f3");
     let (batch, assets) = e.trash_all_cards();
@@ -317,7 +316,6 @@ fn f4_angre_av_gjenopprett_legger_ikke_filen_tilbake_i_karantenen() {
 /// ser det som sletting og sletter i skyen og på andre enheter.
 #[cfg(unix)]
 #[test]
-#[ignore = "BUG: symlenket synkmappe inne i biblioteket omgår skysperren; trash flytter filen ut av synkmappen"]
 fn f5_symlenket_synkmappe_i_biblioteket_omgar_skysperren() {
     let root = tmp("f5");
     let sky = root.join("OneDrive").join("Bilder");

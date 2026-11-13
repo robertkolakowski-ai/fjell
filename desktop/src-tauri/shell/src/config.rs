@@ -89,8 +89,11 @@ fn write(data_dir: &Path, c: &Config) -> std::io::Result<()> {
 
 /// Egen indeksfil per mappe (FNV-1a av stien; stabil på tvers av Rust-versjoner).
 pub fn db_path(data_dir: &Path, library: &Path) -> PathBuf {
+    // Samme mappe under ulike stavemåter (`lib`, `lib/.`, symlenke) må gi samme indeks, ellers deler
+    // to indekser én karantene (KR-3). Frakoblet mappe: leksikalsk normalisering (uten `.` og sluttskråstrek).
+    let norm = std::fs::canonicalize(library).unwrap_or_else(|_| library.components().collect());
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    for b in library.to_string_lossy().bytes() {
+    for b in norm.to_string_lossy().bytes() {
         h = (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3);
     }
     data_dir.join(format!("index-{h:016x}.sqlite"))

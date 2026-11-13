@@ -50,3 +50,21 @@ Dommer: nøytral Sonnet-agent. Alle reprodusenter er kjørt med `cargo test --of
 7. RT-04: ikke følg symlenker i FsSource (eller dedupliser på kanonisk sti)
 8. RT-05: kanoniser sti før db-vern
 9. RT-06: `fjell-core/src/api/fjell_ops.rs:179` (saturating_add)
+
+## Status etter kritikerrunden (arbeidstre m15, ikke committet, kun Linux)
+
+| Id | Status | Merknad |
+|---|---|---|
+| F1 | Rettet i produksjon, reprodusent ÅPEN | Dekket av 6 skalltester (`tests_flow.rs`); `redteam_fable` F1 står ignorert (hjelper kopierer gammelt lim) |
+| F2 | Rettet | Reprodusent grønn; Tøm blokkerer angre/gjenopprett (brukersynlig, se BESLUTNINGER) |
+| F4 | Rettet i produksjon, reprodusent ÅPEN | Samme som F1 |
+| F3 = RT-03 | Rettet | Strengvalidering; KR-2 (symlenket batchmappe) rettet i tillegg |
+| F5, RT-04 | Rettet | Symlenker hoppes over (brukersynlig, utsatt avklaring); skysperre på kanonisert sti utsatt (KR-5) |
+| RT-01, RT-05, RT-06 | Rettet | Reprodusenter grønne |
+| RT-02 | Delvis, reprodusent ÅPEN | Err uten flytting; testen krever designvalg |
+| RT-07 | Åpen | Windows, ikke kjørt |
+| KR-1, KR-2 | Rettet | Reprodusenter grønne |
+| KR-3 | Årsak rettet, reprodusent ÅPEN | Oppsett feiler etter rettelsen; se BESLUTNINGER |
+| KR-4..KR-7 | Utsatt | Lav alvorlighet |
+
+Åpne reprodusenter (`--ignored`): RT-02, F1, F4 (core) og KR-3 (skall) = 4.
