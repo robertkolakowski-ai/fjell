@@ -13,17 +13,19 @@
 //! alltid riktig); bare endrede grupper skrives (`apply_grouping` gjenbruker like grupper).
 //! Visuell klynging tar én representant per eksakt gruppe (keeperen) og hopper over lavinformasjon.
 
+use super::keeper::{is_protected, pick_group, RuleCtx};
 use super::{PipelineError, StoreHandle};
 use crate::cluster::{exact_groups, Params, VisualIndex};
 use crate::model::{AssetId, Clock, Hash64, Kind, ReasonCode, SuggestionKind};
 use crate::quality::LOW_CONTRAST;
+use crate::rules::{decode_rules, KeeperRule, RuleReason};
 use crate::screenshot::ShotSignals;
 use crate::store::{
-    index_rows_on, plan_grouping, GroupSpec, GroupingStats, IndexRow, LoneSuggestion,
+    index_rows_on, plan_grouping, setting_on, source_ids_on, GroupSpec, GroupingStats, IndexRow,
+    LoneSuggestion, KEEPER_RULES_KEY,
 };
 use crate::suggest::{
-    blur_threshold, blurry_for, group_suggestions, screenshot_suggestion_default, GroupKind,
-    GroupResult, Member,
+    blur_threshold, blurry_for, screenshot_suggestion_default, GroupKind, GroupResult, Member,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
@@ -38,7 +40,7 @@ pub struct Grouping {
     pub lone: Vec<LoneSuggestion>,
 }
 
-fn member(r: &IndexRow) -> Member {
+pub(crate) fn member(r: &IndexRow) -> Member {
     Member {
         id: r.id,
         width: r.width,
@@ -62,7 +64,9 @@ fn spec(
     kind: SuggestionKind,
     reason: ReasonCode,
     confidence: f32,
+    rule: Option<&RuleReason>,
 ) -> GroupSpec {
+    let locked = matches!(rule, Some(RuleReason::ProtectedFolder { .. }));
     let mut ids: Vec<AssetId> = res.suggestions.iter().map(|s| s.asset_id).collect();
     ids.insert(0, res.keeper);
     let members = ids
@@ -77,6 +81,8 @@ fn spec(
         members,
         keeper: res.keeper,
         keeper_reason: res.keeper_reason,
+        keeper_rule: rule.map(RuleReason::encode),
+        keeper_locked: locked,
         kind,
         reason,
         confidence,
@@ -130,6 +136,12 @@ pub fn compute(rows: &[IndexRow]) -> Grouping {
 
 /// Utregning med inkrementell visuell klynging via `engine`.
 pub fn compute_with(rows: &[IndexRow], engine: &mut GroupEngine) -> Grouping {
+    compute_with_rules(rows, engine, &RuleCtx::NONE)
+}
+
+/// Som `compute_with`, med brukerregler for keeper-valg og beskyttede mapper. Med `RuleCtx::NONE`
+/// er resultatet byte-likt `compute_with` (K5 alene).
+pub fn compute_with_rules(rows: &[IndexRow], engine: &mut GroupEngine, ctx: &RuleCtx) -> Grouping {
     engine.rows = rows.len();
     let by_id: BTreeMap<AssetId, &IndexRow> = rows.iter().map(|r| (r.id, r)).collect();
     let mut groups = Vec::new();
@@ -147,9 +159,16 @@ pub fn compute_with(rows: &[IndexRow], engine: &mut GroupEngine) -> Grouping {
         .collect();
     for g in exact_groups(&hashed) {
         let members: Vec<Member> = g.members.iter().map(|id| member(by_id[id])).collect();
-        let Some(res) = group_suggestions(GroupKind::Exact, &members) else {
+        let Some(pick) = pick_group(GroupKind::Exact, &members, ctx) else {
+            // Alle beskyttet: ingen gruppe, og ingen av dem går videre til visuell klynging.
+            if !members.is_empty() {
+                g.members.iter().for_each(|m| {
+                    reps.remove(m);
+                });
+            }
             continue;
         };
+        let res = pick.result;
         // Bare keeperen går videre til visuell klynging.
         for m in &g.members {
             if *m != res.keeper {
@@ -163,6 +182,7 @@ pub fn compute_with(rows: &[IndexRow], engine: &mut GroupEngine) -> Grouping {
             SuggestionKind::ExactDup,
             ReasonCode::ExactCopy,
             1.0,
+            pick.rule.as_ref(),
         ));
     }
     // Visuelle grupper.
@@ -192,9 +212,10 @@ pub fn compute_with(rows: &[IndexRow], engine: &mut GroupEngine) -> Grouping {
         let members: Vec<Member> = g.members.iter().map(|id| member(by_id[id])).collect();
         let max_hamming = max_hamming(&g.members, &hashes);
         let kind = GroupKind::Visual { max_hamming };
-        let Some(res) = group_suggestions(kind, &members) else {
+        let Some(pick) = pick_group(kind, &members, ctx) else {
             continue;
         };
+        let res = pick.result;
         let conf = res.suggestions.first().map_or(0.0, |s| s.confidence);
         groups.push(spec(
             false,
@@ -203,13 +224,17 @@ pub fn compute_with(rows: &[IndexRow], engine: &mut GroupEngine) -> Grouping {
             SuggestionKind::VisualDup,
             ReasonCode::VisualDuplicate,
             conf,
+            pick.rule.as_ref(),
         ));
     }
     // Uten gruppe: uskarpt og skjermbilde.
     let mut lone = Vec::new();
     let scores: Vec<f32> = rows.iter().filter_map(|r| r.blur).collect();
     let threshold = blur_threshold(&scores);
-    for r in rows.iter().filter(|r| r.algo > 0) {
+    for r in rows
+        .iter()
+        .filter(|r| r.algo > 0 && !is_protected(ctx, r.id))
+    {
         if r.kind == Kind::Photo {
             if let Some(s) = r.blur.and_then(|b| blurry_for(r.id, b, threshold)) {
                 lone.push(LoneSuggestion {
@@ -253,7 +278,21 @@ pub fn refresh_groups<H: StoreHandle>(
         let (reader, stamp) = store.with_store(|s| (s.reader(), s.change_counter()));
         let Some(conn) = reader? else { break };
         let rows = index_rows_on(&conn)?;
-        let g = compute_with(&rows, &mut engine.lock().unwrap_or_else(|e| e.into_inner()));
+        let rules = decode_rules(&setting_on(&conn, KEEPER_RULES_KEY)?.unwrap_or_default());
+        let paths = if rules.is_empty() {
+            BTreeMap::new()
+        } else {
+            source_ids_on(&conn)?
+        };
+        let ctx = RuleCtx {
+            rules: &rules,
+            paths: &paths,
+        };
+        let g = compute_with_rules(
+            &rows,
+            &mut engine.lock().unwrap_or_else(|e| e.into_inner()),
+            &ctx,
+        );
         let plan = plan_grouping(&conn, &g.groups, &g.lone, clock.now())?;
         drop(conn);
         let applied = store.with_store(|s| {
@@ -268,7 +307,22 @@ pub fn refresh_groups<H: StoreHandle>(
     }
     store.with_store(|s| {
         let rows = s.index_rows()?;
-        let g = compute_with(&rows, &mut engine.lock().unwrap_or_else(|e| e.into_inner()));
+        let rules: Vec<KeeperRule> =
+            decode_rules(&s.setting(KEEPER_RULES_KEY)?.unwrap_or_default());
+        let paths = if rules.is_empty() {
+            BTreeMap::new()
+        } else {
+            s.active_paths()?
+        };
+        let ctx = RuleCtx {
+            rules: &rules,
+            paths: &paths,
+        };
+        let g = compute_with_rules(
+            &rows,
+            &mut engine.lock().unwrap_or_else(|e| e.into_inner()),
+            &ctx,
+        );
         Ok(s.apply_grouping(&g.groups, &g.lone, clock.now())?)
     })
 }

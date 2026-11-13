@@ -168,3 +168,25 @@ fn suggestion_grp_id_has_index_for_group_deletes() {
         "{plan:?}"
     );
 }
+
+/// Rekkefølgen er bindende: en database fra main på versjon 3 (indeksen fra stort bibliotek) oppgraderes additivt
+/// til versjon 4 (regelmotorens `grp.keeper_rule`) uten at indeksen eller data røres.
+#[test]
+fn v3_database_upgrades_to_keeper_rule_without_losing_index_or_data() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    migrate_to(&mut conn, 3).unwrap();
+    let v3 = dump_of(&conn);
+    assert!(v3.contains("index|idx_suggestion_grp|"));
+    assert!(!v3.contains("keeper_rule"));
+    conn.execute("INSERT INTO setting(key, value) VALUES ('k', 'v')", [])
+        .unwrap();
+
+    migrate_to(&mut conn, MIGRATIONS.len() as u32).unwrap();
+    let latest = dump_of(&conn);
+    assert!(latest.contains("index|idx_suggestion_grp|"));
+    assert!(latest.contains("keeper_rule"));
+    let v: String = conn
+        .query_row("SELECT value FROM setting WHERE key='k'", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(v, "v");
+}
