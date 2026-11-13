@@ -158,7 +158,7 @@ test("Unsupported: volum uten Papirkurv (alle filer) gir samme ark og ingenting 
 test("Unsupported: pseudo-lokale uten avkutting i arket (smal)", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await toUnsupported(page, "pseudo");
-  await page.locator(".actions button:visible").last().click();
+  await page.locator(".trash .ph .btn.danger").click();
   await page.locator("dialog button:visible").last().click();
   const dlg = page.locator("dialog[open]");
   await expect(dlg).toBeVisible();
@@ -225,7 +225,7 @@ test("skjermbilde Unsupported pseudo (smal)", async ({ page }) => {
   mkdirSync(OUT, { recursive: true });
   await page.setViewportSize({ width: 420, height: 760 });
   await toUnsupported(page, "pseudo");
-  await page.locator(".actions button:visible").last().click();
+  await page.locator(".trash .ph .btn.danger").click();
   await page.locator("dialog button:visible").last().click();
   await expect(page.locator("dialog[open]")).toBeVisible();
   await shot(page, "papirkurv-unsupported-ark-pseudo-smal");

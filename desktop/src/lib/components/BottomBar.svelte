@@ -52,12 +52,12 @@
   .spacer { block-size: calc(var(--target-min) + var(--space-5) * 2 + var(--space-5)); }
   .bar {
     position: fixed;
-    inset-inline: 0;
+    inset-inline: var(--shell-inset) 0; /* står til høyre for sidemenyen */
     inset-block-end: 0;
     z-index: 10;
-    padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    padding: var(--space-3) var(--gutter) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
     background: var(--c-surface);
-    border-block-start: var(--border-width) solid var(--c-border);
+    border-block-start: var(--border-width) solid var(--c-border-subtle);
     box-shadow: var(--shadow-lg);
   }
   .inner {
@@ -66,12 +66,13 @@
     align-items: stretch;
     justify-content: flex-end;
     gap: var(--space-3);
-    max-inline-size: 60rem;
+    max-inline-size: var(--w-content);
     margin-inline: auto;
   }
   .spacer.off { display: none; }
   .bar.flow { position: static; box-shadow: none; margin-block-start: var(--space-4); }
-  .sec { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-  .primary { flex: 1 1 14rem; display: flex; }
+  .sec { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-inline-end: auto; }
+  .primary { flex: 0 1 auto; display: flex; min-inline-size: min(100%, 14rem); }
   .primary :global(.btn) { flex: 1; }
+  @media (max-width: 36rem) { .primary { flex: 1 1 100%; } }
 </style>

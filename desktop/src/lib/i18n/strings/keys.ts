@@ -17,6 +17,8 @@ export interface MessageParams {
   "reason.shot_no_camera_exif": Record<never, never>;
   "reason.shot_png": Record<never, never>;
   "reason.blurry": { pct: string | number };
+  "trash.stat.count": Record<never, never>;
+  "trash.stat.size": Record<never, never>;
   "trash.freed.note": Record<never, never>;
   "app.name": Record<never, never>;
   "common.cancel": Record<never, never>;
@@ -54,6 +56,7 @@ export interface MessageParams {
   "onb.done.title": { count: number };
   "onb.done.body": { size: string | number };
   "onb.done.home": Record<never, never>;
+  "onb.step": { step: string | number; total: string | number };
   "home.title": Record<never, never>;
   "home.ring.label": { size: string | number; trash: string | number };
   "home.ring.trash": { size: string | number };
@@ -332,6 +335,8 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "reason.shot_no_camera_exif",
   "reason.shot_png",
   "reason.blurry",
+  "trash.stat.count",
+  "trash.stat.size",
   "common.cancel",
   "common.continue",
   "common.close",
@@ -350,6 +355,7 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "onb.result.primary",
   "onb.result.review",
   "onb.done.home",
+  "onb.step",
   "home.title",
   "home.cat.exact_dup",
   "home.cat.visual_dup",

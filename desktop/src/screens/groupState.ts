@@ -92,3 +92,19 @@ export async function findGroup(bridge: CoreBridge, id: number): Promise<Group |
   }
   return null;
 }
+
+/** Alle grupper i duplikatkategoriene (til gruppelisten i gruppevisningen). */
+export async function listGroups(bridge: CoreBridge): Promise<Group[]> {
+  const out: Group[] = [];
+  for (const kind of ["exact_dup", "visual_dup"] as const) {
+    const cards: Card[] = [];
+    let cursor: number | null = null;
+    do {
+      const page = await bridge.listCards(kind, 200, cursor);
+      cards.push(...page.cards);
+      cursor = page.next;
+    } while (cursor !== null);
+    out.push(...groupCards(cards));
+  }
+  return out;
+}
