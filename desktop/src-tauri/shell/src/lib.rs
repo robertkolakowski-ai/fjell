@@ -19,6 +19,8 @@ mod tests;
 mod tests_core;
 #[cfg(test)]
 mod tests_flow;
+#[cfg(all(test, unix))]
+mod tests_migrering;
 #[cfg(test)]
 mod tests_review;
 
@@ -75,11 +77,14 @@ pub fn default_recycle_bin() -> Arc<dyn RecycleBin> {
 
 /// Kilden skallet bruker i ekte modus (se `Shell::production_source`).
 fn production_source(data_dir: &Path, lib: &Path) -> FsSource {
-    let db = config::db_path(data_dir, lib);
+    let (data_dir_owned, lib_owned) = (data_dir.to_path_buf(), lib.to_path_buf());
     FsSource::new(lib)
         // T11: indeksens aktive bilder, så fjernede filer oppdages også etter omstart. Lesefeil gir
         // tom liste (ingen fjerninger), aldri gjetting. Før første skann finnes ikke indeksen ennå.
         .with_known_ids(Box::new(move || {
+            // Slått opp ved kall: følger indeksen som faktisk er i bruk (også gammel fil etter mislykket flytting).
+            let saved = config::last_library(&data_dir_owned);
+            let db = config::locate_index(&data_dir_owned, &lib_owned, saved.as_deref());
             Store::active_source_ids_at(&db).unwrap_or_default()
         }))
         // Miniatyrer bufres bare i appens datamappe (aldri i biblioteket) og kan slettes uten tap.
@@ -186,12 +191,17 @@ impl Shell {
                 format!("kan ikke opprette {}: {e}", dir.display()),
             )
         })?;
-        let core = Core::open(
-            &lib,
-            &config::db_path(dir, &lib),
-            source,
-            self.clock.clone(),
-        )?;
+        // Migrering av indeks fra pre-KR-3-navn, før noen Store åpnes på filen.
+        let in_use = match &*self.read() {
+            Inner::Core(c) => Some(c.db.clone()),
+            _ => None,
+        };
+        let saved = config::last_library(dir);
+        let db =
+            config::adopt_legacy_index(dir, &lib, saved.as_deref(), in_use.as_deref(), &|a, b| {
+                std::fs::rename(a, b)
+            });
+        let core = Core::open(&lib, &db, source, self.clock.clone())?;
         let mut g = self.inner.write().unwrap_or_else(|e| e.into_inner());
         if let Inner::Core(old) = &*g {
             old.fjell.cancel();

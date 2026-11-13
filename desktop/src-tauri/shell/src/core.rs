@@ -31,6 +31,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 pub(crate) struct Core {
     pub fjell: Arc<Fjell>,
     pub library: PathBuf,
+    /// Indeksfilen denne kjernen har åpen (kan være gammelt navn etter mislykket migrering).
+    pub db: PathBuf,
     quarantine: Arc<FsQuarantine>,
     /// Én om gangen av overgangene som endrer både indeks og karantene (se invarianten øverst).
     flow: Mutex<()>,
@@ -74,6 +76,7 @@ impl Core {
         let core = Core {
             fjell: Arc::new(Fjell::new(store, source, clock)),
             library: library.to_path_buf(),
+            db: db.to_path_buf(),
             quarantine: Arc::new(FsQuarantine::in_library(library)),
             flow: Mutex::new(()),
         };

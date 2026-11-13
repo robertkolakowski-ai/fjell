@@ -63,7 +63,8 @@ Skallets tekstbaserte skysperre (`cloud_provider`) er uendret (utenfor omfang).
   `kr3_samme_mappe_...` står FORTSATT ignorert: oppsettet forutsetter to indekser og stopper nå på
   «oppsett: duplikatkort». Mulig årsak, ikke undersøkt: ny gruppe i samme indeks skjules av en gammel beslutning
   (per_kind sier 1 gruppe, `cards` gir 0). Hvis det stemmer er det en egen, brukersynlig feil. Bivirkning: eksisterende
-  indeksfiler hashet på ukanonisk sti blir ikke funnet igjen (Windows: `\\?\`-prefiks). Avklar migrering før utgivelse.
+  indeksfiler hashet på ukanonisk sti blir ikke funnet igjen (Windows: `\\?\`-prefiks). Migrering lagt til (se neste punkt).
+- KR-3-migrering: når den kanoniske indeksen mangler, men en fil med gammelt navn (FNV-1a av stien som rå tekst; kandidater: lagret i `shell.json` hvis samme mappe, gitt, uten sluttskråstrek, uten `\\?\`) finnes, flyttes `-wal`, `-shm`, så hovedfilen (`config::adopt_legacy_index`, før `Store::open`; hopper over hvis kjernen har filen åpen). Begge finnes: ny brukes, gammel urørt. Flytting mislykkes eller nytt navn har rester: rulles tilbake og gammel fil brukes direkte, logges ikke-fatalt. Sletter aldri. Testet på Linux (`tests_migrering`, mock-rename for feil; Windows-former kun som strengkandidater), ikke på Windows, ikke mot ekte eldre installasjon.
 - KR-4..KR-7 utsatt (lav alvorlighet, ikke gjort): drop_entries mister usikre manifestlinjer; skysperre på
   kanonisert sti (KR-5); NotFound for «utenfor biblioteket» og canonicalize-feil på Windows (KR-6);
   flow-lås per Core og skanning uten lås (KR-7). Ytelse for angre under stor Tøm er ikke målt.
