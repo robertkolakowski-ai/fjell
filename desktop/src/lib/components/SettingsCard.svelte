@@ -26,9 +26,9 @@
 </section>
 
 <style>
-  .sc { container-type: inline-size; background: var(--c-surface); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+  .sc { container-type: inline-size; background: var(--c-surface); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-md); box-shadow: var(--shadow-1); }
   .hd { padding: var(--space-4) var(--space-5) var(--space-2); }
-  .hd :global(h2), .hd :global(h3) { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-tight); }
+  .hd :global(h2), .hd :global(h3) { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: var(--lh-heading); }
   .hd p { margin: var(--space-1) 0 0; color: var(--c-text-muted); font-size: var(--fs-sm); }
   .rows { padding-block: var(--space-1); }
 </style>

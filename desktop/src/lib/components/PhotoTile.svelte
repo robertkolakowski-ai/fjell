@@ -50,33 +50,35 @@
     gap: var(--space-2);
     inline-size: 100%;
     min-inline-size: 0;
-    padding: var(--space-2);
-    border: var(--border-width) solid var(--c-border);
-    border-radius: var(--radius-md);
-    background: var(--c-surface);
+    padding: var(--space-1);
+    border: var(--border-width) solid transparent; /* synlig i høykontrast */
+    border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--c-text);
     font: inherit;
     text-align: start;
     cursor: pointer;
+    transition: background-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
   }
-  .tile.selected {
-    border: 3px solid var(--c-selected);
-    padding: calc(var(--space-2) - 2px);
-  }
+  .tile:hover:not(:disabled) { background: var(--c-surface-hover); }
+  .tile:active:not(:disabled) { transform: scale(0.99); }
+  /* Valgt = 2 px aksentring rundt bildet + hake (aldri farget bakgrunn bak bildet). */
+  .tile.selected { border: 2px solid var(--c-selected); padding: calc(var(--space-1) - 1px); }
   .tile:disabled { cursor: not-allowed; }
   .img {
     position: relative;
     display: block;
     aspect-ratio: 4 / 3;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-xs);
     overflow: hidden;
-    background: var(--c-surface-sunken);
+    background: var(--c-well);
   }
+  .img::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: var(--photo-outline); pointer-events: none; }
   img, .ph { inline-size: 100%; block-size: 100%; object-fit: cover; display: block; }
-  .ph { background: repeating-linear-gradient(45deg, var(--c-surface-sunken), var(--c-surface-sunken) 8px, var(--c-border) 8px, var(--c-border) 9px); }
+  .ph { background: var(--c-well); }
   .check { position: absolute; inset-block-start: var(--space-2); inset-inline-end: var(--space-2); inline-size: 1.75rem; block-size: 1.75rem; }
-  .check circle { fill: var(--c-selected); stroke: var(--c-surface); stroke-width: 1.5; }
-  .check path { fill: none; stroke: var(--c-surface); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .check circle { fill: var(--c-selected); stroke: var(--c-surface-raised); stroke-width: 1.5; }
+  .check path { fill: none; stroke: var(--c-on-accent); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
   .meta { display: flex; flex-wrap: wrap; gap: var(--space-1); min-inline-size: 0; }
   @media (forced-colors: active) {
     .tile.selected { border-color: Highlight; }

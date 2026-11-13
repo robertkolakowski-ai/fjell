@@ -7,9 +7,10 @@ Fjell er bygget med åpne komponenter. Her står alt som leveres i Windows-appen
 Omfang:
 - **Rust:** normale (innlenkede) avhengigheter av `fjell-desktop` for `x86_64-pc-windows-msvc`; byggeverktøy og testbiblioteker er ikke med. Egne crates (`fjell-*`) er ikke listet.
 - **npm:** kjøretidsavhengigheter som bundles i frontend (`@tauri-apps/api`, `svelte` og deres avhengigheter). Utviklingsverktøy (vite, vitest, playwright, axe-core, typescript) leveres ikke.
-- **Ikke med:** systemkomponenter fra Windows (WebView2, Segoe UI). Appen bundler ingen fonter, ingen bilder fra tredjepart og ingen modeller. Appikonet er et eget plassholderikon.
+- **Ikke med:** systemkomponenter fra Windows (WebView2, Segoe UI). Appen bundler ingen bilder fra tredjepart og ingen modeller. Appikonet og merket er egne.
+- **Bundlede ressurser:** skriften Inter Variable (SIL Open Font License 1.1) ligger som woff2-filer i `desktop/src/assets/fonts` og lastes lokalt (ingen CDN).
 
-Antall komponenter: **311** (Rust 291, npm 20).
+Antall komponenter: **312** (Rust 291, npm 20, ressurser 1).
 
 ## Lisenser i bruk
 
@@ -39,6 +40,7 @@ Antall komponenter: **311** (Rust 291, npm 20).
 | BSD-3-Clause AND MIT | 1 |
 | BSD-3-Clause OR MIT | 1 |
 | CC0-1.0 OR Apache-2.0 OR Apache-2.0 WITH LLVM-exception | 1 |
+| OFL-1.1 | 1 |
 
 ## Rust-komponenter
 
@@ -360,6 +362,12 @@ Antall komponenter: **311** (Rust 291, npm 20).
 | magic-string | 0.30.21 | MIT | https://www.npmjs.com/package/magic-string |
 | svelte | 5.57.3 | MIT | https://www.npmjs.com/package/svelte |
 | zimmerframe | 1.1.5 | MIT | https://www.npmjs.com/package/zimmerframe |
+
+## Bundlede ressurser
+
+| Navn | Versjon | Lisens | Kilde |
+|---|---|---|---|
+| Inter Variable (latin, latin-ext) | 5.2.8 | OFL-1.1 | https://github.com/rsms/inter |
 
 ## Lisenstekster
 
@@ -7904,6 +7912,106 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### Tekst 136 (1 komponenter)
 
+Gjelder: Inter Variable (latin, latin-ext) 5.2.8
+
+```text
+Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) Inter-Italic[opsz,wght].ttf: Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+```
+
+### Tekst 137 (1 komponenter)
+
 Gjelder: rustls-platform-verifier 0.7.1
 
 ```text
@@ -7930,7 +8038,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 137 (1 komponenter)
+### Tekst 138 (1 komponenter)
 
 Gjelder: http 1.5.0
 
@@ -7962,7 +8070,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 138 (1 komponenter)
+### Tekst 139 (1 komponenter)
 
 Gjelder: ipnet 2.12.2
 
@@ -8170,7 +8278,7 @@ Gjelder: ipnet 2.12.2
    limitations under the License.
 ```
 
-### Tekst 139 (1 komponenter)
+### Tekst 140 (1 komponenter)
 
 Gjelder: deranged 0.5.9
 
@@ -8378,7 +8486,7 @@ Gjelder: deranged 0.5.9
    limitations under the License.
 ```
 
-### Tekst 140 (1 komponenter)
+### Tekst 141 (1 komponenter)
 
 Gjelder: esm-env 1.2.2
 
@@ -8392,7 +8500,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 141 (1 komponenter)
+### Tekst 142 (1 komponenter)
 
 Gjelder: strsim 0.11.1
 
@@ -8422,7 +8530,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 142 (1 komponenter)
+### Tekst 143 (1 komponenter)
 
 Gjelder: scopeguard 1.2.0
 
@@ -8454,7 +8562,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 143 (1 komponenter)
+### Tekst 144 (1 komponenter)
 
 Gjelder: hyper-util 0.1.21
 
@@ -8480,7 +8588,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 144 (1 komponenter)
+### Tekst 145 (1 komponenter)
 
 Gjelder: crc32fast 1.5.5
 
@@ -8508,7 +8616,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 145 (1 komponenter)
+### Tekst 146 (1 komponenter)
 
 Gjelder: string_cache 0.9.0
 
@@ -8540,7 +8648,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 146 (1 komponenter)
+### Tekst 147 (1 komponenter)
 
 Gjelder: libc 0.2.191
 
@@ -8572,7 +8680,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 147 (1 komponenter)
+### Tekst 148 (1 komponenter)
 
 Gjelder: simd-adler32 0.3.10
 
@@ -8600,7 +8708,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 148 (1 komponenter)
+### Tekst 149 (1 komponenter)
 
 Gjelder: untrusted 0.9.0
 
@@ -8620,7 +8728,7 @@ Gjelder: untrusted 0.9.0
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Tekst 149 (1 komponenter)
+### Tekst 150 (1 komponenter)
 
 Gjelder: blake3 1.8.7
 
@@ -8845,7 +8953,7 @@ the License, but only in their entirety and only with respect to the Combined
 Software.
 ```
 
-### Tekst 150 (1 komponenter)
+### Tekst 151 (1 komponenter)
 
 Gjelder: ring 0.17.14
 
@@ -8861,7 +8969,7 @@ See src/polyfill/once_cell/LICENSE-APACHE and src/polyfill/once_cell/LICENSE-MIT
 for the license to code that was sourced from the once_cell project.
 ```
 
-### Tekst 151 (1 komponenter)
+### Tekst 152 (1 komponenter)
 
 Gjelder: utf8_iter 1.1.0
 
@@ -8910,7 +9018,7 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 <LICENSE-MIT> or <http://opensource.org/licenses/MIT>, at your option.
 ```
 
-### Tekst 152 (1 komponenter)
+### Tekst 153 (1 komponenter)
 
 Gjelder: web-time 1.1.0
 
@@ -8938,7 +9046,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 153 (1 komponenter)
+### Tekst 154 (1 komponenter)
 
 Gjelder: @tauri-apps/api 2.12.4
 
@@ -8965,7 +9073,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 154 (1 komponenter)
+### Tekst 155 (1 komponenter)
 
 Gjelder: want 0.3.2
 
@@ -8991,7 +9099,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 155 (1 komponenter)
+### Tekst 156 (1 komponenter)
 
 Gjelder: form_urlencoded 1.2.2
 
@@ -9023,7 +9131,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 156 (1 komponenter)
+### Tekst 157 (1 komponenter)
 
 Gjelder: typenum 1.20.1
 
@@ -9031,7 +9139,7 @@ Gjelder: typenum 1.20.1
 MIT OR Apache-2.0
 ```
 
-### Tekst 157 (1 komponenter)
+### Tekst 158 (1 komponenter)
 
 Gjelder: slab 0.4.12
 
@@ -9063,7 +9171,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 158 (1 komponenter)
+### Tekst 159 (1 komponenter)
 
 Gjelder: dom_query 0.28.0
 
@@ -9097,7 +9205,7 @@ derived from the "nipper" project (https://github.com/importcjj/nipper),
 developed by Chen Jiaju, licensed under the MIT License and the Apache License 2.0 (dual licensed).
 ```
 
-### Tekst 159 (1 komponenter)
+### Tekst 160 (1 komponenter)
 
 Gjelder: synstructure 0.14.0
 
@@ -9111,7 +9219,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 160 (1 komponenter)
+### Tekst 161 (1 komponenter)
 
 Gjelder: tokio-rustls 0.26.6
 
@@ -9319,7 +9427,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 161 (1 komponenter)
+### Tekst 162 (1 komponenter)
 
 Gjelder: window-vibrancy 0.8.1
 
@@ -9347,7 +9455,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 162 (1 komponenter)
+### Tekst 163 (1 komponenter)
 
 Gjelder: muda 0.20.0
 
@@ -9373,7 +9481,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/muda.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 163 (1 komponenter)
+### Tekst 164 (1 komponenter)
 
 Gjelder: zimmerframe 1.1.5
 
@@ -9401,7 +9509,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 164 (1 komponenter)
+### Tekst 165 (1 komponenter)
 
 Gjelder: clsx 2.1.1
 
@@ -9417,7 +9525,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 165 (1 komponenter)
+### Tekst 166 (1 komponenter)
 
 Gjelder: ico 0.6.0
 
@@ -9445,7 +9553,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 166 (1 komponenter)
+### Tekst 167 (1 komponenter)
 
 Gjelder: raw-window-handle 0.6.2
 
@@ -9463,7 +9571,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Tekst 167 (1 komponenter)
+### Tekst 168 (1 komponenter)
 
 Gjelder: ring 0.17.14
 
@@ -9741,7 +9849,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Tekst 168 (1 komponenter)
+### Tekst 169 (1 komponenter)
 
 Gjelder: sha2 0.10.9
 
@@ -9775,7 +9883,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 169 (1 komponenter)
+### Tekst 170 (1 komponenter)
 
 Gjelder: infer 0.22.0
 
@@ -9803,7 +9911,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 170 (1 komponenter)
+### Tekst 171 (1 komponenter)
 
 Gjelder: ipnet 2.12.2
 
@@ -9817,7 +9925,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 171 (1 komponenter)
+### Tekst 172 (1 komponenter)
 
 Gjelder: powerfmt 0.2.1
 
@@ -10025,7 +10133,7 @@ Gjelder: powerfmt 0.2.1
    limitations under the License.
 ```
 
-### Tekst 172 (1 komponenter)
+### Tekst 173 (1 komponenter)
 
 Gjelder: rustls-pki-types 1.16.0
 
@@ -10057,7 +10165,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 173 (1 komponenter)
+### Tekst 174 (1 komponenter)
 
 Gjelder: tao 0.37.2
 
@@ -10082,7 +10190,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tao.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 174 (1 komponenter)
+### Tekst 175 (1 komponenter)
 
 Gjelder: num-conv 0.2.2
 
@@ -10108,7 +10216,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 175 (1 komponenter)
+### Tekst 176 (1 komponenter)
 
 Gjelder: uuid 1.29.2
 
@@ -10141,7 +10249,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 176 (1 komponenter)
+### Tekst 177 (1 komponenter)
 
 Gjelder: option-ext 0.2.0
 
@@ -10521,7 +10629,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### Tekst 177 (1 komponenter)
+### Tekst 178 (1 komponenter)
 
 Gjelder: esrap 2.4.0
 
@@ -10535,7 +10643,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 178 (1 komponenter)
+### Tekst 179 (1 komponenter)
 
 Gjelder: precomputed-hash 0.1.1
 
@@ -10563,7 +10671,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 179 (1 komponenter)
+### Tekst 180 (1 komponenter)
 
 Gjelder: ring 0.17.14
 
@@ -10583,7 +10691,7 @@ OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Tekst 180 (1 komponenter)
+### Tekst 181 (1 komponenter)
 
 Gjelder: chrono 0.4.45
 
@@ -10829,7 +10937,7 @@ limitations under the License.
 ~~~~
 ```
 
-### Tekst 181 (1 komponenter)
+### Tekst 182 (1 komponenter)
 
 Gjelder: bytes 1.12.1
 
@@ -10861,7 +10969,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 182 (1 komponenter)
+### Tekst 183 (1 komponenter)
 
 Gjelder: arrayvec 0.7.8
 
@@ -10893,7 +11001,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 183 (1 komponenter)
+### Tekst 184 (1 komponenter)
 
 Gjelder: http 1.5.0
 
@@ -11101,7 +11209,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 184 (1 komponenter)
+### Tekst 185 (1 komponenter)
 
 Gjelder: png 0.18.1
 
@@ -11133,7 +11241,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 185 (1 komponenter)
+### Tekst 186 (1 komponenter)
 
 Gjelder: block-buffer 0.10.4
 
@@ -11165,7 +11273,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 186 (1 komponenter)
+### Tekst 187 (1 komponenter)
 
 Gjelder: fnv 1.0.7
 
@@ -11197,7 +11305,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 187 (1 komponenter)
+### Tekst 188 (1 komponenter)
 
 Gjelder: tokio-rustls 0.26.6
 
@@ -11229,7 +11337,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 188 (1 komponenter)
+### Tekst 189 (1 komponenter)
 
 Gjelder: jsonptr 0.7.1
 
@@ -11437,7 +11545,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 189 (1 komponenter)
+### Tekst 190 (1 komponenter)
 
 Gjelder: crossbeam-channel 0.5.17
 
@@ -12037,7 +12145,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 190 (1 komponenter)
+### Tekst 191 (1 komponenter)
 
 Gjelder: idna_adapter 1.2.2
 
@@ -12069,7 +12177,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 191 (1 komponenter)
+### Tekst 192 (1 komponenter)
 
 Gjelder: acorn 8.19.0
 
@@ -12097,7 +12205,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 192 (1 komponenter)
+### Tekst 193 (1 komponenter)
 
 Gjelder: generic-array 0.14.7
 
@@ -12125,7 +12233,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 193 (1 komponenter)
+### Tekst 194 (1 komponenter)
 
 Gjelder: wry 0.57.2
 

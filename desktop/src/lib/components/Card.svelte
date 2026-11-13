@@ -30,16 +30,20 @@
     background: var(--c-surface);
     color: var(--c-text);
     border: var(--border-width) solid var(--c-border-subtle);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-1);
     padding: var(--space-4) var(--space-5);
     min-inline-size: 0;
+    animation: card-in var(--dur-3) var(--ease-out) backwards;
   }
   .sunken { background: var(--c-surface-sunken); box-shadow: none; }
   .pad-none { padding: 0; }
   .title {
     margin: 0 0 var(--space-3);
     font-size: var(--fs-lg);
-    line-height: var(--lh-tight);
+    font-weight: var(--fw-semibold);
+    line-height: var(--lh-heading);
   }
+  /* Kort inn: kort toning og 4 px løft (bare opacity/transform). Av ved redusert bevegelse (base.css). */
+  @keyframes card-in { from { opacity: 0; transform: translateY(0.25rem); } to { opacity: 1; transform: none; } }
 </style>

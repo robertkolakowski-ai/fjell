@@ -26,12 +26,12 @@
     gap: var(--space-1);
     max-inline-size: 100%;
     padding: 0.125rem var(--space-2);
-    border: var(--border-width) solid var(--c-border-strong);
+    border: var(--border-width) solid var(--c-border);
     border-radius: var(--radius-pill);
     background: var(--c-badge-bg);
     color: var(--c-badge-text);
     font-size: var(--fs-xs);
-    font-weight: var(--fw-semibold);
+    font-weight: var(--fw-medium);
     line-height: var(--lh-tight);
   }
   .badge.warn { background: var(--c-badge-warn-bg); color: var(--c-badge-warn-text); }
