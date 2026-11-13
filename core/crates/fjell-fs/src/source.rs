@@ -141,6 +141,10 @@ impl FsSource {
             .collect();
         entries.sort();
         for p in entries {
+            // Symlenker følges ikke (unngår duplikater, løkker og synkmapper utenfor biblioteket).
+            if fs::symlink_metadata(os_path(&p)).is_ok_and(|m| m.file_type().is_symlink()) {
+                continue;
+            }
             if os_path(&p).is_dir() {
                 if p.file_name().is_some_and(|n| n == QUARANTINE_DIR) {
                     continue;

@@ -198,3 +198,26 @@ fn reconcile_logs_every_transition_and_deletes_nothing() {
         .unwrap();
     assert_eq!(n, 3);
 }
+
+/// F1: `relocate_source` flytter bare pekeren; opptatt sti gir feil og ingen endring.
+#[test]
+fn relocate_source_moves_only_the_pointer_and_refuses_an_occupied_path() {
+    let mut s = store_with(2);
+    let to = SourceId("s1 (gjenopprettet)".into());
+    assert!(s.relocate_source(AssetId(1), &to).unwrap());
+    assert!(!s.relocate_source(AssetId(1), &to).unwrap(), "idempotent");
+    assert!(!s.relocate_source(AssetId(9), &to).is_ok_and(|moved| moved));
+    assert!(s
+        .relocate_source(AssetId(1), &SourceId("s2".into()))
+        .is_err());
+    let ids = s.source_ids(&[AssetId(1), AssetId(2)]).unwrap();
+    assert_eq!(ids[0].1, to);
+    assert_eq!(ids[1].1, SourceId("s2".into()));
+    assert_eq!(
+        s.asset_rows(&[AssetId(1)]).unwrap()[0]
+            .as_ref()
+            .unwrap()
+            .state,
+        State::Active
+    );
+}

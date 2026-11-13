@@ -12,7 +12,9 @@
 //! Åpent punkt: Windows Papirkurv husker karantenestien som opprinnelse for filer som tømmes
 //! derfra (ARKITEKTUR del 9: karantene og skyspeilede mapper).
 
-use crate::manifest::{scan_batches, Entry, Manifest, README_FILE, README_TEXT};
+use crate::manifest::{
+    scan_batches as scan_batches_raw, Entry, Manifest, README_FILE, README_TEXT,
+};
 use crate::path::{os_path, resolve};
 use fjell_core::model::{AssetId, BatchId, SourceId};
 use std::fs;
@@ -20,6 +22,30 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 pub const QUARANTINE_DIR: &str = ".fjell-karantene";
+
+/// `stored` fra manifestet er data på disk og må være ett vanlig filnavn (ingen `..`, `/`, `\\`, stasjon).
+fn safe_stored(s: &str) -> bool {
+    let mut it = Path::new(s).components();
+    matches!(
+        (it.next(), it.next()),
+        (Some(std::path::Component::Normal(_)), None)
+    ) && !s.contains(['/', '\\', ':'])
+}
+
+/// Som `manifest::scan_batches`, men uten oppføringer med usikker `stored`.
+fn scan_batches(dir: &Path) -> Vec<(PathBuf, Manifest)> {
+    let mut v = scan_batches_raw(dir);
+    // En batchmappe som er symlenke kan peke ut av biblioteket; da er «stored» ikke inneholdt (KR-2).
+    v.retain(|(d, _)| {
+        fs::symlink_metadata(d)
+            .map(|m| !m.file_type().is_symlink())
+            .unwrap_or(false)
+    });
+    for (_, m) in &mut v {
+        m.entries.retain(|e| safe_stored(&e.stored));
+    }
+    v
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum QuarantineError {
@@ -64,6 +90,9 @@ pub trait Quarantine: Send + Sync {
 pub struct FsQuarantine {
     library: PathBuf,
     dir: PathBuf,
+    /// Id-er som er gjenopprettet (`unstage`) i denne prosessen og ikke staged på nytt siden.
+    /// «Tøm» skal aldri falle tilbake til opprinnelig sti for dem (F2).
+    restored: std::sync::Mutex<std::collections::HashSet<u64>>,
 }
 
 fn map_io(e: std::io::Error) -> QuarantineError {
@@ -86,6 +115,25 @@ impl FsQuarantine {
         FsQuarantine {
             library: library.into(),
             dir: base.as_ref().join(QUARANTINE_DIR),
+            restored: Default::default(),
+        }
+    }
+
+    /// Er id gjenopprettet fra karantenen og ikke staged på nytt? Da ligger filen aktiv på
+    /// opprinnelig sti og må ikke slettes av «Tøm».
+    pub fn was_restored(&self, id: AssetId) -> bool {
+        self.restored.lock().is_ok_and(|r| r.contains(&id.0))
+    }
+
+    fn mark_restored(&self, ids: &[u64], on: bool) {
+        if let Ok(mut r) = self.restored.lock() {
+            for i in ids {
+                if on {
+                    r.insert(*i);
+                } else {
+                    r.remove(i);
+                }
+            }
         }
     }
 
@@ -111,6 +159,19 @@ impl FsQuarantine {
                 m.entries
                     .iter()
                     .find(|e| e.id == id.0)
+                    .map(|e| d.join(&e.stored))
+            })
+    }
+
+    /// Som `locate`, men bare hvis manifestets `original` er den stien indeksen har for id-en (KR-1).
+    pub fn locate_for(&self, id: AssetId, original: &SourceId) -> Option<PathBuf> {
+        scan_batches(&os_path(&self.dir))
+            .into_iter()
+            .find_map(|(d, m)| {
+                m.entries
+                    .iter()
+                    .find(|e| e.id == id.0)
+                    .filter(|e| e.original == original.0)
                     .map(|e| d.join(&e.stored))
             })
     }
@@ -211,7 +272,12 @@ impl Quarantine for FsQuarantine {
                 .map(|(id, _)| (*id, Err(QuarantineError::Unavailable)))
                 .collect();
         }
-        let already: Vec<u64> = self.staged().iter().map(|(i, _)| i.0).collect();
+        let already: Vec<(u64, String)> = self
+            .staged()
+            .iter()
+            .map(|(i, s)| (i.0, s.0.clone()))
+            .collect();
+        let canon_lib = fs::canonicalize(os_path(&self.library)).ok();
         let bdir = self.batch_dir(batch);
         // Planlegg først (hensikt), skriv manifest, flytt deretter.
         let mut manifest = Manifest::load(&os_path(&bdir)).unwrap_or(Manifest {
@@ -221,8 +287,18 @@ impl Quarantine for FsQuarantine {
         let mut plan: Vec<(AssetId, PathBuf, Entry)> = Vec::new();
         let mut out: Vec<(AssetId, Result<(), QuarantineError>)> = Vec::new();
         for (id, sid) in items {
-            if already.contains(&id.0) {
-                out.push((*id, Ok(())));
+            if let Some((_, orig)) = already.iter().find(|(i, _)| *i == id.0) {
+                // Samme id og samme sti: idempotent. Gjenbrukt id for annen sti: aldri Ok uten flytting.
+                let r = if *orig == sid.0 {
+                    Ok(())
+                } else {
+                    Err(QuarantineError::Failed("id er allerede i karantene".into()))
+                };
+                out.push((*id, r));
+                continue;
+            }
+            if plan.iter().any(|(p, _, _)| p.0 == id.0) {
+                out.push((*id, Err(QuarantineError::Failed("duplisert id".into()))));
                 continue;
             }
             let src = match resolve(&self.library, sid) {
@@ -232,6 +308,18 @@ impl Quarantine for FsQuarantine {
                     continue;
                 }
             };
+            // Kanonisert forelder må ligge i biblioteket (symlenket undermappe kan peke ut, f.eks. til synkmappe).
+            let inside = match (
+                &canon_lib,
+                src.parent().and_then(|p| fs::canonicalize(os_path(p)).ok()),
+            ) {
+                (Some(l), Some(p)) => p.starts_with(l),
+                _ => false,
+            };
+            if !inside {
+                out.push((*id, Err(QuarantineError::NotFound)));
+                continue;
+            }
             let md = match fs::metadata(os_path(&src)) {
                 Ok(m) if m.is_file() => m,
                 Ok(_) => {
@@ -260,6 +348,8 @@ impl Quarantine for FsQuarantine {
         if plan.is_empty() {
             return out;
         }
+        let planned: Vec<u64> = plan.iter().map(|(id, _, _)| id.0).collect();
+        self.mark_restored(&planned, false);
         manifest
             .entries
             .extend(plan.iter().map(|(_, _, e)| e.clone()));
@@ -311,6 +401,7 @@ impl Quarantine for FsQuarantine {
                 Err(err) => out.push((*id, Err(err))),
             }
         }
+        self.mark_restored(&done, true);
         self.drop_entries(&done);
         out
     }

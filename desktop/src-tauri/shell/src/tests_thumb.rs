@@ -3,11 +3,12 @@
 use crate::dto::{DecisionDto, ThumbDto};
 use crate::{production_source, Shell};
 use base64::Engine;
-use fjell_fs::{FakeRecycleBin, FsSource, RecycleBin};
+use fjell_fs::{FakeRecycleBin, FsSource, RecycleBin, RecycleError};
 use image::{DynamicImage, ImageFormat, RgbImage};
 use std::fs;
 use std::io::Cursor;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -20,15 +21,20 @@ struct Env {
 
 fn env(tag: &str) -> Env {
     let root = std::env::temp_dir().join(format!("fjell-thumb-{tag}-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&root);
-    let (lib, data) = (root.join("bibliotek"), root.join("appdata"));
-    fs::create_dir_all(&lib).unwrap();
-    fs::create_dir_all(&data).unwrap();
     let bin = Arc::new(FakeRecycleBin {
         bin_dir: Some(root.join("papirkurv")),
         ..Default::default()
     });
-    let sh = Shell::with_data_dir(&data, bin as Arc<dyn RecycleBin>);
+    env_with(tag, bin)
+}
+
+fn env_with(tag: &str, bin: Arc<dyn RecycleBin>) -> Env {
+    let root = std::env::temp_dir().join(format!("fjell-thumb-{tag}-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    let (lib, data) = (root.join("bibliotek"), root.join("appdata"));
+    fs::create_dir_all(&lib).unwrap();
+    fs::create_dir_all(&data).unwrap();
+    let sh = Shell::with_data_dir(&data, bin);
     Env {
         root,
         lib,
@@ -247,4 +253,120 @@ fn fifty_thumbnails_do_not_block_trash_and_undo() {
         worst < Duration::from_secs(1),
         "trash+angre tok {worst:?} under lasting"
     );
+}
+
+/// Etter sammenfletting med #18: miniatyrlesing følger aldri en symlenke ut av biblioteket, verken
+/// på originalstien eller via karantenen, og karanteneoppslaget er det samme som «Tøm» bruker.
+#[cfg(unix)]
+#[test]
+fn thumbnail_never_reads_outside_library_or_quarantine() {
+    use std::os::unix::fs::symlink;
+    let e = env("contained");
+    let outside = e.root.join("utenfor.jpg");
+    fs::write(&outside, image_bytes(80, 60, 9, ImageFormat::Jpeg)).unwrap();
+    let dup = image_bytes(120, 90, 7, ImageFormat::Jpeg);
+    for n in ["a.jpg", "b.jpg"] {
+        fs::write(e.lib.join(n), &dup).unwrap();
+    }
+    fs::write(
+        e.lib.join("c.jpg"),
+        image_bytes(90, 90, 8, ImageFormat::Jpeg),
+    )
+    .unwrap();
+    e.open_and_scan(None);
+    // Aktiv fil byttet til symlenke ut av biblioteket: leses ikke.
+    let c = e.asset("c.jpg");
+    fs::remove_file(e.lib.join("c.jpg")).unwrap();
+    symlink(&outside, e.lib.join("c.jpg")).unwrap();
+    assert_eq!(e.sh.thumbnail(c).unwrap_err().code, "not_found");
+    // Trashet fil byttet til symlenke i karantenen: leses ikke.
+    let cards = e.sh.cards("exact_dup", 50, None).unwrap();
+    let ids: Vec<u64> = cards.cards.iter().map(|c| c.id).collect();
+    e.sh.decide(&ids, DecisionDto::Trash).unwrap();
+    let t = e.sh.trashed().unwrap();
+    assert!(e.sh.thumbnail(t[0].asset).is_ok());
+    let batch = fs::read_dir(e.lib.join(fjell_fs::QUARANTINE_DIR))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let stored = batch.join(format!("{}.jpg", t[0].asset));
+    let keep = batch.join("flyttet.bin");
+    fs::rename(&stored, &keep).unwrap();
+    symlink(&outside, &stored).unwrap();
+    assert_eq!(e.sh.thumbnail(t[0].asset).unwrap_err().code, "not_found");
+    fs::remove_file(&stored).unwrap();
+    fs::rename(&keep, &stored).unwrap();
+    // Manifest som peker på en annen original enn indeksen har (KR-1): karantenefilen brukes ikke.
+    let mf = batch.join(fjell_fs::manifest::MANIFEST_FILE);
+    let txt = fs::read_to_string(&mf).unwrap();
+    assert!(txt.contains(&t[0].name));
+    fs::write(&mf, txt.replace(&t[0].name, "annen.jpg")).unwrap();
+    assert_eq!(e.sh.thumbnail(t[0].asset).unwrap_err().code, "not_found");
+}
+
+/// Papirkurv som står fast i `recycle` til testen slipper den (en lang «Tøm»).
+struct SlowBin {
+    entered: AtomicBool,
+    release: AtomicBool,
+}
+
+impl RecycleBin for SlowBin {
+    fn recycle(&self, _path: &Path) -> Result<(), RecycleError> {
+        self.entered.store(true, Ordering::SeqCst);
+        let t = Instant::now();
+        while !self.release.load(Ordering::SeqCst) && t.elapsed() < Duration::from_secs(20) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        Err(RecycleError::Failed("holdt igjen av testen".into()))
+    }
+}
+
+/// «Tøm» holder `flow` gjennom hele slettingen; miniatyrer (aktive og trashede) venter ikke på den,
+/// og lesingen endrer ingenting: filen ligger fortsatt i karantenen og i «Nylig slettet» etterpå.
+#[test]
+fn thumbnails_do_not_wait_for_a_long_empty() {
+    let bin = Arc::new(SlowBin {
+        entered: AtomicBool::new(false),
+        release: AtomicBool::new(false),
+    });
+    let e = env_with("tom", bin.clone());
+    let dup = image_bytes(120, 90, 7, ImageFormat::Jpeg);
+    for n in ["a.jpg", "b.jpg"] {
+        fs::write(e.lib.join(n), &dup).unwrap();
+    }
+    e.open_and_scan(None);
+    let cards = e.sh.cards("exact_dup", 50, None).unwrap();
+    let ids: Vec<u64> = cards.cards.iter().map(|c| c.id).collect();
+    e.sh.decide(&ids, DecisionDto::Trash).unwrap();
+    let t = e.sh.trashed().unwrap();
+    let kept = if t[0].name == "a.jpg" {
+        "b.jpg"
+    } else {
+        "a.jpg"
+    };
+    let kept = e.asset(kept);
+    let sh = &e.sh;
+    std::thread::scope(|sc| {
+        let h = sc.spawn(|| sh.empty(&[], None));
+        let start = Instant::now();
+        while !bin.entered.load(Ordering::SeqCst) {
+            assert!(
+                start.elapsed() < Duration::from_secs(10),
+                "Tøm startet ikke"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let at = Instant::now();
+        let (a, b) = (sh.thumbnail(kept), sh.thumbnail(t[0].asset));
+        let took = at.elapsed();
+        bin.release.store(true, Ordering::SeqCst);
+        let r = h.join().unwrap().unwrap();
+        assert!(a.is_ok() && b.is_ok(), "miniatyr under Tøm: {a:?} {b:?}");
+        assert!(took < Duration::from_secs(5), "ventet på Tøm: {took:?}");
+        assert_eq!((r.purged, r.kept_trashed), (0, 1));
+    });
+    assert_eq!(e.sh.trashed().unwrap().len(), 1);
+    assert!(e.sh.thumbnail(t[0].asset).is_ok());
 }

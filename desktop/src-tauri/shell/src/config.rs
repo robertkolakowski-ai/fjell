@@ -87,11 +87,165 @@ fn write(data_dir: &Path, c: &Config) -> std::io::Result<()> {
     fs::rename(tmp, data_dir.join(FILE))
 }
 
-/// Egen indeksfil per mappe (FNV-1a av stien; stabil på tvers av Rust-versjoner).
-pub fn db_path(data_dir: &Path, library: &Path) -> PathBuf {
+/// FNV-1a over tekst (stabil på tvers av Rust-versjoner). Samme funksjon som den gamle hashingen.
+fn fnv1a(text: &str) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    for b in library.to_string_lossy().bytes() {
+    for b in text.bytes() {
         h = (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3);
     }
-    data_dir.join(format!("index-{h:016x}.sqlite"))
+    h
+}
+
+fn index_file(data_dir: &Path, text: &str) -> PathBuf {
+    data_dir.join(format!("index-{:016x}.sqlite", fnv1a(text)))
+}
+
+/// Egen indeksfil per mappe (FNV-1a av kanonisk sti).
+pub fn db_path(data_dir: &Path, library: &Path) -> PathBuf {
+    // Samme mappe under ulike stavemåter (`lib`, `lib/.`, symlenke) må gi samme indeks, ellers deler
+    // to indekser én karantene (KR-3). Frakoblet mappe: leksikalsk normalisering (uten `.` og sluttskråstrek).
+    let norm = std::fs::canonicalize(library).unwrap_or_else(|_| library.components().collect());
+    index_file(data_dir, &norm.to_string_lossy())
+}
+
+fn same_dir(a: &Path, b: &Path) -> bool {
+    match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
+        (Ok(x), Ok(y)) => x == y,
+        _ => a.components().eq(b.components()),
+    }
+}
+
+fn trim_sep(s: &str) -> &str {
+    let t = s.trim_end_matches(['/', '\\']);
+    if t.is_empty() {
+        s
+    } else {
+        t
+    }
+}
+
+/// Kandidater for GAMMEL indeksfil (før KR-3: hash av stien slik den ble gitt, ikke kanonisert), i
+/// prioritert rekkefølge: rå som lagret i `shell.json` (bare hvis den peker på samme mappe), rå som
+/// gitt, så samme uten avsluttende skråstrek, så uten Windows' `\\?\`-prefiks. Uten duplikater og
+/// uten den nye (kanoniske) filen. Rene strengoperasjoner: virker likt på alle plattformer.
+pub fn legacy_index_candidates(
+    data_dir: &Path,
+    library: &Path,
+    saved: Option<&Path>,
+) -> Vec<PathBuf> {
+    let given = library.to_string_lossy().into_owned();
+    let saved = saved
+        .filter(|s| same_dir(s, library))
+        .map(|s| s.to_string_lossy().into_owned());
+    let raws: Vec<&str> = saved
+        .iter()
+        .map(String::as_str)
+        .chain([given.as_str()])
+        .collect();
+    let mut strings: Vec<String> = raws.iter().map(|r| (*r).to_string()).collect();
+    strings.extend(raws.iter().map(|r| trim_sep(r).to_string()));
+    let stripped: Vec<String> = strings
+        .iter()
+        .filter_map(|r| r.strip_prefix(r"\\?\").map(str::to_string))
+        .collect();
+    strings.extend(stripped);
+    let new = db_path(data_dir, library);
+    let mut out: Vec<PathBuf> = Vec::new();
+    for s in strings {
+        let f = index_file(data_dir, &s);
+        if f != new && !out.contains(&f) {
+            out.push(f);
+        }
+    }
+    out
+}
+
+/// Indeksfilen som finnes nå for mappen, uten å flytte noe: ny hvis den finnes, ellers første gamle
+/// kandidat som finnes, ellers den nye (opprettes ved åpning).
+pub fn locate_index(data_dir: &Path, library: &Path, saved: Option<&Path>) -> PathBuf {
+    let new = db_path(data_dir, library);
+    if new.exists() {
+        return new;
+    }
+    legacy_index_candidates(data_dir, library, saved)
+        .into_iter()
+        .find(|c| c.exists())
+        .unwrap_or(new)
+}
+
+fn with_suffix(p: &Path, suffix: &str) -> PathBuf {
+    let mut o = p.as_os_str().to_os_string();
+    o.push(suffix);
+    PathBuf::from(o)
+}
+
+/// Flytter `old` (+ `-wal`, `-shm`) til `new`: wal, shm, hovedfil sist. Overskriver aldri. Feiler ett
+/// trinn, rulles de flyttede filene tilbake (best effort) og feilen returneres. Sletter aldri noe.
+fn move_index(
+    old: &Path,
+    new: &Path,
+    rename: &dyn Fn(&Path, &Path) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    // Rester under det nye navnet (f.eks. en gammel `-wal`) ville blitt koblet til feil hovedfil.
+    for suffix in ["-wal", "-shm", ""] {
+        let dst = with_suffix(new, suffix);
+        if dst.exists() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                format!("{} finnes allerede", dst.display()),
+            ));
+        }
+    }
+    let mut done: Vec<(PathBuf, PathBuf)> = Vec::new();
+    for suffix in ["-wal", "-shm", ""] {
+        let (src, dst) = (with_suffix(old, suffix), with_suffix(new, suffix));
+        if !src.exists() {
+            continue;
+        }
+        if let Err(e) = rename(&src, &dst) {
+            for (s, d) in done.iter().rev() {
+                let _ = fs::rename(d, s);
+            }
+            return Err(e);
+        }
+        done.push((src, dst));
+    }
+    Ok(())
+}
+
+/// Trygg migrering av indeks fra gammel til kanonisk navn (KR-3). Kall FØR `Store::open`, og bare når
+/// ingen Store har filen åpen (`in_use` = filen en åpen kjerne bruker nå). Finnes den nye, brukes den
+/// og gammel røres ikke. Mislykkes flyttingen, brukes gammel fil direkte (ikke-fatalt, logges).
+/// Returnerer indeksfilen som skal åpnes. Sletter aldri en indeks.
+pub fn adopt_legacy_index(
+    data_dir: &Path,
+    library: &Path,
+    saved: Option<&Path>,
+    in_use: Option<&Path>,
+    rename: &dyn Fn(&Path, &Path) -> std::io::Result<()>,
+) -> PathBuf {
+    let new = db_path(data_dir, library);
+    if new.exists() {
+        return new;
+    }
+    let Some(old) = legacy_index_candidates(data_dir, library, saved)
+        .into_iter()
+        .find(|c| c.exists())
+    else {
+        return new;
+    };
+    if in_use == Some(old.as_path()) {
+        return old;
+    }
+    match move_index(&old, &new, rename) {
+        Ok(()) => new,
+        Err(e) => {
+            eprintln!(
+                "fjell: kunne ikke flytte indeksen {} til {} ({e}); bruker den gamle filen",
+                old.display(),
+                new.display()
+            );
+            old
+        }
+    }
 }

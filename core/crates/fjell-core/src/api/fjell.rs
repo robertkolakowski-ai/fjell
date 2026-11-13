@@ -183,6 +183,21 @@ impl Fjell {
         self.actions().store().source_ids(ids).unwrap_or_default()
     }
 
+    /// Karantenen la en gjenopprettet fil på et annet navn (kollisjon): pek indeksen dit (F1).
+    /// Kalles av skallet med resultatet fra `Quarantine::unstage`/`reconcile`, aldri med annet.
+    pub fn relocate_source(
+        &self,
+        id: crate::model::AssetId,
+        to: &crate::model::SourceId,
+    ) -> Result<bool, ApiError> {
+        let moved = self
+            .actions()
+            .store_mut()
+            .relocate_source(id, to)
+            .map_err(|e| ApiError::Internal(e.to_string()))?;
+        Ok(moved)
+    }
+
     /// Lesetilgang til indeksen (diagnostikk, CLI og tester). Skriving går bare via `FjellApi`.
     pub fn with_store<R>(&self, f: impl FnOnce(&Store) -> R) -> R {
         f(self.actions().store())
