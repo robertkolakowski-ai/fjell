@@ -71,14 +71,25 @@ pub fn extra_roots(data_dir: &Path, library: &Path) -> Vec<(u32, PathBuf)> {
 }
 
 /// Legger til en ekstra rot og returnerer den nye nøkkelen (aldri brukt før i dette biblioteket).
-pub fn add_extra_root(data_dir: &Path, library: &Path, root: &Path) -> std::io::Result<u32> {
+/// `floor` er høyeste nøkkel indeksen kjenner: nøkkelen blir alltid høyere, også når `shell.json`
+/// (og dermed `next_key`) er gått tapt mens indeksen fortsatt har rader `/r<n>/…` (RT-FM-2).
+pub fn add_extra_root(
+    data_dir: &Path,
+    library: &Path,
+    root: &Path,
+    floor: u32,
+) -> std::io::Result<u32> {
     let mut c = read(data_dir);
     let l = c
         .libraries
         .entry(library_key(data_dir, library))
         .or_default();
     let used = l.roots.iter().map(|r| r.key + 1).max().unwrap_or(0);
-    let key = l.next_key.max(used).max(FIRST_EXTRA_KEY);
+    let key = l
+        .next_key
+        .max(used)
+        .max(floor.saturating_add(1))
+        .max(FIRST_EXTRA_KEY);
     l.next_key = key + 1;
     l.roots.push(RootEntry {
         key,

@@ -49,6 +49,9 @@ pub(crate) struct Core {
     source: Arc<dyn AssetSource>,
     /// Samme sjekk som kilden bruker for skyplassholdere; brukes bare på metadata (aldri innhold).
     probe: LocalProbe,
+    /// Skyleverandør per rot, slått opp ved åpning (også via lenkemål, se `root_cloud`). Brukes av
+    /// `state()`-pollingen, som ikke skal røre filsystemet.
+    cloud: BTreeMap<u32, Option<&'static str>>,
     /// Én om gangen av overgangene som endrer både indeks og karantene (se invarianten øverst).
     flow: Mutex<()>,
     /// Satt (under `flow`) når skallet har byttet ut denne kjernen (nytt bibliotek, rot lagt til
@@ -111,6 +114,11 @@ impl Core {
             }
         }
         let store = Store::open(db).map_err(internal)?;
+        let cloud = set
+            .roots()
+            .iter()
+            .map(|r| (r.key, Core::root_cloud(r)))
+            .collect();
         let core = Core {
             fjell: Arc::new(Fjell::new(store, source.clone(), clock)),
             library,
@@ -118,6 +126,7 @@ impl Core {
             roots: set,
             source,
             probe,
+            cloud,
             flow: Mutex::new(()),
             retired: AtomicBool::new(false),
         };
@@ -149,14 +158,30 @@ impl Core {
         self.roots.roots()
     }
 
-    /// Skyleverandør for roten (etter kjente mappenavn i rotens sti).
+    /// Skyleverandør for roten: kjente mappenavn i stien brukeren valgte ELLER i stien den faktisk
+    /// peker på (kanonisert). En rot som er en lenke (symlenke, junction) inn i en skymappe er
+    /// like skysynket som målet (RT-FM-3). Frakoblet rot kan ikke kanoniseres: bare teksten gjelder.
     fn root_cloud(root: &Root) -> Option<&'static str> {
-        fjell_fs::cloud_provider(&root.path.to_string_lossy()).map(|p| p.code())
+        fjell_fs::cloud_provider(&root.path.to_string_lossy())
+            .or_else(|| {
+                let real = std::fs::canonicalize(os_path(&root.path)).ok()?;
+                fjell_fs::cloud_provider(&real.to_string_lossy())
+            })
+            .map(|p| p.code())
+    }
+
+    /// Som `root_cloud`, men fra oppslaget gjort ved åpning (ingen filsystemtilgang).
+    fn root_cloud_cached(&self, root: &Root) -> Option<&'static str> {
+        self.cloud.get(&root.key).copied().flatten()
     }
 
     /// Leverandørkode hvis ALLE røtter er skysynket (da er all papirkurv sperret).
     pub fn cloud_all(&self) -> Option<&'static str> {
-        let codes: Vec<Option<&'static str>> = self.roots().iter().map(Core::root_cloud).collect();
+        let codes: Vec<Option<&'static str>> = self
+            .roots()
+            .iter()
+            .map(|r| self.root_cloud_cached(r))
+            .collect();
         match codes.first() {
             Some(Some(first)) if codes.iter().all(|c| c.is_some()) => Some(first),
             _ => None,
@@ -164,13 +189,44 @@ impl Core {
     }
 
     /// Skysperre per rot: leverandørkoden hvis minst ett av bildene ligger i en skysynket rot.
-    /// Bilder i andre røtter berøres ikke av sperren.
+    /// Bilder i andre røtter berøres ikke av sperren. Slås opp på nytt her (ikke fra åpningen), så
+    /// en rot som var frakoblet ved åpning eller har fått lenkemålet byttet også sperres.
     pub fn cloud_block(&self, assets: &[AssetId]) -> Option<&'static str> {
         self.fjell
             .sources_for(assets)
             .iter()
             .filter_map(|(_, sid)| self.roots.route(sid))
-            .find_map(|(root, _)| Core::root_cloud(root))
+            .find_map(|(root, _)| {
+                self.root_cloud_cached(root)
+                    .or_else(|| Core::root_cloud(root))
+            })
+    }
+
+    /// Høyeste rotnøkkel noen rad i indeksen har (uansett tilstand), minst `PRIMARY_KEY`. Nye
+    /// røtter må få en høyere nøkkel: går `shell.json` tapt, vet bare indeksen hvilke nøkler som
+    /// er brukt, og en gjenbrukt nøkkel ville latt en gammel rad `/r2/…` i «Nylig slettet» peke
+    /// inn i en ny mappe (RT-FM-2). Kan indeksen ikke leses, gis feil (ingen nøkkel deles ut).
+    pub fn max_root_key(&self) -> Result<u32, ErrorDto> {
+        self.fjell.with_store(|s| {
+            let conn = s
+                .reader()
+                .map_err(internal)?
+                .ok_or_else(|| internal("indeksen kan ikke leses"))?;
+            let mut st = conn
+                .prepare("SELECT source_id FROM asset WHERE source_id LIKE '/r%'")
+                .map_err(internal)?;
+            let rows = st
+                .query_map([], |r| r.get::<_, String>(0))
+                .map_err(internal)?;
+            let mut max = PRIMARY_KEY;
+            for sid in rows {
+                let sid = SourceId(sid.map_err(internal)?);
+                if let Some((key, _)) = fjell_fs::roots::split(&sid) {
+                    max = max.max(key);
+                }
+            }
+            Ok(max)
+        })
     }
 
     /// Antall i «Nylig slettet» med sti i en av røttene `keys`. Brukes før røtter tas ut av
@@ -192,7 +248,7 @@ impl Core {
                 key: r.key,
                 path: r.path.to_string_lossy().into_owned(),
                 primary: r.key == PRIMARY_KEY,
-                cloud_sync: Core::root_cloud(r),
+                cloud_sync: self.root_cloud_cached(r),
                 quarantine_dir: r
                     .path
                     .join(fjell_fs::QUARANTINE_DIR)

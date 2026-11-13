@@ -1,6 +1,6 @@
 //! Red team (Fable) for FLERE MAPPER (docs/mvp/FLERE-MAPPER.md). Reprodusenter gjennom `Shell`.
-//! Hver test er `#[ignore = "BUG: ..."]` til funnet er rettet eller avklart; ingen produksjonskode
-//! er endret for dem. Kjør: `cargo test -p fjell-shell redteam_flere_mapper -- --ignored`.
+//! Funnene RT-FM-1..3 er rettet; testene kjører som vanlige regresjonstester
+//! (`cargo test -p fjell-shell redteam_flere_mapper`).
 
 use crate::dto::DecisionDto;
 use crate::Shell;
@@ -114,7 +114,6 @@ fn files(dir: &Path) -> BTreeMap<String, Vec<u8>> {
 /// kan gjenopprette det. Fil: `shell/src/lib.rs`, `Shell::set_library` (`dropped` hentes fra
 /// config for MÅL-biblioteket) og `open_roots_probe` (`trashed_in(dropped)`).
 #[test]
-#[ignore = "BUG: RT-FM-1 bibliotek med trashed bilde i ekstra mappe kan ikke åpnes igjen etter bytte"]
 fn rtfm1_bytte_bort_og_tilbake_stenger_ute_nylig_slettet_i_ekstra_mappe() {
     let e = dirs("utestengt", "ekstra");
     let annet = e.root.join("annet-bibliotek");
@@ -156,7 +155,6 @@ fn rtfm1_bytte_bort_og_tilbake_stenger_ute_nylig_slettet_i_ekstra_mappe() {
 /// lagt den filen i papirkurven. Fil: `shell/src/config.rs` `add_extra_root` (`next_key` ligger
 /// bare i `shell.json`), `shell/src/core.rs` `restage_trashed` -> `RootSet::stage` (kun sti).
 #[test]
-#[ignore = "BUG: RT-FM-2 gjenbrukt rotnøkkel etter tapt shell.json: fil i ny mappe flyttes og tømmes"]
 fn rtfm2_gjenbrukt_nokkel_etter_tapt_config_tommer_fremmed_fil() {
     let e = dirs("gjenbruk", "ekstra");
     let sh = shell(&e);
@@ -206,7 +204,6 @@ fn rtfm2_gjenbrukt_nokkel_etter_tapt_config_tommer_fremmed_fil() {
 /// karantene som ligger i den skysynkede mappen. Fil: `shell/src/core.rs` `Core::root_cloud`.
 #[cfg(unix)]
 #[test]
-#[ignore = "BUG: RT-FM-3 skysperre for ekstra mappe omgås via lenke (KR-5 per rot)"]
 fn rtfm3_lenket_ekstra_mappe_inn_i_skymappe_er_ikke_sperret() {
     let e = dirs("skylenke", "OneDrive");
     let lenke = e.root.join("bilder-snarvei");

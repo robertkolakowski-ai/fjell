@@ -209,17 +209,33 @@ impl Shell {
         )
     }
 
-    /// Velger biblioteksmappe (fra mappevelger i Tauri-limet) og husker valget. Biblioteket får
-    /// nøyaktig ÉN rot («erstatt med én rot»): ekstra mapper som var lagt til for denne mappen tas
-    /// ut. Har noen av dem bilder i «Nylig slettet», avvises kallet med `root_has_trash` (gjenopprett
-    /// eller tøm først), og ingenting endres.
+    /// Velger biblioteksmappe (fra mappevelger i Tauri-limet) og husker valget.
+    ///
+    /// - Mappen er biblioteket som ER åpent: «erstatt med én rot». Ekstra mapper tas ut; har noen
+    ///   av dem bilder i «Nylig slettet», avvises kallet med `root_has_trash` (gjenopprett eller
+    ///   tøm først), og ingenting endres.
+    /// - Mappen er et ANNET bibliotek (bytte, eller ingenting er åpent): det åpnes slik det ble
+    ///   forlatt, med de lagrede ekstra mappene sine, akkurat som ved omstart. Ellers ville bilder
+    ///   i «Nylig slettet» i en ekstra mappe blitt liggende i karantenen uten vei tilbake
+    ///   (RT-FM-1). Lar de lagrede mappene seg ikke åpne sammen (overlapp), faller kallet tilbake
+    ///   til én rot med samme `root_has_trash`-sperre.
     pub fn set_library(&self, path: &str) -> Result<StateDto, ErrorDto> {
         let lib = PathBuf::from(path);
         let dir = self.data_dir()?.clone();
-        let dropped: Vec<u32> = config::extra_roots(&dir, &lib)
-            .iter()
-            .map(|r| r.0)
-            .collect();
+        let saved = config::extra_roots(&dir, &lib);
+        let is_open = match &*self.read() {
+            Inner::Core(c) => config::db_path(&dir, &c.library) == config::db_path(&dir, &lib),
+            _ => false,
+        };
+        if !is_open && !saved.is_empty() {
+            let mut roots = vec![(PRIMARY_KEY, lib.clone())];
+            roots.extend(saved.iter().cloned());
+            if self.open_production(&roots, &[]).is_ok() {
+                let _ = config::save_library(&dir, &lib);
+                return Ok(self.state());
+            }
+        }
+        let dropped: Vec<u32> = saved.iter().map(|r| r.0).collect();
         self.open_production(&[(PRIMARY_KEY, lib.clone())], &dropped)?;
         // Valget huskes best effort; mislykket lagring stopper ikke bruken.
         let _ = config::save_library(&dir, &lib);
@@ -269,8 +285,10 @@ impl Shell {
                 new.join(fjell_fs::QUARANTINE_DIR).display().to_string(),
             ));
         }
-        // Nøkkelen reserveres i config FØR åpning (aldri gjenbrukt, selv om åpningen feiler).
-        let key = config::add_extra_root(&dir, &core.library, &new)
+        // Nøkkelen reserveres i config FØR åpning (aldri gjenbrukt, selv om åpningen feiler), og er
+        // alltid høyere enn alle nøkler indeksen kjenner (tapt `shell.json`, RT-FM-2).
+        let floor = core.max_root_key()?;
+        let key = config::add_extra_root(&dir, &core.library, &new, floor)
             .map_err(|e| ErrorDto::new("internal", e.to_string()))?;
         roots.push((key, new));
         let keep: Vec<u32> = roots.iter().map(|r| r.0).collect();

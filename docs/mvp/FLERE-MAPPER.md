@@ -13,6 +13,7 @@ kompilert her. UI kommer i bølge 2; kontrakten ligger i `desktop/src/bridge/typ
   `:` er lovlig i filnavn på Linux.) `path::resolve` avviser alt som begynner med `/`, så en id fra en annen
   rot kan ikke løses mot feil rot ved en feil.
 - Nøkler gjenbrukes aldri (`next_key` bare øker): en gammel rad `/r2/…` kan ikke peke inn i en ny mappe.
+  Ny nøkkel er også alltid høyere enn høyeste nøkkel i indeksen, så det holder selv om `shell.json` går tapt (RT-FM-2).
 - `shell.json`: `library` er fortsatt første rot. Nytt felt `libraries` (`#[serde(default)]`), nøklet på
   indeksfilens navn: `{ next_key, roots: [{ key, path }] }`. Gamle filer leses uendret.
 - Røtter kan ikke overlappe (lik, inni eller rundt en annen), sammenlignet kanonisert (symlenker løst).
@@ -45,6 +46,7 @@ kompilert her. UI kommer i bølge 2; kontrakten ligger i `desktop/src/bridge/typ
 - En rot i iCloud/OneDrive/Dropbox (navnebasert, som før) sperrer papirkurv for bildene i DEN roten.
   Et kall som inneholder minst ett slikt bilde avvises helt (`cloud_synced_readonly`), før noe endres.
 - `StateDto.cloud_sync` settes bare når ALLE røtter er skysynket (én rot: som før); ellers `roots[].cloud_sync`.
+  Skysjekken per rot ser på både valgt sti og kanonisert sti (lenke/junction inn i skymappe sperres, RT-FM-3).
 
 ## Skall-API
 
@@ -53,7 +55,7 @@ kompilert her. UI kommer i bølge 2; kontrakten ligger i `desktop/src/bridge/typ
 | `list_library_roots` | Røtter med `online`, `count`, `bytes`, `videos`, `video_bytes`, `trashed` | `no_library` |
 | `add_library_root(path)` | Ny rot; bilder kommer ved neste skanning | `not_a_folder`, `root_overlap`, `root_has_quarantine` |
 | `remove_library_root(key)` | Tar ut roten; ingen filer røres | `root_is_primary`, `root_has_trash`, `not_found` |
-| `set_library(path)` | Som før: erstatt med én rot | som før, pluss `root_has_trash` |
+| `set_library(path)` | Åpent bibliotek: erstatt med én rot. Annet bibliotek: åpnes med sine lagrede ekstra mapper (som ved omstart, RT-FM-1) | som før, pluss `root_has_trash` |
 
 - `root_has_trash` (antall i `detail`): roten har bilder i «Nylig slettet». Gjenopprett eller tøm først.
 - `root_has_quarantine`: mappen har en `.fjell-karantene` med innhold fra et annet bibliotek (annen indeks).
@@ -71,8 +73,9 @@ kompilert her. UI kommer i bølge 2; kontrakten ligger i `desktop/src/bridge/typ
 
 ## Kjente begrensninger
 
-- Første rot kan ikke fjernes eller byttes uten å bytte bibliotek (`set_library`), og da mister de andre
-  røttene plassen sin (radene deres fjernes ved neste skanning; beslutninger på dem går tapt).
+- Første rot kan ikke fjernes eller byttes uten å bytte bibliotek (`set_library`). Det forlatte biblioteket
+  beholder de ekstra mappene sine og åpnes med dem igjen; `set_library` på det ÅPNE biblioteket tar dem ut
+  (radene deres fjernes ved neste skanning; beslutninger på dem går tapt).
 - Går `shell.json` tapt, er ekstra røtter ukjente. Bilder som lå i deres karantene blir liggende der (med
   README), vises i «Nylig slettet», men kan ikke flyttes tilbake av appen. Ingenting slettes.
 - Overlapp mellom en frakoblet og en tilkoblet rot sammenlignes bare som tekst (Windows: `\\?\`, store/små bokstaver).
