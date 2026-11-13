@@ -18,7 +18,7 @@ describe("identisk grensesnitt", () => {
       Object.getOwnPropertyNames(Object.getPrototypeOf(o)).filter((n) => n !== "constructor" && !n.startsWith("wait")).sort();
     const pub = [
       "cancelScan", "checkForUpdate", "completeOnboarding", "decide", "emptyTrash", "getAppVersion", "getAutoUpdate",
-      "getFirstRun", "getLanguage", "getLibrary", "getSettings", "getState", "installUpdate", "listCards", "listTrashed",
+      "getFirstRun", "getLanguage", "getLibrary", "getSettings", "getState", "getThumbnail", "installUpdate", "listCards", "listTrashed",
       "pauseScan", "pickFolder", "purge", "restore", "restoreAll", "resumeScan", "setAutoUpdate", "setKeeper", "setLanguage",
       "setLibrary", "setTrashDays", "startScan", "undo",
     ];

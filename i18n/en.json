@@ -312,5 +312,10 @@
   "cloud.tip": {"t": "Tip: use a local copy of the folder, or export the photos to an ordinary folder, and clean up there.", "ctx": "Tips i skyadvarselen"},
   "cloud.caveat": {"t": "We recognise sync folders by name. If your sync folder is named something else, we can't tell.", "ctx": "Ærlig forbehold i skyadvarselen: deteksjonen er et sikkerhetsnett, ikke en garanti"},
   "cloud.key.blocked": {"t": "The trash key does nothing here: the folder syncs with a cloud service. Use «Keep» or «Skip».", "ctx": "Annonseres og vises når brukeren trykker papirkurv-tasten eller dytter kortet opp i en skysynket mappe"},
-  "cloud.error.blocked": {"t": "Nothing was moved: the folder syncs with a cloud service.", "ctx": "Feilmelding når skallet svarer cloud_synced_readonly på papirkurv-valg"}
+  "cloud.error.blocked": {"t": "Nothing was moved: the folder syncs with a cloud service.", "ctx": "Feilmelding når skallet svarer cloud_synced_readonly på papirkurv-valg"},
+  "thumb.error.unavailable": {"t": "Can't show this format yet", "ctx": "Forklaring i bildeflis når miniatyr ikke kan lages (format uten støtte)"},
+  "thumb.error.cloud_placeholder": {"t": "Not downloaded from the cloud", "ctx": "Forklaring i bildeflis: filen er bare en skyplassholder og leses aldri"},
+  "thumb.error.corrupt": {"t": "The file looks damaged", "ctx": "Forklaring i bildeflis når bildefilen ikke kan leses"},
+  "thumb.error.not_found": {"t": "Can't find the file", "ctx": "Forklaring i bildeflis når filen er borte fra mappen"},
+  "thumb.error.no_library": {"t": "Choose a folder first", "ctx": "Forklaring i bildeflis når ingen mappe er valgt"}
 }

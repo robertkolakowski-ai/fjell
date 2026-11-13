@@ -8,6 +8,7 @@
   import { KIND_CODES, type BridgeError, type KindSummary, type Card, type KindCode } from "../bridge/types";
   import { useBridge } from "../context";
   import { Badge, BottomBar, Banner, Button, Card as UiCard, CloudWarning, LiveRegion, PageHeader, PhotoTile, StatTile } from "../lib";
+  import Thumb from "../lib/components/Thumb.svelte";
   import { fmt, reasonLabel, tr, type TFunction } from "../lib/i18n";
   import { formatHash } from "../router";
   import { cloudFromError, loadCloud } from "./cloud";
@@ -182,7 +183,7 @@
                 aria-label="{$tr('review.group.row', { count: g.cards.length })}, {fmt.bytes(g.bytes)}, {$tr('review.group.best')}"
                 onclick={() => send({ type: "toggleMany", ids })}>
                 <span class="thumbs" aria-hidden="true">
-                  {#each g.cards.slice(0, 3) as c, n (c.id)}<span class="thumb" style:--n={n}></span>{/each}
+                  {#each g.cards.slice(0, 3) as c, n (c.id)}<span class="thumb" style:--n={n}><Thumb id={c.asset} size="sm" /></span>{/each}
                 </span>
                 <span class="info">
                   <span class="cnt">{$tr("review.group.row", { count: g.cards.length })}</span>
@@ -200,7 +201,7 @@
           {#each free as c, i (c.id)}
             <li>
               <PhotoTile label={nameOf(c, i, free.length, $tr) + (view.selected.has(c.id) ? ` ${$tr("review.select.state.on")}.` : "")}
-                selected={view.selected.has(c.id)} disabled={busy} badges={badges(c, $tr)} onToggle={() => pick(c.id)} />
+                thumbId={c.asset} selected={view.selected.has(c.id)} disabled={busy} badges={badges(c, $tr)} onToggle={() => pick(c.id)} />
             </li>
           {/each}
         </ul>
@@ -211,7 +212,7 @@
         <p class="muted">{$tr("review.protected.note")}</p>
         <ul class="grid">
           {#each prot as c, i (c.id)}
-            <li><PhotoTile label={nameOf(c, i, prot.length, $tr)} disabled badges={badges(c, $tr)} /></li>
+            <li><PhotoTile label={nameOf(c, i, prot.length, $tr)} thumbId={c.asset} disabled badges={badges(c, $tr)} /></li>
           {/each}
         </ul>
       {/if}
@@ -265,7 +266,7 @@
   .row.on { border: 3px solid var(--c-selected); padding: calc(var(--space-3) - 2px); }
   .pick { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-block-size: var(--target-min); padding: 0; border: 0; background: none; color: var(--c-text); font: inherit; text-align: start; cursor: pointer; }
   .thumbs { display: flex; flex: none; padding-inline-end: var(--space-4); }
-  .thumb { inline-size: 3.5rem; block-size: 2.75rem; margin-inline-end: calc(var(--space-4) * -1); border: 2px solid var(--c-surface); border-radius: var(--radius-sm); background: repeating-linear-gradient(45deg, var(--c-surface-sunken), var(--c-surface-sunken) 6px, var(--c-border) 6px, var(--c-border) 7px); }
+  .thumb { overflow: hidden; inline-size: 3.5rem; block-size: 2.75rem; margin-inline-end: calc(var(--space-4) * -1); border: 2px solid var(--c-surface); border-radius: var(--radius-sm); background: repeating-linear-gradient(45deg, var(--c-surface-sunken), var(--c-surface-sunken) 6px, var(--c-border) 6px, var(--c-border) 7px); }
   .info { display: flex; flex: 1 1 6rem; flex-direction: column; align-items: flex-start; gap: var(--space-1); min-inline-size: 0; }
   .cnt { font-weight: var(--fw-semibold); }
   .size { font-size: var(--fs-sm); font-variant-numeric: var(--num); }

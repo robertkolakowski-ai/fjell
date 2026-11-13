@@ -101,6 +101,16 @@ impl StateDto {
     }
 }
 
+/// Miniatyr til frontend: JPEG som base64 uten `data:`-prefiks (UI bygger `data:`-URL).
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ThumbDto {
+    pub mime: &'static str,
+    pub data: String,
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(Serialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CardDto {

@@ -6,6 +6,7 @@
   import type { CoreBridge } from "../bridge/core-bridge";
   import type { BridgeError, Group as Grp } from "../bridge/types";
   import { useBridge } from "../context";
+  import Thumb from "../lib/components/Thumb.svelte";
   import { Badge, BottomBar, Banner, Button, CloudWarning, Icon, PageHeader } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { formatHash, navigate } from "../router";
@@ -157,7 +158,7 @@
           {#each items as it (it.asset)}
             <li class="item" class:best={it.best}>
               <div class="media">
-                <div class="img" aria-hidden="true"><span class="num">{it.n}</span></div>
+                <div class="img"><Thumb id={it.asset} fit="contain" alt={$tr("group.item.name", { n: it.n, total: items.length })} /><span class="num" aria-hidden="true">{it.n}</span></div>
                 {#if it.best}
                   <span class="flag"><Badge label={$tr("group.best")} /></span>
                   <span class="tick" aria-hidden="true"><Icon name="check" /></span>
@@ -209,7 +210,7 @@
   .item { display: flex; flex-direction: column; gap: var(--space-2); min-inline-size: 0; padding: var(--space-3); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); background: var(--c-surface); box-shadow: var(--shadow-card); }
   .item.best { border: 3px solid var(--c-ok); padding: calc(var(--space-3) - 2px); background: var(--c-ok-bg); }
   .media { position: relative; }
-  .img { position: relative; aspect-ratio: 4 / 3; border-radius: var(--radius-md); background: repeating-linear-gradient(45deg, var(--c-surface-sunken), var(--c-surface-sunken) 8px, var(--c-border) 8px, var(--c-border) 9px); }
+  .img { position: relative; overflow: hidden; aspect-ratio: 4 / 3; border-radius: var(--radius-md); background: repeating-linear-gradient(45deg, var(--c-surface-sunken), var(--c-surface-sunken) 8px, var(--c-border) 8px, var(--c-border) 9px); }
   .num { position: absolute; inset-block-start: var(--space-2); inset-inline-start: var(--space-2); min-inline-size: 1.75rem; padding: 0 var(--space-2); text-align: center; background: var(--c-surface); color: var(--c-text); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-pill); font-weight: var(--fw-semibold); font-variant-numeric: var(--num); }
   .flag { position: absolute; inset-block-end: var(--space-2); inset-inline-start: var(--space-2); max-inline-size: calc(100% - var(--space-4)); }
   .tick { position: absolute; inset-block-start: var(--space-2); inset-inline-end: var(--space-2); display: grid; place-items: center; inline-size: 1.75rem; block-size: 1.75rem; border-radius: var(--radius-pill); background: var(--c-ok); color: var(--c-surface); }

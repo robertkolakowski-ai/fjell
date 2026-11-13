@@ -2,6 +2,7 @@
 import type { CoreBridge } from "./core-bridge";
 import { MOCK_UPDATES, MockBridge, type MockUpdate } from "./mock-bridge";
 import { TauriBridge } from "./tauri-bridge";
+import { THUMB_ERROR_CODES, type ThumbErrorCode } from "./types";
 
 export function createBridge(): CoreBridge {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
@@ -14,6 +15,7 @@ export function createBridge(): CoreBridge {
       pick: mockPick(),
       ...mockUnsupported(),
       ...mockLibrary(),
+      ...mockThumbs(),
     });
 }
 
@@ -71,6 +73,23 @@ function mockLibrary(): { library?: string } {
     if (v !== null && v.trim() !== "") return { library: v };
   }
   return {};
+}
+
+/** Bare dev: `?mockThumbErr=3:corrupt,4:unavailable` gir miniatyrfeil per bilde-id; `?mockThumbDelay=N` setter ventetid per miniatyr (ms). */
+function mockThumbs(): { thumbErrors?: Record<number, ThumbErrorCode>; thumbDelayMs?: number } {
+  const out: { thumbErrors?: Record<number, ThumbErrorCode>; thumbDelayMs?: number } = {};
+  if (import.meta.env.DEV && typeof location !== "undefined") {
+    const q = new URLSearchParams(location.search);
+    const errs: Record<number, ThumbErrorCode> = {};
+    for (const part of (q.get("mockThumbErr") ?? "").split(",")) {
+      const [id, code] = part.split(":");
+      if (Number.isInteger(Number(id)) && (THUMB_ERROR_CODES as readonly string[]).includes(code)) errs[Number(id)] = code as ThumbErrorCode;
+    }
+    if (Object.keys(errs).length > 0) out.thumbErrors = errs;
+    const d = q.get("mockThumbDelay");
+    if (d !== null && Number.isFinite(Number(d))) out.thumbDelayMs = Number(d);
+  }
+  return out;
 }
 
 /** Appens bridge: Tauri når tilgjengelig, ellers MockBridge (dev/test). */

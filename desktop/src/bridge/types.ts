@@ -103,7 +103,8 @@ export type Decision = "trash" | "keep";
 export type BridgeErrorCode =
   | "ack_required" | "unknown_card" | "unknown_asset" | "nothing_to_undo" | "not_undoable"
   | "already_purged" | "purge_stale" | "plan_stale" | "not_trashed" | "core_error"
-  | "bad_request" | "unsupported" | "cloud_synced_readonly";
+  | "bad_request" | "unsupported" | "cloud_synced_readonly"
+  | ThumbErrorCode;
 
 export interface BridgeError {
   code: BridgeErrorCode | string;
@@ -140,4 +141,25 @@ export interface UpdateCheck {
   version?: string;
   notes?: string;
   date?: string;
+}
+
+// ---- Miniatyrer (M12). Egen blokk nederst for enkel sammenslåing. ----
+
+/** Feilkoder fra `get_thumbnail` (speiler ErrorDto.code). `unavailable` = ingen kodek / ikke lokal fil. Skyplassholdere leses aldri. */
+export type ThumbErrorCode = "unavailable" | "cloud_placeholder" | "corrupt" | "not_found" | "no_library";
+export const THUMB_ERROR_CODES: readonly ThumbErrorCode[] = ["unavailable", "cloud_placeholder", "corrupt", "not_found", "no_library"];
+
+/** Miniatyr klar til visning. `url` er en `data:`-URL (CSP: img-src 'self' data:). Bildedata forlater aldri maskinen. */
+export interface Thumbnail {
+  url: string;
+  width: number;
+  height: number;
+}
+
+/** Svar fra skallet (camelCase). `data` er base64 uten `data:`-prefiks. Speiler ThumbDto. */
+export interface ThumbDto {
+  mime: string;
+  data: string;
+  width: number;
+  height: number;
 }

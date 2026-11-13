@@ -316,4 +316,9 @@ export const en: Readonly<Record<MessageKey, string>> = {
   "cloud.caveat": "We recognise sync folders by name. If your sync folder is named something else, we can't tell.",
   "cloud.key.blocked": "The trash key does nothing here: the folder syncs with a cloud service. Use «Keep» or «Skip».",
   "cloud.error.blocked": "Nothing was moved: the folder syncs with a cloud service.",
+  "thumb.error.unavailable": "Can't show this format yet",
+  "thumb.error.cloud_placeholder": "Not downloaded from the cloud",
+  "thumb.error.corrupt": "The file looks damaged",
+  "thumb.error.not_found": "Can't find the file",
+  "thumb.error.no_library": "Choose a folder first",
 };

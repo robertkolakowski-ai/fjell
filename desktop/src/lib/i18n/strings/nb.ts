@@ -316,4 +316,9 @@ export const nb: Readonly<Record<MessageKey, string>> = {
   "cloud.caveat": "Vi kjenner igjen synkmapper på navnet. Heter synkmappen noe annet, kan vi ikke se det.",
   "cloud.key.blocked": "Papirkurv-tasten gjør ingenting her: mappen synkroniseres med en skytjeneste. Bruk «Behold» eller «Hopp over».",
   "cloud.error.blocked": "Ingenting ble flyttet: mappen synkroniseres med en skytjeneste.",
+  "thumb.error.unavailable": "Kan ikke vise dette formatet ennå",
+  "thumb.error.cloud_placeholder": "Ikke lastet ned fra skyen",
+  "thumb.error.corrupt": "Filen ser ødelagt ut",
+  "thumb.error.not_found": "Finner ikke filen",
+  "thumb.error.no_library": "Velg en mappe først",
 };

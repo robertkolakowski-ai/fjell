@@ -2,8 +2,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CoreBridge } from "./core-bridge";
 import type {
-  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, TrashedItem, UpdateCheck,
+  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, ThumbDto, Thumbnail, TrashedItem, UpdateCheck,
 } from "./types";
+import { thumbFromDto, thumbError } from "./thumbs";
 
 export type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 
@@ -173,5 +174,16 @@ export class TauriBridge implements CoreBridge {
   }
   setLanguage(language: string): Promise<string> {
     return this.call<string>("set_language", { language });
+  }
+
+  // ---- Miniatyrer (M12) ----
+  async getThumbnail(id: number): Promise<Thumbnail> {
+    let dto: ThumbDto;
+    try {
+      dto = await this.call<ThumbDto>("get_thumbnail", { id });
+    } catch (e) {
+      throw thumbError(e);
+    }
+    return thumbFromDto(dto);
   }
 }
