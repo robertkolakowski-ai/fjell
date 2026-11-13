@@ -928,8 +928,10 @@ dependencies = [
 name = "fjell-shell"
 version = "0.0.0"
 dependencies = [
+ "base64 0.23.1",
  "fjell-core",
  "fjell-fs",
+ "image",
  "serde",
  "serde_json",
 ]

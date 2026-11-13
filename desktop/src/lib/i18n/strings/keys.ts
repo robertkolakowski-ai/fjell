@@ -315,6 +315,11 @@ export interface MessageParams {
   "cloud.caveat": Record<never, never>;
   "cloud.key.blocked": Record<never, never>;
   "cloud.error.blocked": Record<never, never>;
+  "thumb.error.unavailable": Record<never, never>;
+  "thumb.error.cloud_placeholder": Record<never, never>;
+  "thumb.error.corrupt": Record<never, never>;
+  "thumb.error.not_found": Record<never, never>;
+  "thumb.error.no_library": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;

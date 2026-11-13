@@ -105,6 +105,12 @@ Kjente åpne funn (ikke skjult): funnet om `role=status` med ferdig tekst i `Rev
 - **Kalibreringsverktøy:** `fjell-cli calibrate` og `docs/mvp/KALIBRERING.md` er ferdige og testet på det syntetiske golden-korpuset. Verktøyet trenger et etikettert korpus av ekte foto for å si noe om presisjon, og HEIC/RAW kan ikke måles (kjernen dekoder bare JPEG og PNG). `ALGO_VER` er ikke frosset, og 12/5 mot 10/4 er ikke avgjort.
 - **Windows-sjekkliste:** `docs/mvp/WINDOWS-TEST.md` finnes (30 rader, ikke utført av noen).
 
+**Miniatyrer (M12, bygget, ikke committet; kun Linux/Chromium):**
+- **Bygget:** Tauri-kommandoen `get_thumbnail(id)` gir `ThumbDto` (JPEG kvalitet 80, base64, maks 256 px) fra `AssetSource::thumbnail`. UI viser bilder i Gruppe, Kortmodus, Gjennomgang og Papirkurv, med lazy lasting, skeleton og forklart feil per kode (`unavailable`, `cloud_placeholder`, `corrupt`, `not_found`, `no_library`). Skyplassholdere leses aldri. Papirkurv-rader leses fra karantenen.
+- **Målt:** fjell-shell 45/45 (5 nye), vitest 258/258, Playwright 97 bestått og 15 hoppet over (skjermbildespecer), axe 0 brudd, handling p95 under 100 ms mot MockBridge.
+- **Ikke verifisert:** `fjell-desktop` er ikke kompilert (mangler GTK), så `get_thumbnail` er aldri kjørt i Tauri. Ikke sett på Windows og ikke med ekte bilder; UI-testene viser bare mockens SVG-landskap. Ekte Windows-ytelse for dekoding er ikke målt.
+- **Avklart:** HEIC gir `unavailable` («Kan ikke vise dette formatet ennå») helt til WIC-dekoding er på plass. Skannlisten er avklart (kun lokale filer; plassholdere hoppes over).
+
 ## 4c. MVP-restanse
 
 | # | Punkt | Kategori | Hva som trengs |
@@ -118,7 +124,7 @@ Kjente åpne funn (ikke skjult): funnet om `role=status` med ferdig tekst i `Rev
 | 7 | Eldre indekser har utdaterte `blur_score` siden algoritmen endret seg før frysing | Delvis lukket | Reindeksering ved neste fulle skann er låst med test (aktive rader regnes om, papirkurv-rader og beslutninger bevares; hurtigskann reindekserer ikke). `ALGO_VER` er ikke frosset |
 | 8 | Brukbarhetstest (5 deltakere), onboarding ≤ 60 s målt på ekte maskin | Krever ekte bilder | Rekruttering og ekte bibliotek |
 | 9 | Kodesignering og SmartScreen (åpent spørsmål 11), installasjonsformat (12), Windows 10-støtte (13) | Krever beslutning | Produkteier. Anbefalinger står i del 6 (anbefalt, avventer produkteiers ja) |
-| 10 | Bibliotek med flere mapper (kjernen har ett), mappevelger-plugin, ekte pause, miniatyrer i Papirkurv, språkvalg lagret i skallet i stedet for `localStorage` | Krever beslutning | Avklar om dette er MVP eller kuttliste (del 5). Delvis: språk lagres nå i skallet (`shell.json`) med `localStorage` som reserve; Tauri-kommandoene og frontend-koblingen er skrevet og enhetstestet, men `fjell-desktop` er ikke kompilert og flyten er ikke sett i Tauri |
+| 10 | Bibliotek med flere mapper (kjernen har ett), mappevelger-plugin, ekte pause, miniatyrer i Papirkurv (bygget i M12, se 4b; ikke sett på Windows eller med ekte bilder), språkvalg lagret i skallet i stedet for `localStorage` | Krever beslutning | Avklar om dette er MVP eller kuttliste (del 5). Delvis: språk lagres nå i skallet (`shell.json`) med `localStorage` som reserve; Tauri-kommandoene og frontend-koblingen er skrevet og enhetstestet, men `fjell-desktop` er ikke kompilert og flyten er ikke sett i Tauri |
 | 11 | Prisene i `RELEASE.md` er veiledende; åpne spørsmål 5–17 | Krever beslutning | Produkteier |
 | 12 | Tauri-skallet må kalle `FsSource::with_known_ids` (T11) og koble `thumbcache` inn i `FsSource` | Ikke verifisert | Koblet og testet på Linux (fjell-fs og fjell-shell, mutasjonssjekket). Windows-test gjenstår |
 | 13 | `just bench` og Playwright er ikke koblet på CI; Playwright kjørt bare i system-Chrome på Linux | Ikke verifisert | `nightly.yml` (bench på ubuntu og windows, hele Playwright, cargo check for `fjell-desktop`) er skrevet; ingen av jobbene er kjørt i GitHub. Playwright er målt grønt lokalt i Chrome på Linux |

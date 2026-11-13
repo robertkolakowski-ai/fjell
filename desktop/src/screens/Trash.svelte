@@ -9,6 +9,7 @@
   import { useBridge } from "../context";
   import { Banner, Button, Card, Icon, LiveRegion, PageHeader, StatTile } from "../lib";
   import "./sheet.css";
+  import Thumb from "../lib/components/Thumb.svelte";
   import { fmt, tr } from "../lib/i18n";
   import { TrashSession } from "./trashFlow";
   import { daysLeft, hasExpired, initialTrash, sectionsOf, type PurgeOutcome, type TrashSectionId, type TrashState } from "./trashState";
@@ -136,7 +137,7 @@
                     <input type="checkbox" checked={view.selected.has(it.asset)} disabled={!canRestore}
                       aria-label={$tr("restore.row.select", { name: it.name })}
                       onchange={() => session.send({ type: "toggle", asset: it.asset })} />
-                    <span class="thumb" aria-hidden="true"></span>
+                    <span class="thumb" aria-hidden="true"><Thumb id={it.asset} size="sm" /></span>
                     <span class="name">{it.name}</span>
                     <span class="meta size">{fmt.bytes(it.bytes)}</span>
                     <span class="meta moved">{$tr("trash.row.moved", { date: fmt.date(it.trashedAt * 1000) })}</span>
@@ -220,7 +221,7 @@
   .items li + li { border-block-start: var(--border-width) solid var(--c-border-subtle); }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-4); min-block-size: var(--target-min); cursor: pointer; }
   .row:hover { background: var(--c-surface-hover); }
-  .thumb { flex: none; inline-size: 2.5rem; block-size: 2rem; border-radius: var(--radius-sm); border: var(--border-width) solid var(--c-border-subtle); background: repeating-linear-gradient(45deg, var(--c-surface-sunken), var(--c-surface-sunken) 5px, var(--c-border) 5px, var(--c-border) 6px); }
+  .thumb { flex: none; overflow: hidden; inline-size: 2.5rem; block-size: 2rem; border-radius: var(--radius-sm); border: var(--border-width) solid var(--c-border-subtle); background: repeating-linear-gradient(45deg, var(--c-surface-sunken), var(--c-surface-sunken) 5px, var(--c-border) 5px, var(--c-border) 6px); }
   .name { flex: 1 1 10rem; min-inline-size: 0; font-weight: var(--fw-medium); overflow-wrap: anywhere; }
   .meta { color: var(--c-text-muted); font-size: var(--fs-sm); font-variant-numeric: var(--num); }
   .size { min-inline-size: 4.5rem; text-align: end; }

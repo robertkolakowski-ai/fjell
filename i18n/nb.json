@@ -312,5 +312,10 @@
   "cloud.tip": {"t": "Tips: bruk en lokal kopi av mappen, eller eksporter bildene til en vanlig mappe, og rydd der.", "ctx": "Tips i skyadvarselen"},
   "cloud.caveat": {"t": "Vi kjenner igjen synkmapper på navnet. Heter synkmappen noe annet, kan vi ikke se det.", "ctx": "Ærlig forbehold i skyadvarselen: deteksjonen er et sikkerhetsnett, ikke en garanti"},
   "cloud.key.blocked": {"t": "Papirkurv-tasten gjør ingenting her: mappen synkroniseres med en skytjeneste. Bruk «Behold» eller «Hopp over».", "ctx": "Annonseres og vises når brukeren trykker papirkurv-tasten eller dytter kortet opp i en skysynket mappe"},
-  "cloud.error.blocked": {"t": "Ingenting ble flyttet: mappen synkroniseres med en skytjeneste.", "ctx": "Feilmelding når skallet svarer cloud_synced_readonly på papirkurv-valg"}
+  "cloud.error.blocked": {"t": "Ingenting ble flyttet: mappen synkroniseres med en skytjeneste.", "ctx": "Feilmelding når skallet svarer cloud_synced_readonly på papirkurv-valg"},
+  "thumb.error.unavailable": {"t": "Kan ikke vise dette formatet ennå", "ctx": "Forklaring i bildeflis når miniatyr ikke kan lages (format uten støtte)"},
+  "thumb.error.cloud_placeholder": {"t": "Ikke lastet ned fra skyen", "ctx": "Forklaring i bildeflis: filen er bare en skyplassholder og leses aldri"},
+  "thumb.error.corrupt": {"t": "Filen ser ødelagt ut", "ctx": "Forklaring i bildeflis når bildefilen ikke kan leses"},
+  "thumb.error.not_found": {"t": "Finner ikke filen", "ctx": "Forklaring i bildeflis når filen er borte fra mappen"},
+  "thumb.error.no_library": {"t": "Velg en mappe først", "ctx": "Forklaring i bildeflis når ingen mappe er valgt"}
 }

@@ -4,7 +4,7 @@
 //! Grensesnitt: `run()` (kalles fra `main.rs`). Kommandoer: `get_state`, `start_scan`,
 //! `cancel_scan`, `list_cards`, `decide_cards`, `set_keeper`, `undo`, `trash_summary`,
 //! `empty_trash`, `set_library`, `get_library`, `pause_scan`, `resume_scan`, `list_trashed`,
-//! `restore_trashed`, `restore_all_trashed`, `get_settings`, `set_trash_days`, `get_first_run`,
+//! `restore_trashed`, `restore_all_trashed`, `get_thumbnail`, `get_settings`, `set_trash_days`, `get_first_run`,
 //! `complete_onboarding`, `get_auto_update`, `set_auto_update`, `get_language`, `set_language`. Plugins: `dialog` (mappevalg),
 //! `updater` (bare skrivebord) og `process` (omstart etter oppdatering); sjekk/installasjon kalles fra frontend. Ingen logikk her; ingen sletting utenom
 //! `Shell::empty` (Papirkurv som standard, beslutning 17).
@@ -17,7 +17,7 @@
 
 use fjell_shell::dto::{
     CardPageDto, DecisionDto, EmptyDto, ErrorDto, PermanentAckDto, RestoreDto, SettingsDto,
-    StateDto, TrashSummaryDto, TrashedDto,
+    StateDto, ThumbDto, TrashSummaryDto, TrashedDto,
 };
 use fjell_shell::{default_recycle_bin, Shell};
 use std::sync::Arc;
@@ -138,6 +138,16 @@ async fn restore_all_trashed(shell: State<'_, Arc<Shell>>) -> Res<RestoreDto> {
         .map_err(|e| ErrorDto::new("internal", e.to_string()))?
 }
 
+/// Miniatyr for `AssetId` (`CardDto.asset`/`TrashedDto.asset`, ikke kort-id). Dekoding kjører i
+/// `spawn_blocking`, så hovedtråden og angre/trash aldri venter på den.
+#[tauri::command]
+async fn get_thumbnail(shell: State<'_, Arc<Shell>>, id: u64) -> Res<ThumbDto> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.thumbnail(id))
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
+}
+
 #[tauri::command]
 async fn get_settings(shell: State<'_, Arc<Shell>>) -> Res<SettingsDto> {
     shell.settings()
@@ -208,6 +218,7 @@ pub fn run() {
             list_trashed,
             restore_trashed,
             restore_all_trashed,
+            get_thumbnail,
             get_settings,
             set_trash_days,
             get_first_run,

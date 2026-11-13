@@ -316,4 +316,9 @@ export const pseudo: Readonly<Record<MessageKey, string>> = {
   "cloud.caveat": "[Vi kjænnær igjæn synkmåppær på nåvnæt. Hætær synkmåppæn nøæ ånnæt, kån vi ikkæ sæ dæt.··························]",
   "cloud.key.blocked": "[Påpirkürv-tåstæn gjør ingænting hær: måppæn synkrønisæræs mæd æn skytjænæstæ. Brük «Bæhøld» ællær «Høpp øvær».·································]",
   "cloud.error.blocked": "[Ingænting blæ flyttæt: måppæn synkrønisæræs mæd æn skytjænæstæ.···················]",
+  "thumb.error.unavailable": "[Kån ikkæ visæ dættæ førmåtæt ænnå··········]",
+  "thumb.error.cloud_placeholder": "[Ikkæ låstæt næd frå skyæn········]",
+  "thumb.error.corrupt": "[Filæn sær ødælågt üt······]",
+  "thumb.error.not_found": "[Finnær ikkæ filæn······]",
+  "thumb.error.no_library": "[Vælg æn måppæ først······]",
 };

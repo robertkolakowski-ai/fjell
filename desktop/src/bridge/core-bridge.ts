@@ -1,6 +1,6 @@
 // CoreBridge: felles grensesnitt for Tauri og mock. All UI går via dette (ingen direkte invoke).
 import type {
-  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, TrashedItem, UpdateCheck,
+  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, Thumbnail, TrashedItem, UpdateCheck,
 } from "./types";
 
 export interface CoreBridge {
@@ -59,4 +59,8 @@ export interface CoreBridge {
   getLanguage(): Promise<string | null>;
   /** Lagrer språkvalget i skallet. Returnerer lagret verdi. «pseudo» avvises av skallet. */
   setLanguage(language: string): Promise<string>;
+
+  // ---- Miniatyrer (M12) ----
+  /** Miniatyr (256 px lengste side) for et bilde. `id` er `asset` på kort og Papirkurv-rader (AssetId). Avvises med en `ThumbErrorCode`. Cache, kø og avbryting ligger i `thumbs.ts`, ikke her. */
+  getThumbnail(id: number): Promise<Thumbnail>;
 }

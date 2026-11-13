@@ -3,11 +3,15 @@
      Maks 2 merker. «Beste» er eget merke med tekst. Ingen kobling til bridge: src, tekster og tilstand kommer inn som props. -->
 <script lang="ts">
   import Badge from "./Badge.svelte";
+  import { tr } from "../i18n";
+  import Thumb from "./Thumb.svelte";
 
   interface Props {
     /** Full tilgjengelig etikett, f.eks. «Bilde 3 av 12. Tatt 14. juli 2025. 3,2 MB. Uskarpt 82 %.» */
     label: string;
     src?: string;
+    /** Bilde-id (`asset`): viser miniatyr via bridge (lazy, med skeleton og forklart feil). Har `src` forrang. */
+    thumbId?: number;
     selected?: boolean;
     /** Hindrer valg (f.eks. keeper, beskyttet bilde). Tilstanden er synlig som tekst via lockedLabel. */
     disabled?: boolean;
@@ -17,12 +21,16 @@
     /** Tekst for «Beste»-markering, f.eks. «Beste». */
     bestLabel?: string;
   }
-  let { label, src, selected = false, disabled = false, onToggle, badges = [], bestLabel }: Props = $props();
+  let { label, src, thumbId, selected = false, disabled = false, onToggle, badges = [], bestLabel }: Props = $props();
+  let thumbErr: string | null = $state(null);
+  const KNOWN = ["unavailable", "cloud_placeholder", "corrupt", "not_found", "no_library"];
+  /** Forklaringen tegnes som generert innhold i flisen (ikke tekstnode, ellers krever WCAG 2.5.3 at hele den synlige teksten står i navnet i riktig rekkefølge); navnet bærer den for hjelpemidler. */
+  const explainErr = (code: string): string => $tr(`thumb.error.${KNOWN.includes(code) ? code : "unavailable"}` as "thumb.error.unavailable");
 </script>
 
-<button class="tile" class:selected type="button" aria-pressed={selected} aria-label={label} {disabled} onclick={() => onToggle?.(!selected)}>
+<button class="tile" class:selected type="button" aria-pressed={selected} aria-label={thumbErr ? `${label} ${explainErr(thumbErr)}` : label} {disabled} onclick={() => onToggle?.(!selected)}>
   <span class="img">
-    {#if src}<img {src} alt="" loading="lazy" decoding="async" />{:else}<span class="ph" aria-hidden="true"></span>{/if}
+    {#if src}<img {src} alt="" loading="lazy" decoding="async" />{:else if thumbId !== undefined}<Thumb id={thumbId} generated onerror={(c) => (thumbErr = c)} />{:else}<span class="ph" aria-hidden="true"></span>{/if}
     {#if selected}
       <svg class="check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="11" /><path d="M6.5 12.5l3.8 3.8 7.2-7.6" /></svg>
     {/if}

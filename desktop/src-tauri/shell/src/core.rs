@@ -11,11 +11,14 @@
 //! - Rekkefølge: indeksen først, filflytting etterpå. Brudd midt imellom rettes av `reconcile`.
 
 use crate::dto::{EmptyDto, ErrorDto, PermanentAckDto, RestoreDto, TrashedDto};
+use crate::thumb;
 use fjell_core::api::{Fjell, FjellApi};
 use fjell_core::model::{
-    AssetId, AssetSource, BatchId, Clock, ConsequenceCode, DeleteOutcome, SourceId, State,
+    AssetId, AssetSource, BatchId, Clock, ConsequenceCode, DeleteOutcome, SourceId, State, Thumb,
 };
 use fjell_core::store::Store;
+use fjell_fs::locality::LocalProbe;
+use fjell_fs::path::{os_path, resolve};
 use fjell_fs::{
     DeleteMode, DeleteResult, FsDeleter, FsQuarantine, PermanentAck, Quarantine, RecycleBin,
 };
@@ -26,6 +29,9 @@ pub(crate) struct Core {
     pub fjell: Arc<Fjell>,
     pub library: PathBuf,
     quarantine: Arc<FsQuarantine>,
+    source: Arc<dyn AssetSource>,
+    /// Samme sjekk som kilden bruker for skyplassholdere; brukes bare på metadata (aldri innhold).
+    probe: LocalProbe,
 }
 
 /// Siste sti-ledd (Windows- og Unix-skille). Aldri hele stien til frontend.
@@ -37,17 +43,23 @@ fn file_name(source: &str) -> String {
         .to_string()
 }
 
+fn not_found() -> ErrorDto {
+    ErrorDto::new("not_found", "")
+}
+
 fn internal(e: impl std::fmt::Display) -> ErrorDto {
     ErrorDto::new("internal", e.to_string())
 }
 
 impl Core {
-    /// Åpner indeksen på `db` (må ligge utenfor biblioteket) og avstemmer karantenen.
-    pub fn open(
+    /// Åpner indeksen på `db` (må ligge utenfor biblioteket) og avstemmer karantenen. `probe` er
+    /// plassholdersjekken (standard i produksjon; injiseres i tester på ikke-Windows).
+    pub fn open_with_probe(
         library: &Path,
         db: &Path,
         source: Arc<dyn AssetSource>,
         clock: Arc<dyn Clock>,
+        probe: LocalProbe,
     ) -> Result<Core, ErrorDto> {
         if !library.is_dir() {
             return Err(ErrorDto::new("not_a_folder", library.display().to_string()));
@@ -59,9 +71,11 @@ impl Core {
         }
         let store = Store::open(db).map_err(internal)?;
         let core = Core {
-            fjell: Arc::new(Fjell::new(store, source, clock)),
+            fjell: Arc::new(Fjell::new(store, source.clone(), clock)),
             library: library.to_path_buf(),
             quarantine: Arc::new(FsQuarantine::in_library(library)),
+            source,
+            probe,
         };
         core.reconcile();
         Ok(core)
@@ -134,6 +148,59 @@ impl Core {
             .collect();
         out.sort_by_key(|t| (t.trashed_at, t.asset));
         out
+    }
+
+    /// Miniatyr for ett bilde (`id` = `AssetId`, det samme som `CardDto.asset`/`TrashedDto.asset`).
+    ///
+    /// Id-oversettelse: UI-ets kort-id (`CardDto.id`, `CardId`) er IKKE en `AssetId`; UI sender
+    /// `card.asset` (og `card.keeper`). Papirkurvrader bruker `TrashedDto.asset` direkte.
+    /// Papirkurv: miniatyrbufferen er nøklet på (rot, kilde-sti, mtime, størrelse) og treffer ikke
+    /// etter flytting til karantene, så trashede bilder leses fra karantenens lagrede sti
+    /// (`FsQuarantine::locate`) og dekodes uten buffer. Ikke flyttet (annet volum) leses fra
+    /// originalstien via kilden. Låsen på kjernen holdes bare under indeksoppslaget, aldri under
+    /// filtilgang eller dekoding, så angre/trash blokkeres ikke. Skyplassholdere leses aldri:
+    /// bare metadata sjekkes. Originalfiler åpnes bare for lesing.
+    pub fn thumbnail(&self, id: AssetId) -> Result<Thumb, ErrorDto> {
+        let (row, src) = self
+            .fjell
+            .with_store(|s| (s.asset_row(id), s.source_ids(&[id])));
+        let row = row.map_err(internal)?.ok_or_else(not_found)?;
+        let sid = src
+            .map_err(internal)?
+            .into_iter()
+            .next()
+            .map(|(_, s)| s)
+            .ok_or_else(not_found)?;
+        match row.state {
+            State::Active => self.thumb_original(&sid),
+            State::Trashed => match self.quarantine.locate(id) {
+                Some(p) => {
+                    self.check_local(&p)?;
+                    fjell_fs::thumb::make_thumb(&os_path(&p)).map_err(thumb::map_error)
+                }
+                None => self.thumb_original(&sid),
+            },
+            State::Purged => Err(not_found()),
+        }
+    }
+
+    fn thumb_original(&self, sid: &SourceId) -> Result<Thumb, ErrorDto> {
+        let p = resolve(&self.library, sid).map_err(thumb::map_error)?;
+        self.check_local(&p)?;
+        self.source.thumbnail(sid).map_err(thumb::map_error)
+    }
+
+    /// `not_found`/`cloud_placeholder` fra metadata alene.
+    fn check_local(&self, p: &Path) -> Result<(), ErrorDto> {
+        let md = std::fs::metadata(os_path(p)).map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => not_found(),
+            _ => ErrorDto::new("unavailable", e.to_string()),
+        })?;
+        if (self.probe)(p, &md) {
+            Ok(())
+        } else {
+            Err(ErrorDto::new("cloud_placeholder", ""))
+        }
     }
 
     /// Gjenoppretter `ids` (bare de som ligger i «Nylig slettet» telles). Indeksen først, så flyttes

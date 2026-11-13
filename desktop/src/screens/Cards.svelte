@@ -7,6 +7,7 @@
   import type { Card, KindCode } from "../bridge/types";
   import { useBridge } from "../context";
   import { Badge, Banner, Button, Card as UiCard, CloudWarning, LiveRegion, PageHeader } from "../lib";
+  import Thumb from "../lib/components/Thumb.svelte";
   import { fmt, reasonLabel, tr as tx } from "../lib/i18n";
   import { formatHash } from "../router";
   import { cloudFromError, loadCloud } from "./cloud";
@@ -173,7 +174,7 @@
             <div class="card back" style:--depth={behind.length - i} aria-hidden="true"></div>
           {/each}
           <div class="card front" style:transform={drag ? `translate(${drag.dx}px, ${drag.dy}px)` : undefined}>
-            <span class="ph" aria-hidden="true"></span>
+            <span class="ph" aria-hidden="true"><Thumb id={top.asset} fit="contain" /></span>
             <p class="meta">
               <Badge label={reasonLabel(reasonSnake(top.reason), { pct: fmt.percent(top.confidence) })} />
               <span class="muted size">{fmt.bytes(top.bytes)}</span>
@@ -238,7 +239,7 @@
   .card { grid-area: 1 / 1; border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); background: var(--c-surface); box-shadow: var(--shadow-pop); }
   .back { transform: translateY(calc(var(--depth) * 0.5rem)) scale(calc(1 - var(--depth) * 0.03)); background: var(--c-surface-sunken); box-shadow: none; border-color: var(--c-border); }
   .front { position: relative; display: flex; flex-direction: column; padding: var(--space-3); gap: var(--space-3); }
-  .ph { flex: 1; min-block-size: 14rem; border-radius: var(--radius-md); background: var(--c-surface-sunken); }
+  .ph { display: block; position: relative; overflow: hidden; flex: 1; min-block-size: 14rem; border-radius: var(--radius-md); background: var(--c-surface-sunken); }
   .meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); margin: 0; }
   .size { font-variant-numeric: var(--num); }
   .overlay { position: absolute; inset-block-start: var(--space-3); inset-inline-start: var(--space-3); padding: var(--space-2) var(--space-3); border: 3px dashed var(--c-border-strong); border-radius: var(--radius-md); background: var(--c-surface); color: var(--c-text); font-weight: var(--fw-semibold); }

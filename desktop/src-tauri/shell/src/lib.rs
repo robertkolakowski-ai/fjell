@@ -17,11 +17,14 @@ pub mod dto;
 mod tests;
 #[cfg(test)]
 mod tests_core;
+#[cfg(test)]
+mod tests_thumb;
+mod thumb;
 
 use crate::core::Core;
 use dto::{
     parse_consequence, parse_kind, CardPageDto, DecisionDto, EmptyDto, ErrorDto, PermanentAckDto,
-    RestoreDto, SettingsDto, StateDto, TrashSummaryDto, TrashedDto,
+    RestoreDto, SettingsDto, StateDto, ThumbDto, TrashSummaryDto, TrashedDto,
 };
 use fjell_core::api::{
     Card, CardCursor, Decision, FjellApi, HomeSummary, KindSummary, MemApi, ScanConfig, ScanMode,
@@ -170,6 +173,15 @@ impl Shell {
         lib: &Path,
         source: Arc<dyn AssetSource>,
     ) -> Result<(), ErrorDto> {
+        self.open_library_probe(lib, source, fjell_fs::locality::default_probe())
+    }
+
+    pub(crate) fn open_library_probe(
+        &self,
+        lib: &Path,
+        source: Arc<dyn AssetSource>,
+        probe: fjell_fs::locality::LocalProbe,
+    ) -> Result<(), ErrorDto> {
         let dir = self
             .data_dir
             .as_ref()
@@ -182,11 +194,12 @@ impl Shell {
                 format!("kan ikke opprette {}: {e}", dir.display()),
             )
         })?;
-        let core = Core::open(
+        let core = Core::open_with_probe(
             &lib,
             &config::db_path(dir, &lib),
             source,
             self.clock.clone(),
+            probe,
         )?;
         let mut g = self.inner.write().unwrap_or_else(|e| e.into_inner());
         if let Inner::Core(old) = &*g {
@@ -379,6 +392,15 @@ impl Shell {
 
     pub fn restore_all(&self) -> Result<RestoreDto, ErrorDto> {
         self.core()?.restore_all()
+    }
+
+    /// Miniatyr (JPEG, base64) for `AssetId` (`CardDto.asset`/`TrashedDto.asset`). Kjører uten lås
+    /// på skallet under dekoding. Mock-modus gir en deterministisk liten JPEG.
+    pub fn thumbnail(&self, id: u64) -> Result<ThumbDto, ErrorDto> {
+        match self.parts()? {
+            (_, Some(core)) => thumb::encode(&core.thumbnail(AssetId(id))?),
+            _ => thumb::mock(id),
+        }
     }
 
     fn core(&self) -> Result<Arc<Core>, ErrorDto> {

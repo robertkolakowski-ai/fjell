@@ -4,7 +4,7 @@ import type { CoreBridge } from "./core-bridge";
 import {
   KIND_CODES, type AppState, type BridgeError, type Card, type CardPage, type Decision,
   type AppSettings, type EmptyResult, type KindCode, type PermanentAck, type ReasonCode, type RestoreResult,
-  type ScanPhase, type TrashedItem, type UpdateCheck,
+  type ScanPhase, type Thumbnail, type ThumbErrorCode, type TrashedItem, type UpdateCheck,
 } from "./types";
 
 export interface MockOptions {
@@ -31,6 +31,37 @@ export interface MockOptions {
   pick?: string | null;
   /** Lagret språkvalg i «skallet» (system, nb, en). Standard null = aldri valgt (frontend migrerer localStorage). */
   language?: string | null;
+  /** Miniatyrfeil per bilde-id (`asset`), f.eks. `{ 3: "corrupt" }`. Andre id-er gir et deterministisk SVG-bilde. */
+  thumbErrors?: Record<number, ThumbErrorCode>;
+  /** Simulert ventetid per miniatyr i ms. Standard: 40 når `delayMs` > 0, ellers 0 (e2e og ytelsesmåling). */
+  thumbDelayMs?: number;
+}
+
+/** Deterministisk, fotolignende SVG (himmelgradient, sol, to fjellrygger) varianter på id. Hver femte er stående. */
+export function mockThumbSvg(id: number): Thumbnail {
+  let h = (Math.imul(id | 0, 2654435761) ^ 0x9e3779b9) >>> 0;
+  const rnd = (): number => { h = (Math.imul(h ^ (h >>> 15), 2246822519) + 0x7f4a7c15) >>> 0; return h / 4294967296; };
+  const portrait = id % 5 === 0;
+  const w = portrait ? 192 : 256;
+  const hgt = portrait ? 256 : 192;
+  const hue = Math.floor(rnd() * 360);
+  const sunX = Math.round(w * (0.15 + rnd() * 0.7));
+  const sunY = Math.round(hgt * (0.18 + rnd() * 0.25));
+  const ridge = (base: number, amp: number): string => {
+    const pts = [`0,${hgt}`];
+    const n = 5 + Math.floor(rnd() * 3);
+    for (let i = 0; i <= n; i++) pts.push(`${Math.round((w * i) / n)},${Math.round(hgt * base - rnd() * amp * hgt)}`);
+    pts.push(`${w},${hgt}`);
+    return pts.join(" ");
+  };
+  const far = ridge(0.68, 0.3);
+  const near = ridge(0.85, 0.22);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hgt}" viewBox="0 0 ${w} ${hgt}">`
+    + `<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="hsl(${hue},55%,38%)"/>`
+    + `<stop offset="1" stop-color="hsl(${(hue + 40) % 360},70%,78%)"/></linearGradient></defs>`
+    + `<rect width="${w}" height="${hgt}" fill="url(#s)"/><circle cx="${sunX}" cy="${sunY}" r="${Math.round(w * 0.07)}" fill="hsl(${(hue + 50) % 360},90%,90%)"/>`
+    + `<polygon points="${far}" fill="hsl(${hue},25%,32%)"/><polygon points="${near}" fill="hsl(${hue},30%,16%)"/></svg>`;
+  return { url: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`, width: w, height: hgt };
 }
 
 export type MockUpdate = "none" | "available" | "error" | "slow";
@@ -86,6 +117,8 @@ export class MockBridge implements CoreBridge {
   private readonly update: MockUpdate;
   private auto: boolean;
   private language: string | null;
+  private readonly thumbErrors: Record<number, ThumbErrorCode>;
+  private readonly thumbDelayMs: number;
   private pollsLeft = 0;
   private paused = false;
   /** Sekunder siden epoch når bildet (`asset`) ble flyttet til «Nylig slettet». */
@@ -108,6 +141,8 @@ export class MockBridge implements CoreBridge {
     this.update = opts.update ?? "none";
     this.auto = opts.autoUpdate ?? false;
     this.language = opts.language ?? null;
+    this.thumbErrors = opts.thumbErrors ?? {};
+    this.thumbDelayMs = opts.thumbDelayMs ?? (this.delayMs > 0 ? 40 : 0);
   }
 
 
@@ -236,6 +271,15 @@ export class MockBridge implements CoreBridge {
         return { asset: c.asset, name: `IMG_${String(c.asset).padStart(4, "0")}.jpg`, bytes: c.bytes, trashedAt, expiresAt, expired: expiresAt <= nowS };
       })
       .sort((a, b) => a.trashedAt - b.trashedAt || a.asset - b.asset);
+  }
+
+  async getThumbnail(id: number): Promise<Thumbnail> {
+    if (this.thumbDelayMs > 0) await new Promise((r) => setTimeout(r, this.thumbDelayMs));
+    if (this.library === null) throw err("no_library");
+    const code = this.thumbErrors[id];
+    if (code) throw err(code, `mock: ${code}`);
+    if (!Number.isInteger(id) || id <= 0) throw err("not_found");
+    return mockThumbSvg(id);
   }
 
   async listTrashed(): Promise<TrashedItem[]> {
