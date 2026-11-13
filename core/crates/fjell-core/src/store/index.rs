@@ -5,7 +5,7 @@
 //! - `upsert_assets(&[AssetMeta]) -> UpsertStats`: transaksjoner på 500 rader. Uendret rad skrives
 //!   ikke. Endret `mod_token` nullstiller fingeravtrykket (raden beholdes, `algo_ver = 0`). `state`,
 //!   `trashed_at` og `expires_at` røres aldri (I13). Purgede rader røres ikke (terminal).
-//! - `hash_rows()` (aktive, lokale, ikke video) og `put_content_hashes(..)` for rask fase.
+//! - `hash_rows()` (aktive, lokale, også video) og `put_content_hashes(..)` for rask fase.
 //! - `begin_scan(algo)`: nullstiller `fail_count` når algoritmeversjonen har økt.
 //! - `work_set(algo)`: aktive lokale bilder uten fingeravtrykk eller med `algo_ver < algo`, og med
 //!   `fail_count < 3`. `put_fingerprints(..)` (én transaksjon per kall), `record_failures(..)`.
@@ -302,12 +302,14 @@ impl Store {
         Ok(())
     }
 
-    /// Aktive, lokale bilder (ikke video) for størrelsesforfilteret.
+    /// Aktive, lokale filer for størrelsesforfilteret. Video er med: en fil hashes bare når en annen
+    /// har nøyaktig samme størrelse, og bytelik video er et like trygt eksakt duplikat som et bilde.
+    /// (Full fase, `work_set`, tar aldri video: ingen dekoding, ingen visuell sammenligning.)
     pub fn hash_rows(&self) -> Result<Vec<HashRow>, StoreError> {
         let mut st = self.conn.prepare_cached(
             "SELECT a.id, a.source_id, a.bytes, f.content_hash IS NOT NULL FROM asset a \
              LEFT JOIN fingerprint f ON f.asset_id = a.id \
-             WHERE a.state = 0 AND a.is_local = 1 AND a.kind != 'video' ORDER BY a.id",
+             WHERE a.state = 0 AND a.is_local = 1 ORDER BY a.id",
         )?;
         let rows = st.query_map([], |r| {
             Ok(HashRow {

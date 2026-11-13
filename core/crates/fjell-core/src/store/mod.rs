@@ -28,6 +28,7 @@ mod ops_tests;
 #[cfg(test)]
 mod perf_tests;
 mod reconcile;
+mod rules;
 mod verify;
 
 use rusqlite::{Connection, OpenFlags};
@@ -41,6 +42,7 @@ pub use index::{
 pub use migrate::{migrate_to, MIGRATIONS};
 pub use ops::{BatchSpec, Cause, RowOp, UndoResult};
 pub use ops_read::{AssetRow, PendingSuggestion};
+pub use rules::{rule_groups_on, setting_on, source_ids_on, RuleGroupRow, KEEPER_RULES_KEY};
 
 /// Feil fra lagringslaget.
 #[derive(Debug)]
@@ -113,6 +115,11 @@ impl Store {
     /// Skrivetilkoblingen (kun brukt fra denne modulen og tester).
     #[cfg(test)]
     pub(crate) fn conn(&self) -> &Connection {
+        &self.conn
+    }
+
+    /// Tilkoblingen til rene lesespørringer utenfor `store` (`storage`). Kallere skriver aldri via den.
+    pub(crate) fn read_conn(&self) -> &Connection {
         &self.conn
     }
 

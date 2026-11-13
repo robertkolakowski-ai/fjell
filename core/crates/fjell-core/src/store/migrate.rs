@@ -7,9 +7,11 @@ use super::StoreError;
 use rusqlite::Connection;
 
 /// Migreringene i rekkefølge. Legg nye filer til sist; endre aldri en utgitt migrering.
-pub const MIGRATIONS: [&str; 2] = [
+pub const MIGRATIONS: [&str; 4] = [
     include_str!("001_init.sql"),
     include_str!("002_keeper_reason.sql"),
+    include_str!("003_suggestion_grp_index.sql"),
+    include_str!("004_keeper_rule.sql"),
 ];
 
 /// Migrerer `conn` opp til `target` (1-basert, `0` = ingen). Gjør ingenting hvis versjonen allerede er nådd.

@@ -12,3 +12,8 @@ fjell-core = { path = "../../../core/crates/fjell-core" }
 fjell-fs = { path = "../../../core/crates/fjell-fs" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+base64 = "0.23"
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }

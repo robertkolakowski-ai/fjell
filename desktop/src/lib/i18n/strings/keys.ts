@@ -17,6 +17,8 @@ export interface MessageParams {
   "reason.shot_no_camera_exif": Record<never, never>;
   "reason.shot_png": Record<never, never>;
   "reason.blurry": { pct: string | number };
+  "trash.stat.count": Record<never, never>;
+  "trash.stat.size": Record<never, never>;
   "trash.freed.note": Record<never, never>;
   "app.name": Record<never, never>;
   "common.cancel": Record<never, never>;
@@ -54,6 +56,7 @@ export interface MessageParams {
   "onb.done.title": { count: number };
   "onb.done.body": { size: string | number };
   "onb.done.home": Record<never, never>;
+  "onb.step": { step: string | number; total: string | number };
   "home.title": Record<never, never>;
   "home.ring.label": { size: string | number; trash: string | number };
   "home.ring.trash": { size: string | number };
@@ -152,13 +155,18 @@ export interface MessageParams {
   "trash.purge.summary": { count: number; size: string | number };
   "trash.purge.mode.recycle": Record<never, never>;
   "trash.purge.mode.permanent": Record<never, never>;
-  "trash.purge.nobin": Record<never, never>;
   "trash.permanent.title": Record<never, never>;
   "trash.permanent.ack": Record<never, never>;
   "trash.permanent.go": { count: number };
   "trash.purged.recycle": Record<never, never>;
   "trash.purged.permanent": { size: string | number };
   "trash.purge.marked": { count: number };
+  "trash.unsupported.title": Record<never, never>;
+  "trash.unsupported.body": { count: number };
+  "trash.unsupported.options": Record<never, never>;
+  "trash.unsupported.keep": Record<never, never>;
+  "trash.unsupported.delete": Record<never, never>;
+  "trash.purged.kept": { count: number };
   "trash.history": { date: string | number; size: string | number };
   "trash.error.body": Record<never, never>;
   "consequence.protected_favorite": Record<never, never>;
@@ -208,6 +216,10 @@ export interface MessageParams {
   "home.folder.note": Record<never, never>;
   "home.folder.submit": Record<never, never>;
   "home.folder.error": Record<never, never>;
+  "home.folder.browse": Record<never, never>;
+  "home.folder.browse.title": Record<never, never>;
+  "home.folder.browse.unavailable": Record<never, never>;
+  "home.folder.browse.picked": { path: string | number };
   "home.folder.current": { path: string | number };
   "home.folder.none": Record<never, never>;
   "home.idle.body": Record<never, never>;
@@ -275,6 +287,39 @@ export interface MessageParams {
   "nav.review": Record<never, never>;
   "nav.trash": Record<never, never>;
   "nav.settings": Record<never, never>;
+  "update.title": Record<never, never>;
+  "update.version": { version: string | number };
+  "update.check": Record<never, never>;
+  "update.install": Record<never, never>;
+  "update.status.checking": Record<never, never>;
+  "update.status.none": Record<never, never>;
+  "update.status.available": { version: string | number };
+  "update.released": { date: string | number };
+  "update.notes.title": Record<never, never>;
+  "update.error.check": Record<never, never>;
+  "update.error.unsupported": Record<never, never>;
+  "update.status.installing": { version: string | number };
+  "update.progress.label": Record<never, never>;
+  "update.progress.known": { done: string | number; percent: string | number; total: string | number };
+  "update.progress.unknown": { done: string | number };
+  "update.status.restarting": Record<never, never>;
+  "update.error.install": Record<never, never>;
+  "update.blocked": Record<never, never>;
+  "update.auto.label": Record<never, never>;
+  "update.auto.note": Record<never, never>;
+  "update.auto.error": Record<never, never>;
+  "home.update.banner": { version: string | number };
+  "cloud.title": { provider: string };
+  "cloud.body": Record<never, never>;
+  "cloud.tip": Record<never, never>;
+  "cloud.caveat": Record<never, never>;
+  "cloud.key.blocked": Record<never, never>;
+  "cloud.error.blocked": Record<never, never>;
+  "thumb.error.unavailable": Record<never, never>;
+  "thumb.error.cloud_placeholder": Record<never, never>;
+  "thumb.error.corrupt": Record<never, never>;
+  "thumb.error.not_found": Record<never, never>;
+  "thumb.error.no_library": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;
@@ -295,6 +340,8 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "reason.shot_no_camera_exif",
   "reason.shot_png",
   "reason.blurry",
+  "trash.stat.count",
+  "trash.stat.size",
   "common.cancel",
   "common.continue",
   "common.close",
@@ -313,6 +360,7 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "onb.result.primary",
   "onb.result.review",
   "onb.done.home",
+  "onb.step",
   "home.title",
   "home.cat.exact_dup",
   "home.cat.visual_dup",
@@ -362,6 +410,8 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "trash.restore.all",
   "trash.empty.button",
   "trash.permanent.go",
+  "trash.unsupported.keep",
+  "trash.unsupported.delete",
   "folders.title",
   "settings.title",
   "setting.language",
@@ -370,6 +420,7 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "restore.selected",
   "home.folder.add",
   "home.folder.submit",
+  "home.folder.browse",
   "home.scan.start",
   "home.scan.resume",
   "home.scan.controls",
@@ -388,4 +439,8 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "nav.review",
   "nav.trash",
   "nav.settings",
+  "update.title",
+  "update.check",
+  "update.install",
+  "update.auto.label",
 ]);

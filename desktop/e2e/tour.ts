@@ -12,10 +12,10 @@ export async function tour(page: Page, visit: Visit, lang: Lang = "nb"): Promise
   const startBtn = lang === "en" ? "Get started" : "Kom i gang";
   await open(page, "#/onboarding", lang);
   await visit("onboarding-velkommen");
-  if (pseudo) await page.locator(".onb .row button").first().click();
+  if (pseudo) await page.locator(".onb > .row button").first().click();
   else await page.getByRole("button", { name: startBtn }).click();
   await visit("onboarding-mapper");
-  if (pseudo) await page.locator(".onb .row button").last().click(); // «Legg til mappe» er først, «Start skanning» sist
+  if (pseudo) await page.locator(".onb > .row button").last().click(); // «Legg til mappe» er først, «Start skanning» sist
   else await page.getByRole("button", { name: /Start skanning|Start scan/ }).click();
   if (pseudo) await page.locator("h1").filter({ hasText: /\d/ }).waitFor({ timeout: 15_000 });
   else await page.getByRole("button", { name: /^(Flytt|Move) \d+/ }).waitFor({ timeout: 15_000 });
@@ -58,7 +58,7 @@ export async function tour(page: Page, visit: Visit, lang: Lang = "nb"): Promise
   await page.locator("h1").first().waitFor();
   await page.waitForTimeout(150);
   await visit("papirkurv");
-  const purge = pseudo ? page.locator(".actions button:visible") : page.getByRole("button", { name: /Tøm papirkurv|Empty trash/ });
+  const purge = pseudo ? page.locator(".trash .ph .btn.danger") : page.getByRole("button", { name: /Tøm papirkurv|Empty trash/ });
   if ((await purge.count()) > 0 && (await purge.first().isEnabled({ timeout: 1000 }))) {
     await purge.first().click();
     await expect(page.getByRole("dialog")).toBeVisible();

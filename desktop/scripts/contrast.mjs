@@ -34,6 +34,72 @@ export const PAIRS = [
   ["ui", "--c-ring-fill", "--c-surface"],
   ["ui", "--c-ring-fill", "--c-bg"],
   ["ui", "--c-inverse-action", "--c-inverse-bg"], // fokusring i Toast
+  // Loft (M10): sidemeny, hover, semantiske flater
+  ["text", "--c-text", "--c-nav-bg"],
+  ["text", "--c-text-muted", "--c-nav-bg"],
+  ["text", "--c-text", "--c-nav-active-bg"],
+  ["text", "--c-text-muted", "--c-nav-active-bg"],
+  ["text", "--c-text", "--c-surface-hover"],
+  ["text", "--c-text-muted", "--c-surface-hover"],
+  ["text", "--c-text", "--c-accent-subtle"],
+  ["text", "--c-text-muted", "--c-accent-subtle"],
+  ["text", "--c-accent", "--c-accent-subtle"],
+  ["text", "--c-text", "--c-info-bg"],
+  ["text", "--c-ok", "--c-surface"],
+  ["text", "--c-ok", "--c-bg"],
+  ["text", "--c-ok", "--c-ok-bg"],
+  ["text", "--c-text", "--c-ok-bg"],
+  ["text", "--c-danger", "--c-danger-bg"],
+  ["text", "--c-text", "--c-danger-bg"],
+  ["ui", "--c-focus", "--c-nav-bg"],
+  ["ui", "--c-focus", "--c-nav-active-bg"],
+  ["ui", "--c-focus", "--c-surface-hover"],
+  ["ui", "--c-focus", "--c-accent-subtle"],
+  ["ui", "--c-focus", "--c-surface-sunken"],
+  ["ui", "--c-border-strong", "--c-nav-bg"],
+  ["ui", "--c-border-strong", "--c-surface-hover"],
+  ["ui", "--c-border-strong", "--c-accent-subtle"],
+  ["ui", "--c-selected", "--c-accent-subtle"],
+  ["ui", "--c-selected", "--c-surface-hover"],
+  ["ui", "--c-ok", "--c-surface"],
+  ["ui", "--c-danger", "--c-surface"],
+  // V2 (Blåtime): hevet flate, advarsel, scene, rutenettbunn og stolpesegmenter
+  ["text", "--c-text", "--c-surface-raised"],
+  ["text", "--c-text-muted", "--c-surface-raised"],
+  ["text", "--c-accent", "--c-surface-raised"],
+  ["text", "--c-ok", "--c-surface-raised"],
+  ["text", "--c-danger", "--c-surface-raised"],
+  ["text", "--c-text", "--c-warn-bg"],
+  ["text", "--c-warn", "--c-warn-bg"],
+  ["text", "--c-warn", "--c-surface"],
+  ["text", "--c-warn", "--c-bg"],
+  ["text", "--c-stage-text", "--c-stage"],
+  ["text", "--c-stage-muted", "--c-stage"],
+  ["text", "--c-stage-ok", "--c-stage"],
+  ["text", "--c-stage-danger", "--c-stage"],
+  ["text", "--c-text", "--c-well"],
+  ["ui", "--c-focus", "--c-surface-raised"],
+  ["ui", "--c-focus", "--c-well"],
+  ["ui", "--c-stage-focus", "--c-stage"],
+  ["ui", "--c-stage-ok", "--c-stage"],
+  ["ui", "--c-stage-danger", "--c-stage"],
+  ["ui", "--c-selected", "--c-surface-raised"],
+  ["ui", "--c-selected", "--c-well"],
+  ["ui", "--c-border-strong", "--c-surface-raised"],
+  ["ui", "--c-border-strong", "--c-well"],
+  ["ui", "--c-ring-track", "--c-surface-raised"],
+  ["ui", "--c-ring-fill", "--c-surface-raised"],
+  ["ui", "--c-ok", "--c-surface-raised"],
+  ["ui", "--c-danger", "--c-surface-raised"],
+  ["ui", "--c-accent", "--c-nav-bg"], // aktiv-markering i sidemenyen
+  ["ui", "--c-seg-1", "--c-surface"],
+  ["ui", "--c-seg-2", "--c-surface"],
+  ["ui", "--c-seg-3", "--c-surface"],
+  ["ui", "--c-seg-4", "--c-surface"],
+  ["ui", "--c-seg-1", "--c-bg"],
+  ["ui", "--c-seg-2", "--c-bg"],
+  ["ui", "--c-seg-3", "--c-bg"],
+  ["ui", "--c-seg-4", "--c-bg"],
 ];
 
 const MIN = { text: 4.5, ui: 3 };
@@ -66,7 +132,12 @@ export function parseThemes(css) {
     const name = parts[i];
     if (name === "forced") continue;
     const decls = {};
-    for (const m of parts[i + 1].matchAll(/(--c-[a-z-]+)\s*:\s*([^;]+);/g)) decls[m[1]] = m[2].trim();
+    for (const m of parts[i + 1].matchAll(/(--c-[a-z0-9-]+)\s*:\s*([^;]+);/g)) decls[m[1]] = m[2].trim();
+    // alias som var(--c-x) løses til målverdien (samme blokk), så kontrasttesten ser heksverdien
+    for (const [k, v] of Object.entries(decls)) {
+      const a = /^var\((--c-[a-z0-9-]+)\)$/.exec(v);
+      if (a && a[1] in decls) decls[k] = decls[a[1]];
+    }
     if (themes[name]) {
       const prev = themes[name];
       const keys = new Set([...Object.keys(prev), ...Object.keys(decls)]);

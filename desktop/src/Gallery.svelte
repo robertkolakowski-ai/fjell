@@ -2,6 +2,7 @@
      Kontrollene øverst (tema, språk, skala) er verktøy, ikke produkt-UI; derfor er denne filen unntatt hardkodet-tekst-lint. -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import GalleryV2 from "./GalleryV2.svelte";
   import { Badge, BottomBar, Button, Card, LiveRegion, PhotoTile, Ring, Toast } from "./lib/index.ts";
   import { fmt, getLanguage, reasonLabel, setLanguage, tr, type LocaleId } from "./lib/i18n";
   import { MockBridge } from "./bridge/mock-bridge";
@@ -99,6 +100,8 @@
         </li>
       {/each}
     </ul>
+
+    <GalleryV2 />
 
     {#if toastOpen}
       <Toast

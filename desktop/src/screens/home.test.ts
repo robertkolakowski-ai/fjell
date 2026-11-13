@@ -50,7 +50,7 @@ describe("hjem mot MockBridge", () => {
   });
 });
 
-import { addFolder, controlScan } from "./homeFlow";
+import { addFolder, browseFolder, controlScan } from "./homeFlow";
 import { neverScanned } from "./homeState";
 import { markOnboarded, shouldShowOnboarding } from "./onboardingGate";
 import { HOME, parseHash } from "../router";
@@ -119,6 +119,25 @@ describe("hjem: Legg til mappe", () => {
     const b = new MockBridge({ library: null });
     await addFolder(b, "D:\\X", false);
     expect((await b.getState()).scanPhase).toBe("idle");
+  });
+});
+
+describe("«Bla …» (browseFolder)", () => {
+  it("valgt sti returneres uendret og biblioteket røres ikke før «Legg til»", async () => {
+    const b = new MockBridge({ library: "C:\\Bilder", pick: "C:\\Users\\Ola\\Bilder" });
+    expect(await browseFolder(b, "Velg")).toEqual({ kind: "picked", path: "C:\\Users\\Ola\\Bilder" });
+    expect(await b.getLibrary()).toBe("C:\\Bilder");
+    expect(await addFolder(b, "C:\\Users\\Ola\\Bilder")).toMatchObject({ ok: true });
+    expect(await b.getLibrary()).toBe("C:\\Users\\Ola\\Bilder");
+  });
+  it("avbrutt gir cancelled", async () => {
+    expect(await browseFolder(new MockBridge({ pick: null }))).toEqual({ kind: "cancelled" });
+  });
+  it("uten mappevalg, eller når plugin feiler, gir failed (aldri stille)", async () => {
+    expect(await browseFolder(new MockBridge())).toEqual({ kind: "failed" });
+    const b = new MockBridge({ pick: "X" });
+    b.pickFolder = () => Promise.reject(new Error("plugin"));
+    expect(await browseFolder(b)).toEqual({ kind: "failed" });
   });
 });
 

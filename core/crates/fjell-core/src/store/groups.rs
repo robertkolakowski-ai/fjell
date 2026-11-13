@@ -28,6 +28,12 @@ pub struct GroupSpec {
     pub keeper: AssetId,
     /// Hvorfor denne er keeper (lagres i `grp.keeper_reason`).
     pub keeper_reason: ReasonCode,
+    /// Brukerregelen som valgte keeper (`RuleReason::encode`), `None` = automatikken (K5).
+    pub keeper_rule: Option<String>,
+    /// Keeperen er valgt fordi et beskyttet bilde (`ProtectFolder`) må bli keeper. En eksisterende
+    /// gruppe med samme medlemmer gjenbrukes da bare hvis den allerede har denne keeperen, så et
+    /// beskyttet bilde aldri beholder et ventende forslag fra en eldre keeper.
+    pub keeper_locked: bool,
     /// Forslagstype og begrunnelse for ikke-keepere (`ExactDup` eller `VisualDup`).
     pub kind: SuggestionKind,
     pub reason: ReasonCode,
@@ -135,6 +141,7 @@ struct NewGroup {
     exact: bool,
     keeper: i64,
     reason: &'static str,
+    rule: Option<String>,
     members: Vec<(i64, f64)>,
 }
 
@@ -185,7 +192,8 @@ pub fn plan_grouping(
         ids.sort();
         let reuse = existing
             .get(&(g.exact, ids))
-            .filter(|(_, k)| k.is_some_and(|k| g.members.iter().any(|m| m.0 .0 as i64 == k)));
+            .filter(|(_, k)| k.is_some_and(|k| g.members.iter().any(|m| m.0 .0 as i64 == k)))
+            .filter(|(_, k)| !g.keeper_locked || *k == Some(g.keeper.0 as i64));
         let (gref, keeper) = match reuse {
             Some(&(id, Some(keeper))) => {
                 kept.insert(id);
@@ -197,6 +205,7 @@ pub fn plan_grouping(
                     exact: g.exact,
                     keeper: g.keeper.0 as i64,
                     reason: g.keeper_reason.key(),
+                    rule: g.keeper_rule.clone(),
                     members: g
                         .members
                         .iter()
@@ -253,9 +262,15 @@ impl Store {
         let mut new_ids: Vec<i64> = Vec::with_capacity(plan.new_groups.len());
         for g in &plan.new_groups {
             tx.prepare_cached(
-                "INSERT INTO grp(kind, keeper_id, created_at, keeper_reason) VALUES (?1, ?2, ?3, ?4)",
+                "INSERT INTO grp(kind, keeper_id, created_at, keeper_reason, keeper_rule) VALUES (?1, ?2, ?3, ?4, ?5)",
             )?
-            .execute(params![kind_str(g.exact), g.keeper, plan.ts, g.reason])?;
+            .execute(params![
+                kind_str(g.exact),
+                g.keeper,
+                plan.ts,
+                g.rule.is_none().then_some(g.reason),
+                g.rule
+            ])?;
             let id = tx.last_insert_rowid();
             for (rank, (m, score)) in g.members.iter().enumerate() {
                 tx.prepare_cached(
@@ -342,7 +357,7 @@ impl Store {
                 })
                 .optional()?;
             tx.execute(
-                "UPDATE grp SET keeper_id = ?2, keeper_reason = NULL WHERE id = ?1",
+                "UPDATE grp SET keeper_id = ?2, keeper_reason = NULL, keeper_rule = NULL WHERE id = ?1",
                 params![group.0 as i64, keeper.0 as i64],
             )?;
             if let Some((kind, reason, conf)) = moved {

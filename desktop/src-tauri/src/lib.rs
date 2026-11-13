@@ -1,21 +1,23 @@
 //! Tauri-limet for Fjell desktop: registrerer kommandoer som delegerer til `fjell-shell`.
 //!
-//! Avhenger av: `tauri`, `fjell-shell`.
+//! Avhenger av: `tauri`, `tauri-plugin-dialog`, `tauri-plugin-process`, `tauri-plugin-updater`, `fjell-shell`.
 //! Grensesnitt: `run()` (kalles fra `main.rs`). Kommandoer: `get_state`, `start_scan`,
 //! `cancel_scan`, `list_cards`, `decide_cards`, `set_keeper`, `undo`, `trash_summary`,
-//! `empty_trash`, `set_library`, `get_library`, `pause_scan`, `resume_scan`, `list_trashed`,
-//! `restore_trashed`, `restore_all_trashed`, `get_settings`, `set_trash_days`, `get_first_run`,
-//! `complete_onboarding`. Ingen logikk her; ingen sletting utenom
+//! `empty_trash`, `set_library`, `get_library`, `list_library_roots`, `add_library_root`, `remove_library_root`, `pause_scan`, `resume_scan`, `list_trashed`,
+//! `restore_trashed`, `restore_all_trashed`, `get_thumbnail`, `get_settings`, `set_trash_days`, `get_first_run`,
+//! `complete_onboarding`, `get_auto_update`, `set_auto_update`, `get_language`, `set_language`. Plugins: `dialog` (mappevalg),
+//! `updater` (bare skrivebord) og `process` (omstart etter oppdatering); sjekk/installasjon kalles fra frontend. Ingen logikk her; ingen sletting utenom
 //! `Shell::empty` (Papirkurv som standard, beslutning 17).
 //!
 //! Alle kommandoer er `async` slik at filarbeid ikke kjører på hovedtråden (< 100 ms-målet);
 //! de tyngste (`set_library`, `empty_trash`) kjører i `spawn_blocking`.
-//! Mappevelger (tauri-plugin-dialog) er ikke koblet på ennå: `set_library` tar en sti.
+//! Mappevelger: `tauri-plugin-dialog` (bare `dialog:allow-open`, se capabilities/default.json) kalles fra
+//! frontend (`pickFolder`) og fyller bare stifeltet; `set_library` tar fortsatt en sti, og brukeren bekrefter.
 //! IKKE bygget eller kjørt i utviklingsmiljøet (krever webkit2gtk/WebView2).
 
 use fjell_shell::dto::{
-    CardPageDto, DecisionDto, EmptyDto, ErrorDto, PermanentAckDto, RestoreDto, SettingsDto,
-    StateDto, TrashSummaryDto, TrashedDto,
+    CardPageDto, DecisionDto, EmptyDto, ErrorDto, PermanentAckDto, RestoreDto, RootDto,
+    SettingsDto, StateDto, ThumbDto, TrashSummaryDto, TrashedDto,
 };
 use fjell_shell::{default_recycle_bin, Shell};
 use std::sync::Arc;
@@ -102,6 +104,33 @@ async fn get_library(shell: State<'_, Arc<Shell>>) -> Res<Option<String>> {
     Ok(shell.library())
 }
 
+/// Bibliotekets mapper med tall per mappe (leser indeksen; ingen bildefiler åpnes).
+#[tauri::command]
+async fn list_library_roots(shell: State<'_, Arc<Shell>>) -> Res<Vec<RootDto>> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.list_library_roots())
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
+}
+
+/// Legger en mappe til i biblioteket (stien kommer fra mappevelgeren, som for `set_library`).
+#[tauri::command]
+async fn add_library_root(shell: State<'_, Arc<Shell>>, path: String) -> Res<Vec<RootDto>> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.add_library_root(&path))
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
+}
+
+/// Tar en mappe ut av biblioteket. Ingen filer røres; avvises hvis mappen har bilder i «Nylig slettet».
+#[tauri::command]
+async fn remove_library_root(shell: State<'_, Arc<Shell>>, key: u32) -> Res<Vec<RootDto>> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.remove_library_root(key))
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
+}
+
 #[tauri::command]
 async fn pause_scan(shell: State<'_, Arc<Shell>>) -> Res<()> {
     shell.pause_scan()
@@ -136,6 +165,16 @@ async fn restore_all_trashed(shell: State<'_, Arc<Shell>>) -> Res<RestoreDto> {
         .map_err(|e| ErrorDto::new("internal", e.to_string()))?
 }
 
+/// Miniatyr for `AssetId` (`CardDto.asset`/`TrashedDto.asset`, ikke kort-id). Dekoding kjører i
+/// `spawn_blocking`, så hovedtråden og angre/trash aldri venter på den.
+#[tauri::command]
+async fn get_thumbnail(shell: State<'_, Arc<Shell>>, id: u64) -> Res<ThumbDto> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.thumbnail(id))
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
+}
+
 #[tauri::command]
 async fn get_settings(shell: State<'_, Arc<Shell>>) -> Res<SettingsDto> {
     shell.settings()
@@ -156,9 +195,35 @@ async fn complete_onboarding(shell: State<'_, Arc<Shell>>) -> Res<()> {
     shell.complete_onboarding()
 }
 
+/// «Sjekk automatisk ved oppstart» (beta-kanalen). Standard av.
+#[tauri::command]
+async fn get_auto_update(shell: State<'_, Arc<Shell>>) -> Res<bool> {
+    Ok(shell.auto_update())
+}
+
+#[tauri::command]
+async fn set_auto_update(shell: State<'_, Arc<Shell>>, on: bool) -> Res<bool> {
+    shell.set_auto_update(on)
+}
+
+#[tauri::command]
+async fn get_language(shell: State<'_, Arc<Shell>>) -> Res<Option<String>> {
+    Ok(shell.language())
+}
+
+#[tauri::command]
+async fn set_language(shell: State<'_, Arc<Shell>>, language: String) -> Res<String> {
+    shell.set_language(&language)
+}
+
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            #[cfg(desktop)]
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
             let dir = app.path().app_data_dir()?;
             app.manage(Arc::new(Shell::with_data_dir(dir, default_recycle_bin())));
             Ok(())
@@ -175,15 +240,23 @@ pub fn run() {
             empty_trash,
             set_library,
             get_library,
+            list_library_roots,
+            add_library_root,
+            remove_library_root,
             pause_scan,
             resume_scan,
             list_trashed,
             restore_trashed,
             restore_all_trashed,
+            get_thumbnail,
             get_settings,
             set_trash_days,
             get_first_run,
-            complete_onboarding
+            complete_onboarding,
+            get_auto_update,
+            set_auto_update,
+            get_language,
+            set_language
         ])
         .run(tauri::generate_context!())
         .expect("kunne ikke starte Fjell");

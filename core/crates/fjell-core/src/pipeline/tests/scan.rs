@@ -403,3 +403,56 @@ fn background_priority_completes_with_same_result() {
     });
     assert_eq!(dump(&a), dump(&b));
 }
+
+/// Formater uten dekoder (HEIC/RAW uten kodek, all video): `thumbnail` gir `Unavailable`. De skal
+/// ikke telles som feil, ikke stoppe skanningen, aldri få visuelt/uskarpt/skjermbilde-forslag, men
+/// fortsatt kunne være eksakte duplikater (hash av bytes). Video: bare eksakt.
+#[test]
+fn udekodbare_formater_og_video_gir_bare_eksakte_duplikater() {
+    let fx = corpus_fx();
+    let put = |name: &str, kind: Kind, mime: &str, bytes: Vec<u8>| {
+        let mut m = meta(name, bytes.len() as u64, "t1");
+        m.kind = kind;
+        m.mime = mime.into();
+        m.width = 0;
+        m.height = 0;
+        m.has_camera_exif = None;
+        // Ingen miniatyr: `MemSource::thumbnail` svarer `Unavailable`.
+        fx.src.inner.put(m, None, bytes);
+    };
+    put("h1.heic", Kind::Photo, "image/heic", vec![61; 7_001]);
+    put("h2.heic", Kind::Photo, "image/heic", vec![61; 7_001]);
+    put("raw.cr2", Kind::Photo, "image/x-canon-cr2", vec![62; 7_013]);
+    put("v1.mp4", Kind::Video, "video/mp4", vec![63; 8_001]);
+    put("v2.mov", Kind::Video, "video/quicktime", vec![63; 8_001]);
+    // Samme størrelse som videoparet, annet innhold: ikke duplikat.
+    put("v3.mp4", Kind::Video, "video/mp4", vec![64; 8_001]);
+    let r = fx.scan(&ScanConfig::full());
+    assert!(r.failures.is_empty(), "{:?}", r.failures);
+    // Video er ikke i arbeidssettet for full fase i det hele tatt; de tre bildene hoppes over.
+    assert_eq!(r.skipped_unavailable, 3);
+    assert_eq!(r.analyzed, 28, "bare korpusets dekodbare bilder");
+    let d = dump(&fx);
+    let extra: Vec<_> =
+        d.0.iter()
+            .filter(|g| g.2.iter().any(|n| !n.ends_with(".jpg") && n != "shot.png"))
+            .collect();
+    let members: BTreeSet<Vec<String>> = extra.iter().map(|g| g.2.clone()).collect();
+    let want: BTreeSet<Vec<String>> = [vec!["h1.heic", "h2.heic"], vec!["v1.mp4", "v2.mov"]]
+        .into_iter()
+        .map(|v| v.into_iter().map(String::from).collect())
+        .collect();
+    assert_eq!(members, want);
+    assert!(extra.iter().all(|g| g.0 == "exact"), "{extra:?}");
+    // Forslag for de nye filene: bare eksakt duplikat, ett per gruppe.
+    let new_sugg: Vec<_> =
+        d.1.iter()
+            .filter(|s| !s.0.ends_with(".jpg") && s.0 != "shot.png")
+            .collect();
+    assert_eq!(new_sugg.len(), 2, "{new_sugg:?}");
+    assert!(new_sugg.iter().all(|s| s.1 == "exact_dup"), "{new_sugg:?}");
+    // Ny skanning prøver ikke å feile dem, og gruppene står.
+    let r = fx.scan(&ScanConfig::full());
+    assert!(r.failures.is_empty());
+    assert_eq!(dump(&fx).0, d.0);
+}

@@ -1,10 +1,11 @@
 //! `Fjell`: ekte implementasjon av `FjellApi` (L4). Koblingen mellom store, actions, pipeline og
 //! algoritmene. Se docs/mvp/ARKITEKTUR.md del 2 og PLAN-KJERNE del 8.
 //!
-//! Avhenger av: pipeline, actions, store, model, `super` (typer). Grensesnitt:
+//! Avhenger av: pipeline, actions, storage, store, model, `super` (typer). Grensesnitt:
 //! - `Fjell::new(store, source, clock)`: eier indeksen (`Mutex<Actions>`), én skrivetilkobling.
 //! - `FjellApi::start_scan` starter pipeline i en egen tråd og returnerer straks; `Fjell::wait_scan()`
 //!   venter og gir `ScanReport` (CLI og tester), `last_report()` leser siste. `cancel()` setter flagget.
+//! - `Fjell::storage_summary()` / `largest_files(n)`: lagringsoversikt (lesing, egen tilkobling).
 //! - Resten av `FjellApi` ligger i `fjell_ops` (kort, beslutninger, angre, purge).
 //!
 //! Etter trash/restore/purge kaller `Fjell` `pipeline::refresh_groups` (actions kan ikke kalle pipeline), i
@@ -183,9 +184,52 @@ impl Fjell {
         self.actions().store().source_ids(ids).unwrap_or_default()
     }
 
+    /// Karantenen la en gjenopprettet fil på et annet navn (kollisjon): pek indeksen dit (F1).
+    /// Kalles av skallet med resultatet fra `Quarantine::unstage`/`reconcile`, aldri med annet.
+    pub fn relocate_source(
+        &self,
+        id: crate::model::AssetId,
+        to: &crate::model::SourceId,
+    ) -> Result<bool, ApiError> {
+        let moved = self
+            .actions()
+            .store_mut()
+            .relocate_source(id, to)
+            .map_err(|e| ApiError::Internal(e.to_string()))?;
+        Ok(moved)
+    }
+
     /// Lesetilgang til indeksen (diagnostikk, CLI og tester). Skriving går bare via `FjellApi`.
     pub fn with_store<R>(&self, f: impl FnOnce(&Store) -> R) -> R {
         f(self.actions().store())
+    }
+
+    /// Lagringsoversikt (se `storage`). Leser via egen skrivebeskyttet tilkobling når indeksen er en fil,
+    /// så verken skanning eller handlinger blokkeres; minnedatabase leses under indekslåsen.
+    pub fn storage_summary(&self) -> Result<crate::storage::StorageSummary, ApiError> {
+        self.storage_summary_with(&crate::storage::StorageOptions::default())
+    }
+
+    pub fn storage_summary_with(
+        &self,
+        opts: &crate::storage::StorageOptions,
+    ) -> Result<crate::storage::StorageSummary, ApiError> {
+        let reader = self.actions().store().reader().map_err(internal)?;
+        match reader {
+            Some(conn) => crate::storage::summarize_on(&conn, opts),
+            None => crate::storage::summarize(self.actions().store(), opts),
+        }
+        .map_err(internal)
+    }
+
+    /// De `n` største aktive filene (id, sti, størrelse, type).
+    pub fn largest_files(&self, n: usize) -> Result<Vec<crate::storage::FileUsage>, ApiError> {
+        let reader = self.actions().store().reader().map_err(internal)?;
+        match reader {
+            Some(conn) => crate::storage::largest_files_on(&conn, n),
+            None => crate::storage::largest_files_on(self.actions().store().read_conn(), n),
+        }
+        .map_err(internal)
     }
 
     pub(super) fn scan_progress(&self) -> ScanProgress {

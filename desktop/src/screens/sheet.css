@@ -1,0 +1,44 @@
+/* Ark og dialoger (Loft, M10): felles stil for <dialog class="sheet"> i Papirkurv, Legg til mappe og tilsvarende.
+   Kort med overskrift, forklaring og bunnrad (avbryt/sekundær venstre, primær eller farlig høyre).
+   Semantikk uendret: showModal(), fokusfelle og Esc kommer fra <dialog>. Alle verdier fra tokens.css. */
+dialog.sheet {
+  inline-size: calc(100vw - var(--space-6));
+  max-inline-size: var(--w-narrow);
+  max-block-size: calc(100dvh - var(--space-6));
+  padding: 0;
+  overflow: auto;
+  color: var(--c-text);
+  background: var(--c-surface);
+  border: var(--border-width) solid var(--c-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+}
+dialog.sheet::backdrop { background: var(--c-scrim); }
+dialog.sheet .sheet-body { display: grid; gap: var(--space-3); padding: var(--space-5); }
+dialog.sheet .sheet-body > * { margin: 0; }
+dialog.sheet h2 { font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
+dialog.sheet .banner { margin: 0; }
+dialog.sheet .sheet-actions {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--c-surface-sunken);
+  border-block-start: var(--border-width) solid var(--c-border-subtle);
+}
+/* Valg i ark: native radio/avkrysning i en innrammet rad. Valgt = fylt flate og tykkere kant (ikke bare farge). */
+dialog.sheet .opt {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  min-block-size: var(--target-min); padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-md); cursor: pointer;
+}
+dialog.sheet .opt:hover { background: var(--c-surface-hover); }
+dialog.sheet .opt:has(input:checked) { background: var(--c-accent-subtle); border-color: var(--c-border-strong); border-width: 2px; padding: calc(var(--space-2) - 1px) calc(var(--space-3) - 1px); }
+dialog.sheet .opt input { margin-block-start: var(--space-0); }
+dialog.sheet .field { display: grid; gap: var(--space-1); }
+dialog.sheet .field label { font-weight: var(--fw-medium); }
+dialog.sheet .row { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: stretch; }
+dialog.sheet .row input { flex: 1 1 12rem; min-inline-size: 0; }
+dialog.sheet input[type="text"] {
+  min-block-size: var(--target-min); padding: 0 var(--space-3); font: inherit; color: var(--c-text);
+  background: var(--c-surface); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md);
+}
+dialog.sheet .muted { color: var(--c-text-muted); font-size: var(--fs-sm); }

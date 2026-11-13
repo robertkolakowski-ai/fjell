@@ -10,15 +10,17 @@
     value?: string;
     /** Liten tekst under verdien, f.eks. «kan frigjøres». */
     caption?: string;
+    /** sm = 8 rem, md (standard, kompakt) = 11 rem, lg = 15 rem. */
+    size?: "sm" | "md" | "lg";
   }
-  let { fraction, label, value, caption }: Props = $props();
+  let { fraction, label, value, caption, size = "md" }: Props = $props();
 
   const R = 52;
   const C = 2 * Math.PI * R;
   const f = $derived(Math.min(1, Math.max(0, Number.isFinite(fraction) ? fraction : 0)));
 </script>
 
-<div class="ring" role="img" aria-label={label}>
+<div class="ring {size}" role="img" aria-label={label}>
   <svg viewBox="0 0 120 120" aria-hidden="true" focusable="false">
     <circle class="track" cx="60" cy="60" r={R} />
     <circle class="fill" cx="60" cy="60" r={R} stroke-dasharray={C} stroke-dashoffset={C * (1 - f)} transform="rotate(-90 60 60)" />
@@ -33,13 +35,16 @@
   .ring {
     position: relative;
     margin: 0;
-    inline-size: min(100%, 15rem);
+    inline-size: min(100%, 11rem);
     aspect-ratio: 1;
+    flex: none;
   }
+  .ring.sm { inline-size: min(100%, 8rem); }
+  .ring.lg { inline-size: min(100%, 15rem); }
   svg { inline-size: 100%; block-size: 100%; }
-  circle { fill: none; stroke-width: 10; }
-  .track { stroke: var(--c-ring-track); }
-  .fill { stroke: var(--c-ring-fill); stroke-linecap: round; transition: stroke-dashoffset var(--dur-base) ease-out; }
+  circle { fill: none; stroke-width: 6; } /* V2: 6 px strek (var 9), roligere i mørk modus */
+  .track { stroke: var(--c-ring-track); opacity: 0.45; }
+  .fill { stroke: var(--c-ring-fill); stroke-linecap: round; transition: stroke-dashoffset var(--dur-4) var(--ease-out); }
   .cap {
     position: absolute;
     inset: 18%;
@@ -50,10 +55,11 @@
     text-align: center;
     min-inline-size: 0;
   }
-  .value { font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
-  .caption { font-size: var(--fs-sm); color: var(--c-text-muted); }
+  .value { font-size: var(--fs-lg); font-weight: var(--fw-semibold); letter-spacing: var(--ls-snug); line-height: var(--lh-tight); font-variant-numeric: var(--num); overflow-wrap: normal; }
+  .lg .value { font-size: var(--fs-2xl); letter-spacing: var(--ls-tight); }
+  .caption { font-size: var(--fs-xs); color: var(--c-text-muted); }
   @media (forced-colors: active) {
-    .track { stroke: GrayText; }
+    .track { stroke: GrayText; opacity: 1; }
     .fill { stroke: Highlight; }
   }
 </style>

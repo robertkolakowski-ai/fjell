@@ -1,9 +1,10 @@
 // MockBridge: deterministiske eksempeldata, samme grensesnitt. Forsinkelser kan slås av.
+import { cloudProvider } from "./cloud";
 import type { CoreBridge } from "./core-bridge";
 import {
   KIND_CODES, type AppState, type BridgeError, type Card, type CardPage, type Decision,
-  type AppSettings, type EmptyResult, type KindCode, type PermanentAck, type ReasonCode, type RestoreResult,
-  type ScanPhase, type TrashedItem,
+  type AppSettings, type EmptyResult, type KindCode, type LibraryRoot, type PermanentAck, type ReasonCode, type RestoreResult,
+  type ScanPhase, type Thumbnail, type ThumbErrorCode, type TrashedItem, type UpdateCheck,
 } from "./types";
 
 export interface MockOptions {
@@ -12,6 +13,8 @@ export interface MockOptions {
   trashDays?: number;
   /** Simuler volum uten Papirkurv (nettverksstasjon): Papirkurv-modus gir `unsupported`. */
   noBin?: boolean;
+  /** Antall filer (de siste i «Nylig slettet») som Papirkurv ikke kan ta: lang sti uten 8.3-navn, UNC. Resten flyttes. */
+  unsupportedCount?: number;
   /** Klokke (ms siden epoch). Tester styrer utløp med denne. */
   now?: () => number;
   /** Valgt mappe. Standard: en mappe er valgt. `null` = ingen (start av skann gir `no_library`). */
@@ -20,7 +23,49 @@ export interface MockOptions {
   firstRun?: boolean;
   /** Antall `getState`-kall skannet blir stående i «analyserer» før det er ferdig (tester av pause/fortsett/avbryt). Standard 0 = straks ferdig. */
   scanPolls?: number;
+  /** Oppdatering (M9). none = ingen ny versjon, available = ny versjon, error = sjekk feiler (frakoblet), slow = ny versjon med treg installasjon (fremdrift synlig). Standard: none. */
+  update?: MockUpdate;
+  /** «Sjekk automatisk ved oppstart». Standard: false. */
+  autoUpdate?: boolean;
+  /** Mappevalg («Bla …»): en sti = valgt mappe, `null` = bruker avbryter, `undefined` (standard) = ikke tilgjengelig (som i nettleser). */
+  pick?: string | null;
+  /** Lagret språkvalg i «skallet» (system, nb, en). Standard null = aldri valgt (frontend migrerer localStorage). */
+  language?: string | null;
+  /** Miniatyrfeil per bilde-id (`asset`), f.eks. `{ 3: "corrupt" }`. Andre id-er gir et deterministisk SVG-bilde. */
+  thumbErrors?: Record<number, ThumbErrorCode>;
+  /** Simulert ventetid per miniatyr i ms. Standard: 40 når `delayMs` > 0, ellers 0 (e2e og ytelsesmåling). */
+  thumbDelayMs?: number;
 }
+
+/** Deterministisk, fotolignende SVG (himmelgradient, sol, to fjellrygger) varianter på id. Hver femte er stående. */
+export function mockThumbSvg(id: number): Thumbnail {
+  let h = (Math.imul(id | 0, 2654435761) ^ 0x9e3779b9) >>> 0;
+  const rnd = (): number => { h = (Math.imul(h ^ (h >>> 15), 2246822519) + 0x7f4a7c15) >>> 0; return h / 4294967296; };
+  const portrait = id % 5 === 0;
+  const w = portrait ? 192 : 256;
+  const hgt = portrait ? 256 : 192;
+  const hue = Math.floor(rnd() * 360);
+  const sunX = Math.round(w * (0.15 + rnd() * 0.7));
+  const sunY = Math.round(hgt * (0.18 + rnd() * 0.25));
+  const ridge = (base: number, amp: number): string => {
+    const pts = [`0,${hgt}`];
+    const n = 5 + Math.floor(rnd() * 3);
+    for (let i = 0; i <= n; i++) pts.push(`${Math.round((w * i) / n)},${Math.round(hgt * base - rnd() * amp * hgt)}`);
+    pts.push(`${w},${hgt}`);
+    return pts.join(" ");
+  };
+  const far = ridge(0.68, 0.3);
+  const near = ridge(0.85, 0.22);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hgt}" viewBox="0 0 ${w} ${hgt}">`
+    + `<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="hsl(${hue},55%,38%)"/>`
+    + `<stop offset="1" stop-color="hsl(${(hue + 40) % 360},70%,78%)"/></linearGradient></defs>`
+    + `<rect width="${w}" height="${hgt}" fill="url(#s)"/><circle cx="${sunX}" cy="${sunY}" r="${Math.round(w * 0.07)}" fill="hsl(${(hue + 50) % 360},90%,90%)"/>`
+    + `<polygon points="${far}" fill="hsl(${hue},25%,32%)"/><polygon points="${near}" fill="hsl(${hue},30%,16%)"/></svg>`;
+  return { url: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`, width: w, height: hgt };
+}
+
+export type MockUpdate = "none" | "available" | "error" | "slow";
+export const MOCK_UPDATES: readonly MockUpdate[] = ["none", "available", "error", "slow"];
 
 const DAY = 86_400;
 const QUARANTINE = ".fjell-karantene";
@@ -62,25 +107,45 @@ export class MockBridge implements CoreBridge {
   private freed = 0;
   private freedSince: number | null = null;
   private readonly noBin: boolean;
+  private readonly unsupportedCount: number;
   private readonly delayMs: number;
   private days: number;
   private readonly now: () => number;
   private library: string | null;
+  /** Ekstra mapper (nøkkel ≥ 2). Mocken har ingen filer: kortene hører alle til første mappe. */
+  private extraRoots: { key: number; path: string }[] = [];
+  private nextRootKey = 2;
   private firstRun: boolean;
   private readonly scanPolls: number;
+  private readonly update: MockUpdate;
+  private auto: boolean;
+  private language: string | null;
+  private readonly thumbErrors: Record<number, ThumbErrorCode>;
+  private readonly thumbDelayMs: number;
   private pollsLeft = 0;
   private paused = false;
   /** Sekunder siden epoch når bildet (`asset`) ble flyttet til «Nylig slettet». */
   private trashedAt = new Map<number, number>();
 
+  readonly canPickFolder: boolean;
+  private readonly pick: string | null;
+
   constructor(opts: MockOptions = {}) {
+    this.canPickFolder = opts.pick !== undefined;
+    this.pick = opts.pick ?? null;
     this.delayMs = opts.delayMs ?? 0;
     this.days = opts.trashDays ?? 30;
     this.noBin = opts.noBin ?? false;
+    this.unsupportedCount = Math.max(0, Math.floor(opts.unsupportedCount ?? 0));
     this.now = opts.now ?? Date.now;
     this.library = opts.library === undefined ? "C:\\Bilder" : opts.library;
     this.firstRun = opts.firstRun ?? false;
     this.scanPolls = opts.scanPolls ?? 0;
+    this.update = opts.update ?? "none";
+    this.auto = opts.autoUpdate ?? false;
+    this.language = opts.language ?? null;
+    this.thumbErrors = opts.thumbErrors ?? {};
+    this.thumbDelayMs = opts.thumbDelayMs ?? (this.delayMs > 0 ? 40 : 0);
   }
 
 
@@ -105,7 +170,62 @@ export class MockBridge implements CoreBridge {
       scanPhase: this.phase, scanDone: this.phase === "done" ? 100 : this.phase === "idle" ? 0 : 40,
       scanTotal: this.phase === "idle" ? 0 : 100, trashDays: this.days, freedSince: this.freedSince,
       scanPaused: this.paused,
+      cloudSync: this.cloud(),
+      roots: this.roots(false),
     };
+  }
+
+  private roots(stats: boolean): LibraryRoot[] {
+    if (this.library === null) return [];
+    const all = [{ key: 1, path: this.library }, ...this.extraRoots];
+    return all.map((r) => {
+      const sep = r.path.includes("\\") ? "\\" : "/";
+      const base: LibraryRoot = {
+        key: r.key, path: r.path, primary: r.key === 1, cloudSync: cloudProvider(r.path),
+        quarantineDir: `${r.path.replace(/[\\/]+$/, "")}${sep}${QUARANTINE}`,
+      };
+      if (!stats) return base;
+      const own = r.key === 1;
+      return {
+        ...base, online: true,
+        count: own ? this.cards.length + this.kept.length : 0,
+        bytes: own ? [...this.cards, ...this.kept].reduce((s, c) => s + c.bytes, 0) : 0,
+        videos: 0, videoBytes: 0, trashed: own ? this.trashed.length : 0,
+      };
+    });
+  }
+
+  async listLibraryRoots(): Promise<LibraryRoot[]> {
+    await this.wait();
+    if (this.library === null) throw err("no_library");
+    return this.roots(true);
+  }
+
+  async addLibraryRoot(path: string): Promise<LibraryRoot[]> {
+    await this.wait();
+    if (this.library === null) throw err("no_library");
+    const p = path.trim();
+    if (p === "" || p.includes("\0")) throw err("not_a_folder", path);
+    // Samme regel som skallet, på tekst: lik, inni eller rundt en eksisterende mappe.
+    const norm = (s: string) => s.replace(/[\\/]+/g, "/").replace(/\/$/, "").toLowerCase() + "/";
+    const hit = this.roots(false).find((r) => norm(r.path).startsWith(norm(p)) || norm(p).startsWith(norm(r.path)));
+    if (hit) throw err("root_overlap", `${p} overlapper ${hit.path}`);
+    this.extraRoots.push({ key: this.nextRootKey++, path: p });
+    return this.roots(true);
+  }
+
+  async removeLibraryRoot(key: number): Promise<LibraryRoot[]> {
+    await this.wait();
+    if (this.library === null) throw err("no_library");
+    if (key === 1) throw err("root_is_primary");
+    if (!this.extraRoots.some((r) => r.key === key)) throw err("not_found");
+    this.extraRoots = this.extraRoots.filter((r) => r.key !== key);
+    return this.roots(true);
+  }
+
+  /** Skysynket bibliotek etter mappenavn (samme regler som kjernen). */
+  private cloud() {
+    return this.library === null ? null : cloudProvider(this.library);
   }
 
   async startScan(_full: boolean): Promise<void> {
@@ -153,6 +273,9 @@ export class MockBridge implements CoreBridge {
     await this.wait();
     const hit = ids.map((id) => this.cards.find((c) => c.id === id) ?? null);
     if (hit.some((c) => c === null)) throw err("unknown_card");
+    // Som skallet: papirkurv i skysynket bibliotek nektes FØR noe endres. Behold er tillatt.
+    const cloud = decision === "trash" ? this.cloud() : null;
+    if (cloud) throw err("cloud_synced_readonly", cloud);
     const batch = this.nextBatch++;
     this.cards = this.cards.filter((c) => !ids.includes(c.id));
     if (decision === "trash") {
@@ -202,6 +325,15 @@ export class MockBridge implements CoreBridge {
       .sort((a, b) => a.trashedAt - b.trashedAt || a.asset - b.asset);
   }
 
+  async getThumbnail(id: number): Promise<Thumbnail> {
+    if (this.thumbDelayMs > 0) await new Promise((r) => setTimeout(r, this.thumbDelayMs));
+    if (this.library === null) throw err("no_library");
+    const code = this.thumbErrors[id];
+    if (code) throw err(code, `mock: ${code}`);
+    if (!Number.isInteger(id) || id <= 0) throw err("not_found");
+    return mockThumbSvg(id);
+  }
+
   async listTrashed(): Promise<TrashedItem[]> {
     await this.wait();
     return this.trashedItems();
@@ -232,10 +364,18 @@ export class MockBridge implements CoreBridge {
     return this.library;
   }
 
+  async pickFolder(_title?: string): Promise<string | null> {
+    await this.wait();
+    if (!this.canPickFolder) throw err("unsupported", "pickFolder");
+    return this.pick;
+  }
+
   async setLibrary(path: string): Promise<void> {
     await this.wait();
     if (path.trim() === "" || path.includes("\0")) throw err("not_a_folder", path);
     this.library = path.trim();
+    // Som skallet: `setLibrary` erstatter biblioteket med én mappe.
+    this.extraRoots = [];
     this.firstRun = false;
   }
 
@@ -261,6 +401,19 @@ export class MockBridge implements CoreBridge {
     return this.settings();
   }
 
+  async getLanguage(): Promise<string | null> {
+    await this.wait();
+    return this.language;
+  }
+
+  /** Som skallet: bare system, nb og en er gyldige («pseudo» avvises). */
+  async setLanguage(language: string): Promise<string> {
+    await this.wait();
+    if (language !== "system" && language !== "nb" && language !== "en") throw err("bad_request", "language");
+    this.language = language;
+    return language;
+  }
+
   private settings(): AppSettings {
     const sep = this.library?.includes("\\") ? "\\" : "/";
     return {
@@ -284,11 +437,13 @@ export class MockBridge implements CoreBridge {
     const bytes = this.trashed.reduce((sum, c) => sum + c.bytes, 0);
     const none: EmptyResult = { purged: 0, keptTrashed: 0, unsupported: 0, cancelled: 0, unavailable: 0, freedBytes: 0 };
     if (permanent === null) {
-      // Papirkurv-modus: filene forlater karantenen, men plassen er ikke frigjort ennå.
-      if (this.noBin) return { ...none, unsupported: n, keptTrashed: n };
-      this.trashed = [];
-      this.batches = this.batches.filter((b) => b.decision !== "trash");
-      return { ...none, purged: n };
+      // Papirkurv-modus: filer Papirkurv ikke kan ta (`Unsupported`) blir liggende i karantenen, urørt. Aldri stille sletting.
+      const stay = this.noBin ? n : Math.min(n, this.unsupportedCount);
+      const moved = this.trashed.slice(0, n - stay);
+      const ids = new Set(moved.map((c) => c.id));
+      this.trashed = this.trashed.slice(n - stay);
+      this.batches = this.batches.filter((b) => b.decision !== "trash" || !b.ids.every((i) => ids.has(i)));
+      return { ...none, purged: moved.length, keptTrashed: stay, unsupported: stay };
     }
     // Permanent krever avkrysning og riktig antall (PermanentAck). Aldri uten.
     if (!permanent.checked || permanent.count !== n) throw err("ack_required", "permanent");
@@ -297,5 +452,43 @@ export class MockBridge implements CoreBridge {
     this.freed += bytes;
     this.freedSince ??= Date.now();
     return { ...none, purged: n, freedBytes: bytes };
+  }
+
+  // ---- Beta-kanal: oppdatering (M9) ----
+  async getAppVersion(): Promise<string> {
+    await this.wait();
+    return "dev";
+  }
+
+  async checkForUpdate(): Promise<UpdateCheck> {
+    await this.wait();
+    if (this.update === "error") throw err("update_check_failed", "offline");
+    if (this.update === "none") return { available: false };
+    return {
+      available: true, version: "0.1.99", date: "2026-11-12T10:00:00Z",
+      notes: "Rettet en feil i Papirkurv.\nBedre ytelse ved skanning av store mapper.",
+    };
+  }
+
+  async installUpdate(onProgress: (done: number, total: number | null) => void): Promise<void> {
+    if (this.update !== "available" && this.update !== "slow") throw err("no_update");
+    const total = 24_000_000;
+    const steps = this.update === "slow" ? 8 : 2;
+    onProgress(0, total);
+    for (let i = 1; i <= steps; i++) {
+      if (this.update === "slow") await new Promise((r) => setTimeout(r, 400));
+      onProgress(Math.round((total * i) / steps), total);
+    }
+  }
+
+  async getAutoUpdate(): Promise<boolean> {
+    await this.wait();
+    return this.auto;
+  }
+
+  async setAutoUpdate(on: boolean): Promise<boolean> {
+    await this.wait();
+    this.auto = on;
+    return this.auto;
   }
 }

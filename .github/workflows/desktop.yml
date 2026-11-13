@@ -11,6 +11,16 @@ on:
 permissions:
   contents: read
 jobs:
+  # cargo-deny for skallet (egen konfig: tokio er tillatt her, forbudet gjelder bare kjernen; se desktop/src-tauri/deny.toml)
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: cargo deny (desktop/src-tauri)
+        run: cargo deny --manifest-path desktop/src-tauri/Cargo.toml --config desktop/src-tauri/deny.toml check
   desktop:
     runs-on: windows-latest
     steps:
@@ -58,9 +68,15 @@ jobs:
           name: playwright-resultater
           path: desktop/e2e/.results
           if-no-files-found: ignore
+      # PR-bygg har ikke (og skal ikke ha) den private oppdateringsnøkkelen: slå av oppdateringsartefakter her.
+      # Signerte bygg lages bare av beta.yml fra main.
       - name: Bygg Tauri-appen (usignert NSIS)
         working-directory: desktop
-        run: npx tauri build --bundles nsis
+        shell: pwsh
+        run: |
+          $cfg = Join-Path $env:RUNNER_TEMP "uten-oppdatering.json"
+          '{"bundle":{"createUpdaterArtifacts":false}}' | Set-Content -Path $cfg -Encoding utf8
+          npx tauri build --bundles nsis --config $cfg
       # Røyktest: stille installasjon, appen starter og lever 10 s uten krasj, avslutt, avinstaller.
       # (Appen har ingen --version; en GUI-start er det enkleste som beviser at pakken fungerer.)
       - name: Røyktest NSIS-installasjonsprogram
@@ -75,7 +91,16 @@ jobs:
           $p = Start-Process -FilePath $exe.FullName -PassThru
           Start-Sleep -Seconds 10
           if ($p.HasExited) { throw "appen avsluttet av seg selv, kode $($p.ExitCode)" }
-          Stop-Process -Id $p.Id -Force
+          # Oppgradering MENS appen kjører (som «Installer og start på nytt» i appen: /P /UPDATE). Produkteier så
+          # «Kunne ikke avslutte Fjell» her. Installasjonsprogrammet skal selv få avsluttet appen og fullføre med kode 0.
+          $up = Start-Process -FilePath $setup.FullName -ArgumentList "/P", "/UPDATE", "/D=$dir" -PassThru
+          if (-not $up.WaitForExit(180000)) { Stop-Process -Id $up.Id -Force; throw "oppgradering mens appen kjørte: installasjonsprogrammet hang (over 180 s)" }
+          if ($up.ExitCode -ne 0) { throw "oppgradering mens appen kjørte feilet, kode $($up.ExitCode) (Kunne ikke avslutte Fjell?)" }
+          if (-not (Test-Path $exe.FullName)) { throw "app-exe mangler etter oppgradering" }
+          Start-Sleep -Seconds 3
+          $left = Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($exe.Name)) -ErrorAction SilentlyContinue
+          if ($left) { Write-Host "NB: appprosess lever etter oppgradering (id $($left.Id -join ','))"; $left | Stop-Process -Force }
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
           $un = Join-Path $dir "uninstall.exe"
           Start-Process -FilePath $un -ArgumentList "/S" -Wait
           Start-Sleep -Seconds 5

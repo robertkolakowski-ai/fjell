@@ -69,6 +69,37 @@ pub struct StateDto {
     pub trash_days: u32,
     /// Skann satt på pause av brukeren (avbrutt, gjenopptas med `resume_scan`).
     pub scan_paused: bool,
+    /// Leverandørkode (`icloud`/`onedrive`/`dropbox`) hvis HELE biblioteket (alle røtter) ligger i
+    /// skysynkede mapper, altså når all papirkurv er sperret. Én skysynket rot blant flere står i
+    /// `roots[].cloud_sync`, og sperrer bare bildene i den roten.
+    pub cloud_sync: Option<&'static str>,
+    /// Bibliotekets røtter i rekkefølge (første er `primary`). Uten tall og uten filsystemtilgang
+    /// her (`online`/`count`/… er `None`); `list_library_roots` fyller dem ut.
+    pub roots: Vec<RootDto>,
+}
+
+/// Én rot (mappe) i biblioteket. `key` er stabil og brukes i `remove_library_root`.
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RootDto {
+    pub key: u32,
+    pub path: String,
+    /// Første rot: eier indeksen og kan ikke fjernes (bytt bibliotek med `set_library`).
+    pub primary: bool,
+    /// Leverandørkode hvis roten ligger i en skysynket mappe: papirkurv er sperret for dens bilder.
+    pub cloud_sync: Option<&'static str>,
+    /// Rotens egen karantenemappe (`<rot>/.fjell-karantene`).
+    pub quarantine_dir: String,
+    /// Mappen finnes nå (ekstern disk tilkoblet). Bare fra `list_library_roots`.
+    pub online: Option<bool>,
+    /// Aktive filer (bilder og video) i indeksen, og samlet størrelse. Bare fra `list_library_roots`.
+    pub count: Option<u64>,
+    pub bytes: Option<u64>,
+    /// Herav video (telles og listes, dekodes aldri).
+    pub videos: Option<u64>,
+    pub video_bytes: Option<u64>,
+    /// Antall i «Nylig slettet» fra denne roten. Over 0: roten kan ikke fjernes.
+    pub trashed: Option<u64>,
 }
 
 impl StateDto {
@@ -94,8 +125,20 @@ impl StateDto {
             scan_total: h.scan.total,
             trash_days: s.trash_days,
             scan_paused: false,
+            cloud_sync: None,
+            roots: Vec::new(),
         }
     }
+}
+
+/// Miniatyr til frontend: JPEG som base64 uten `data:`-prefiks (UI bygger `data:`-URL).
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ThumbDto {
+    pub mime: &'static str,
+    pub data: String,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Serialize, Debug, PartialEq)]

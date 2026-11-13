@@ -4,7 +4,7 @@
 //! `store`, `super::Ctx`. Grensesnitt: `run(cx, report)`.
 //! Rayon-poolen henter `thumbnail(id)` og regner; resultatene sendes over en begrenset
 //! `sync_channel` (`2 × tråder`) til én skrivetråd som skriver 100 rader per transaksjon og kaller
-//! `refresh_groups` for hver 2 000. bilde (tidlig visning). `catch_unwind` per bilde; `Unavailable`
+//! `refresh_groups` for hver 2 000. bilde, med geometrisk økende avstand (se `EARLY_VIEW_EVERY`; tidlig visning). `catch_unwind` per bilde; `Unavailable`
 //! hoppes over uten feiltelling, øvrige feil øker `fail_count` (3 feil = hoppet over til
 //! algoritmeversjonen øker). Ved avbrudd/frist slutter arbeiderne mellom bilder og skriveren committer
 //! det som er mottatt. Ingen bildedata lagres (I16): miniatyren droppes etter regning.
@@ -20,6 +20,8 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::mpsc::{sync_channel, Receiver};
 
 const WRITE_BATCH: usize = 100;
+/// Første tidlige visning kommer etter så mange bilder; deretter vokser avstanden med en fjerdedel av det som er
+/// analysert (geometrisk), så den samlede gruppeutregningen i full fase er lineær i antall bilder, ikke kvadratisk.
 const EARLY_VIEW_EVERY: usize = 2_000;
 
 enum Msg {
@@ -98,7 +100,7 @@ fn writer<H: StoreHandle>(
         if rows.len() + fails.len() >= WRITE_BATCH {
             flush(&mut rows, &mut fails)?;
         }
-        if since_view >= EARLY_VIEW_EVERY {
+        if since_view >= EARLY_VIEW_EVERY.max((report.analyzed / 4) as usize) {
             flush(&mut rows, &mut fails)?;
             super::groups::refresh_groups(cx.store, cx.clock)?;
             since_view = 0;
