@@ -38,7 +38,7 @@ Lagdelt og asyklisk. En modul kan bare avhenge av moduler i lavere lag. Regelen 
 ```
 L4  api
 L3  pipeline
-L2  cluster   suggest   actions
+L2  cluster   suggest   actions   storage
 L1  store   hash   quality   screenshot
 L0  model   (inkl. traits for AssetSource og Clock)
 ```
@@ -52,6 +52,7 @@ L0  model   (inkl. traits for AssetSource og Clock)
 | `screenshot` | L1 | Signaler for skjermbilde fra metadata og miniatyr. Ren funksjon. | model | `signals(AssetMeta, Thumb) -> ShotSignals` |
 | `cluster` | L2 | Eksakte grupper (lik `content_hash`) og visuelle grupper (MIH + union-find). Ren funksjon på hashlister. | model | `exact_groups(&[(AssetId,[u8;32])])`, `visual_groups(&[(AssetId,Hash64,Hash64)], Params)` |
 | `suggest` | L2 | Velger behold-kandidat per gruppe og lager forslag med `ReasonCode` og konfidens. Ren funksjon. | model | `rank_group(&[Member]) -> Ranked`, `suggestions(...) -> Vec<Suggestion>` |
+| `storage` | L2 | Lagringsoversikt: ren leseside over indeksen (størrelse per type, mappe, største filer, plass bak forslag, papirkurv). Ingen dekoding. | store, model | `summarize(&Store, &StorageOptions) -> StorageSummary` (se `docs/mvp/LAGRING.md`) |
 | `actions` | L2 | Papirkurv, gjenopprett, behold, tøm, angre, utløp. Alt som batch. | store, model | `plan(req)`, `commit(plan, acks)`, `restore(ids)`, `keep(ids)`, `set_keeper`, `undo()`, `expire_due()`, `finish_purge(ticket, results)` (detaljer: PLAN-TRYGGHET). `purge` betyr «oppdater indeks etter plattformens svar», ikke selve slettingen |
 | `pipeline` | L3 | Skanning, inkrementell oppdatering, parallell analyse, fremdrift, avbrudd. | store, hash, quality, screenshot, cluster, suggest, model | `scan(&dyn AssetSource, Progress) -> ScanReport`, `cancel()` |
 | `api` | L4 | Eneste offentlige flate. I MVP kalles den direkte fra Tauri-kommandoer (Rust); UniFFI-grensen kommer med mobilfasen. Samler pipeline, actions og lesemodeller. | pipeline, actions, store, model | `Fjell::open`, `start_scan(ScanConfig{mode: Quick|Full, priority, deadline})`, `cards(kind, limit, cursor)`, `decide_many(Vec<(CardId, Decision)>)` (internt plan + commit, én batch), `set_keeper`, `begin_purge`/`confirm_purge`/`finish_purge`, `undo`, `home_summary`, `trash_summary`, `settings` |
