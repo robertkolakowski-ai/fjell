@@ -1,8 +1,11 @@
 //! Skallets egen lille konfigurasjon i app-data: sist valgte mappe og indeksfil per mappe.
 //!
-//! Grensesnitt: `last_library`, `save_library`, `db_path`, `language`, `set_language`. Ingenting her berører bildefiler.
+//! Grensesnitt: `last_library`, `save_library`, `db_path`, `language`, `set_language`, og for flere
+//! mapper (docs/mvp/FLERE-MAPPER.md): `extra_roots`, `add_extra_root`, `set_extra_roots`.
+//! Ingenting her berører bildefiler.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -20,6 +23,93 @@ struct Config {
     /// Språkvalg: `system`, `nb` eller `en`. `None` = aldri valgt (frontend faller da tilbake på sitt eget valg).
     #[serde(default)]
     language: Option<String>,
+    /// Ekstra mapper per bibliotek, nøklet på indeksfilens navn (`db_path`). `library` over er
+    /// alltid første rot. Gamle filer uten feltet leses som «ingen ekstra mapper».
+    #[serde(default)]
+    libraries: BTreeMap<String, LibraryRoots>,
+}
+
+/// Ekstra røtter for ett bibliotek. Nøkler deles aldri ut på nytt (`next_key` bare øker), så en
+/// gammel indeksrad `/r2/…` aldri kan peke inn i en mappe som ble lagt til senere.
+#[derive(Serialize, Deserialize, Default, Clone)]
+struct LibraryRoots {
+    #[serde(default)]
+    next_key: u32,
+    #[serde(default)]
+    roots: Vec<RootEntry>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct RootEntry {
+    key: u32,
+    path: String,
+}
+
+/// Første nøkkel for en ekstra rot (første rot har alltid nøkkel 1).
+const FIRST_EXTRA_KEY: u32 = 2;
+
+fn library_key(data_dir: &Path, library: &Path) -> String {
+    db_path(data_dir, library)
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+/// Ekstra røtter (nøkkel ≥ 2, sti) for biblioteket med `library` som første rot, i lagret
+/// rekkefølge. Oppføringer med ugyldig eller duplisert nøkkel (hånd-redigert fil) hoppes over.
+pub fn extra_roots(data_dir: &Path, library: &Path) -> Vec<(u32, PathBuf)> {
+    let c = read(data_dir);
+    let mut out: Vec<(u32, PathBuf)> = Vec::new();
+    if let Some(l) = c.libraries.get(&library_key(data_dir, library)) {
+        for r in &l.roots {
+            if r.key >= FIRST_EXTRA_KEY && !out.iter().any(|(k, _)| *k == r.key) {
+                out.push((r.key, PathBuf::from(&r.path)));
+            }
+        }
+    }
+    out
+}
+
+/// Legger til en ekstra rot og returnerer den nye nøkkelen (aldri brukt før i dette biblioteket).
+/// `floor` er høyeste nøkkel indeksen kjenner: nøkkelen blir alltid høyere, også når `shell.json`
+/// (og dermed `next_key`) er gått tapt mens indeksen fortsatt har rader `/r<n>/…` (RT-FM-2).
+pub fn add_extra_root(
+    data_dir: &Path,
+    library: &Path,
+    root: &Path,
+    floor: u32,
+) -> std::io::Result<u32> {
+    let mut c = read(data_dir);
+    let l = c
+        .libraries
+        .entry(library_key(data_dir, library))
+        .or_default();
+    let used = l.roots.iter().map(|r| r.key + 1).max().unwrap_or(0);
+    let key = l
+        .next_key
+        .max(used)
+        .max(floor.saturating_add(1))
+        .max(FIRST_EXTRA_KEY);
+    l.next_key = key + 1;
+    l.roots.push(RootEntry {
+        key,
+        path: root.to_string_lossy().into_owned(),
+    });
+    write(data_dir, &c)?;
+    Ok(key)
+}
+
+/// Beholder bare de ekstra røttene med nøkkel i `keep` (fjerning). `next_key` røres aldri.
+pub fn retain_extra_roots(data_dir: &Path, library: &Path, keep: &[u32]) -> std::io::Result<()> {
+    let mut c = read(data_dir);
+    let Some(l) = c.libraries.get_mut(&library_key(data_dir, library)) else {
+        return Ok(());
+    };
+    // Tellerverket sikres før oppføringene forsvinner (også for filer skrevet uten `next_key`).
+    let used = l.roots.iter().map(|r| r.key + 1).max().unwrap_or(0);
+    l.next_key = l.next_key.max(used);
+    l.roots.retain(|r| keep.contains(&r.key));
+    write(data_dir, &c)
 }
 
 /// Språkvalg frontend kan lagre. `pseudo` er et testlokale og er ikke et brukervalg.

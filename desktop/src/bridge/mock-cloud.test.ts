@@ -43,3 +43,27 @@ describe("MockBridge: språk", () => {
     expect(await new MockBridge({ language: "nb" }).getLanguage()).toBe("nb");
   });
 });
+
+describe("MockBridge: flere mapper (kontrakt for bølge 2)", () => {
+  it("legg til, list og fjern; overlapp og første mappe avvises", async () => {
+    const m = new MockBridge({ library: "D:\\Bilder" });
+    expect((await m.getState()).roots).toEqual([
+      { key: 1, path: "D:\\Bilder", primary: true, cloudSync: null, quarantineDir: "D:\\Bilder\\.fjell-karantene" },
+    ]);
+    const two = await m.addLibraryRoot("E:\\OneDrive\\Foto");
+    expect(two.map((r) => [r.key, r.primary, r.cloudSync])).toEqual([[1, true, null], [2, false, "onedrive"]]);
+    expect(two[0].online).toBe(true);
+    // Én skysynket mappe blant flere sperrer ikke hele biblioteket.
+    expect((await m.getState()).cloudSync).toBeNull();
+    await expect(m.addLibraryRoot("D:\\Bilder\\Ferie")).rejects.toMatchObject({ code: "root_overlap" });
+    await expect(m.addLibraryRoot("d:/bilder/")).rejects.toMatchObject({ code: "root_overlap" });
+    await expect(m.addLibraryRoot("D:\\")).rejects.toMatchObject({ code: "root_overlap" });
+    await expect(m.removeLibraryRoot(1)).rejects.toMatchObject({ code: "root_is_primary" });
+    await expect(m.removeLibraryRoot(9)).rejects.toMatchObject({ code: "not_found" });
+    expect((await m.removeLibraryRoot(2)).length).toBe(1);
+    // Nøkler gjenbrukes ikke, og setLibrary erstatter med én mappe.
+    expect((await m.addLibraryRoot("F:\\Arkiv"))[1].key).toBe(3);
+    await m.setLibrary("G:\\Nytt");
+    expect((await m.listLibraryRoots()).map((r) => r.path)).toEqual(["G:\\Nytt"]);
+  });
+});

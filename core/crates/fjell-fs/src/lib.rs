@@ -6,6 +6,7 @@
 //!   skyplassholdere (`locality`).
 //! - `Quarantine`/`FsQuarantine`: flytting til `.fjell-karantene` med manifest og avstemming.
 //! - `RecycleBin`/`FsDeleter`: «Tøm» via Papirkurv (standard) eller permanent med `PermanentAck`.
+//! - `roots`: flere røtter i ett bibliotek (`MultiSource`, `RootSet`: karantene og ruting per rot).
 //! - `cloud`: sikkerhetsnett som kjenner igjen skysynkede mappenavn (iCloud/OneDrive/Dropbox).
 //! - `path`: lange stier og UNC. `windows` (cfg(windows)): Papirkurv-implementasjon mot Windows.
 
@@ -16,6 +17,7 @@ pub mod locality;
 pub mod manifest;
 pub mod path;
 pub mod quarantine;
+pub mod roots;
 pub mod source;
 pub mod thumb;
 pub mod thumbcache;
@@ -30,4 +32,5 @@ pub use delete::{
     RecycleError,
 };
 pub use quarantine::{FsQuarantine, Quarantine, QuarantineError, Reconciled, QUARANTINE_DIR};
+pub use roots::{MultiSource, RootSet, RootsError};
 pub use source::FsSource;

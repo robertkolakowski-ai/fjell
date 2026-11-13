@@ -134,9 +134,10 @@ pub fn compute_with(rows: &[IndexRow], engine: &mut GroupEngine) -> Grouping {
     let by_id: BTreeMap<AssetId, &IndexRow> = rows.iter().map(|r| (r.id, r)).collect();
     let mut groups = Vec::new();
     // Eksakte grupper.
+    // Video er med her (bytelik hash er like trygt for video som for bilder), men aldri i visuell
+    // klynging, uskarphet eller skjermbilde under: video dekodes ikke.
     let hashed: Vec<(AssetId, [u8; 32])> = rows
         .iter()
-        .filter(|r| r.kind != Kind::Video)
         .filter_map(|r| r.content_hash.map(|h| (r.id, h)))
         .collect();
     let mut reps: BTreeSet<AssetId> = rows

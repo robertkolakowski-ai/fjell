@@ -1,6 +1,6 @@
 // CoreBridge: felles grensesnitt for Tauri og mock. All UI går via dette (ingen direkte invoke).
 import type {
-  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, Thumbnail, TrashedItem, UpdateCheck,
+  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, LibraryRoot, PermanentAck, RestoreResult, Thumbnail, TrashedItem, UpdateCheck,
 } from "./types";
 
 export interface CoreBridge {
@@ -37,6 +37,14 @@ export interface CoreBridge {
   pickFolder(title?: string): Promise<string | null>;
   /** Velger mappe (sti). Kjernen skanner én mappe om gangen: en ny mappe erstatter den forrige. */
   setLibrary(path: string): Promise<void>;
+
+  // ---- Flere mapper i ett bibliotek (docs/mvp/FLERE-MAPPER.md). UI kommer i bølge 2. ----
+  /** Bibliotekets mapper med tall per mappe (antall, størrelse, video, «Nylig slettet», tilkoblet). */
+  listLibraryRoots(): Promise<LibraryRoot[]>;
+  /** Legger til en mappe. Avvises med `not_a_folder`, `root_overlap` (ligger i/rundt en annen mappe) eller `root_has_quarantine`. Bildene kommer ved neste skanning. Ingen filer røres. */
+  addLibraryRoot(path: string): Promise<LibraryRoot[]>;
+  /** Tar ut en mappe (`key` fra `LibraryRoot`). Avvises med `root_is_primary` eller `root_has_trash` (gjenopprett eller tøm først). Ingen filer røres. */
+  removeLibraryRoot(key: number): Promise<LibraryRoot[]>;
   /** Første gang appen kjøres: onboarding skal vises. */
   getFirstRun(): Promise<boolean>;
   /** Onboarding er gjennomført. Vises ikke på nytt. */
