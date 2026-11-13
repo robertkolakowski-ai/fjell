@@ -33,7 +33,7 @@ kopier, 10 % nesten like, 5 % uskarpe, 3 % skjermbilder; ingen filer, ingen nett
   (< 60 ms per bilde); her er dekodingen utelatt (`SynthSource` leverer ferdige miniatyrer), så tallet viser bare at
   kjernen (hash, blur, signaler, klynging, skriving) bruker ca. 0,4 ms/bilde og ikke er flaskehalsen. Dekodetid på
   ekte filer må måles på referansemaskinen (K8).
-- Minnetopp under skanning (RSS < 150 MB) er ikke målt.
+- Minnetopp under skanning (RSS < 150 MB): målt for 50 000 til 250 000 bilder i `YTELSE-STORT.md` (122–128 MB etter bygging av 100 000; hele `just bench --rows 100000` er høyere). Håndheves i `just bench` for byggetrinnet opptil 100 000 rader.
 - Cold start < 1,5 s er ikke målt her (hører til skallet).
 - CI kjører `just bench` ikke automatisk ennå; kommandoen avslutter med feil ved brudd, så den kan kobles på `nightly`.
 

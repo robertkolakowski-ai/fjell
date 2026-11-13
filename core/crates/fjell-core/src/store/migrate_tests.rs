@@ -145,3 +145,26 @@ fn action_log_is_append_only() {
         .unwrap();
     assert_eq!(n, 1);
 }
+
+/// Stort bibliotek: `DELETE FROM grp` setter `suggestion.grp_id` til NULL (FK `ON DELETE SET NULL`); uten indeks på
+/// kolonnen skanner SQLite hele forslagstabellen per slettet gruppe. Spørringsplanen skal bruke indeksen.
+#[test]
+fn suggestion_grp_id_has_index_for_group_deletes() {
+    let store = Store::open_in_memory().unwrap();
+    assert!(store
+        .schema_dump()
+        .unwrap()
+        .contains("index|idx_suggestion_grp|"));
+    let plan: Vec<String> = store
+        .conn()
+        .prepare("EXPLAIN QUERY PLAN SELECT id FROM suggestion WHERE grp_id = 1")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(3))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert!(
+        plan.iter().any(|p| p.contains("idx_suggestion_grp")),
+        "{plan:?}"
+    );
+}
