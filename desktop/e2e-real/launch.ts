@@ -4,6 +4,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type Page } from "@playwright/test";
+import { powershell } from "./ps";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const DATA_IDENTIFIER = "no.fjell.desktop"; // tauri.conf.json: identifier (app_data_dir = %APPDATA%\<identifier>)
@@ -28,6 +29,18 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export function killTree(pid: number): void {
   if (process.platform === "win32") spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore" });
   else { try { process.kill(pid, "SIGKILL"); } catch { /* allerede borte */ } }
+}
+
+/** Diagnostikk når CDP uteblir: prosesser med kommandolinje (inkl. msedgewebview2), lyttende porter, WebView2-versjon. Havner i feilmeldingen, så den står i jobblogg. */
+function cdpDiagnostics(pid: number, port: number): string {
+  if (process.platform !== "win32") return "";
+  const run = (label: string, script: string) => { try { return `--- ${label} ---\n${powershell(script)}`; } catch (e) { return `--- ${label} (feilet) ---\n${String(e)}`; } };
+  return [
+    run("prosesser", `Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -eq ${pid} -or $_.ParentProcessId -eq ${pid} -or $_.Name -match 'fjell|msedgewebview2' } | ForEach-Object { "$($_.ProcessId) <- $($_.ParentProcessId) $($_.Name) :: $($_.CommandLine)" } | Out-String -Width 600`),
+    run("lyttende porter", `Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalAddress -in '127.0.0.1','::1','0.0.0.0' } | ForEach-Object { "$($_.LocalAddress):$($_.LocalPort) pid=$($_.OwningProcess)" } | Out-String`),
+    run("WebView2-runtime", `Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}','HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue | ForEach-Object { $_.pv } | Out-String`),
+    run(`http://127.0.0.1:${port}/json/version`, `try { (Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 http://127.0.0.1:${port}/json/version).Content } catch { $_.Exception.Message }`),
+  ].join("\n");
 }
 
 export async function launchApp(home: Home, port = Number(process.env.FJELL_CDP_PORT ?? 9222)): Promise<App> {
@@ -66,7 +79,7 @@ export async function launchApp(home: Home, port = Number(process.env.FJELL_CDP_
       try { browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: 3000 }); break; }
       catch (e) { lastErr = String(e); await sleep(100); }
     }
-    if (!browser) throw new Error(`Fikk ikke CDP-forbindelse til 127.0.0.1:${port} innen 60 s. Siste feil: ${lastErr}`);
+    if (!browser) throw new Error(`Fikk ikke CDP-forbindelse til 127.0.0.1:${port} innen 60 s. Siste feil: ${lastErr}\n${cdpDiagnostics(pid, port)}`);
     let page: Page | undefined;
     while (Date.now() < deadline && !page) {
       page = browser.contexts().flatMap((c) => c.pages()).find((p) => /tauri\.localhost|^tauri:/.test(p.url()) || (p.url() !== "about:blank" && p.url() !== ""));

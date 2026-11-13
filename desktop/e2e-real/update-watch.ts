@@ -33,7 +33,7 @@ export function isAlive(pid: number): boolean {
 
 /** Installer-prosesser (kommandolinje med /UPDATE, eller navn som Fjell*setup*). */
 export function installerProcs(): { pid: number; name: string; cmd: string }[] {
-  const out = powershell("$r = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match '/UPDATE' -or $_.Name -like 'Fjell*setup*' } | ForEach-Object { [pscustomobject]@{ pid = [int]$_.ProcessId; name = $_.Name; cmd = [string]$_.CommandLine } }); ConvertTo-Json -InputObject $r -Compress");
+  const out = powershell("$r = @(Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.Name -notmatch '^(powershell|pwsh)' -and ($_.CommandLine -match '/UPDATE' -or $_.Name -like 'Fjell*setup*') } | ForEach-Object { [pscustomobject]@{ pid = [int]$_.ProcessId; name = $_.Name; cmd = [string]$_.CommandLine } }); ConvertTo-Json -InputObject $r -Compress");
   return out ? (JSON.parse(out) as { pid: number; name: string; cmd: string }[]) : [];
 }
 export function procsByPath(exe: string): number[] {
@@ -44,7 +44,7 @@ export function killByPath(exe: string): void {
   powershell(`Get-Process | Where-Object { $_.Path -eq '${q(exe)}' } | Stop-Process -Force -ErrorAction SilentlyContinue`);
 }
 export function killInstallers(): void {
-  powershell("Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match '/UPDATE' -or $_.Name -like 'Fjell*setup*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }");
+  powershell("Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.Name -notmatch '^(powershell|pwsh)' -and ($_.CommandLine -match '/UPDATE' -or $_.Name -like 'Fjell*setup*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }");
 }
 
 /** Produkt-/filversjon fra exe-ens versjonsressurs (f.eks. «0.0.2» eller «0.0.2.0»). */
