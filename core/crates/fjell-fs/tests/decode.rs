@@ -6,9 +6,11 @@ mod common;
 use common::*;
 use fjell_core::model::{SourceError, ThumbFmt};
 use fjell_fs::thumb::{
-    is_decodable, make_thumb, make_thumb_with, oriented_dims, oriented_dims_with, Decoded,
-    FrameDecoder,
+    make_thumb, make_thumb_with, oriented_dims, oriented_dims_with, Decoded, FrameDecoder,
 };
+// Brukes bare av testen som er begrenset til ikke-Windows.
+#[cfg(not(windows))]
+use fjell_fs::thumb::is_decodable;
 use image::metadata::Orientation;
 use image::{DynamicImage, ImageDecoder, ImageReader};
 use std::path::Path;

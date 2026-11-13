@@ -4,12 +4,17 @@
 mod common;
 use common::*;
 use fjell_core::api::{ApiError, Decision, Fjell, FjellApi, ScanConfig, ScanMode};
-use fjell_core::model::{AssetId, BatchId, Clock, PurgeTicket, SourceId};
+use fjell_core::model::{BatchId, Clock, PurgeTicket, SourceId};
+// Brukes bare av Unix-testene under (symlenker); ellers ubrukt på Windows (clippy -D warnings).
+#[cfg(unix)]
+use fjell_core::model::AssetId;
 use fjell_core::store::Store;
+#[cfg(unix)]
+use fjell_fs::PermanentAck;
 use fjell_fs::{
-    DeleteMode, FakeRecycleBin, FsDeleter, FsQuarantine, FsSource, PermanentAck, Quarantine,
-    QUARANTINE_DIR,
+    DeleteMode, FakeRecycleBin, FsDeleter, FsQuarantine, FsSource, Quarantine, QUARANTINE_DIR,
 };
+#[cfg(unix)]
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
