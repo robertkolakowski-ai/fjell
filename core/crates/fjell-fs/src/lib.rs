@@ -20,6 +20,8 @@ pub mod source;
 pub mod thumb;
 pub mod thumbcache;
 #[cfg(windows)]
+pub mod wic;
+#[cfg(windows)]
 pub mod windows;
 
 pub use cloud::{cloud_provider, CloudProvider};

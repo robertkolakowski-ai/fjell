@@ -8,7 +8,8 @@
 //!
 //! Regler: `Unsupported` (volum uten Papirkurv) faller aldri stille tilbake til permanent; UI
 //! tilbyr permanent med egen advarsel. Frakoblet rot sletter ingenting. Filer i karantene slettes
-//! fra karantenestien, og manifestoppføringen fjernes etterpå.
+//! fra karantenestien, og manifestoppføringen fjernes etterpå. Med karantene slettes ALDRI fra
+//! opprinnelig sti (ingen fallback): det som ikke ligger i karantenen, slettes ikke.
 
 use crate::path::{os_path, resolve};
 use crate::quarantine::FsQuarantine;
@@ -122,10 +123,14 @@ impl FsDeleter {
     }
 
     fn path_for(&self, id: AssetId, sid: &SourceId) -> Option<PathBuf> {
-        self.quarantine
-            .as_ref()
-            .and_then(|q| q.locate(id))
-            .or_else(|| resolve(&self.library, sid).ok())
+        match self.quarantine.as_ref() {
+            // Med karantene slettes bare det karantenen faktisk inneholder. Aldri opprinnelig sti:
+            // der kan filen være gjenopprettet (aktiv) eller erstattet av en annen fil (F1/F2).
+            // «Merket, ikke flyttet» blir derfor liggende (`Failed`) til flyttingen har lyktes.
+            Some(q) if q.was_restored(id) => None,
+            Some(q) => q.locate_for(id, sid),
+            None => resolve(&self.library, sid).ok(),
+        }
     }
 
     pub fn delete_detailed(

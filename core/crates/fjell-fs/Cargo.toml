@@ -4,21 +4,22 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
-# `unsafe` er forbudt overalt unntatt i `windows`-modulen (Papirkurv) og `drives::sys` (stasjonstype); begge cfg(windows).
+# `unsafe` er forbudt overalt unntatt i `windows`-modulen (Papirkurv), `wic` (WIC-dekoding via COM)
+# og `drives::sys` (stasjonstype); alle tre er cfg(windows) og har egen `#![allow(unsafe_code)]`.
 [lints.rust]
 unsafe_code = "deny"
 
 [dependencies]
 fjell-core = { path = "../fjell-core" }
-# Dekoding (beslutning 6): bare JPEG og PNG i denne fasen; resten er Unavailable.
+# Dekoding (beslutning 6): `image` tar JPEG og PNG; HEIC/RAW via WIC (`wic.rs`, kun Windows), ellers Unavailable.
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
-# IFileOperation (COM) for Papirkurv, også for stier over MAX_PATH. Se windows.rs.
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Shell"] }
+# IFileOperation (COM) for Papirkurv, også for stier over MAX_PATH (windows.rs); WIC for HEIC/RAW (wic.rs).
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_Graphics_Imaging", "Win32_UI_Shell"] }
 
 [dev-dependencies]
 blake3 = "1"
