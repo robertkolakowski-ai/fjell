@@ -6,7 +6,7 @@
   import { onDestroy, onMount } from "svelte";
   import type { CoreBridge } from "../bridge/core-bridge";
   import { useBridge } from "../context";
-  import { Button, LiveRegion } from "../lib";
+  import { Button, Card, LiveRegion } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { UpdateSession } from "./updateFlow";
   import { initialUpdate, installBlocked, progressPercent, type UpdateView } from "./updateState";
@@ -65,25 +65,26 @@
   onDestroy(() => { clearInterval(timer); session.dispose(); });
 </script>
 
+<Card>
 <section class="update" aria-labelledby="update-h">
-  <h2 id="update-h">{$tr("update.title")}</h2>
+  <header class="hd">
+    <h2 id="update-h">{$tr("update.title")}</h2>
+    {#if view.version !== null}<p class="ver">{$tr("update.version", { version: view.version })}</p>{/if}
+  </header>
   <LiveRegion message={message} />
-
-  <p class="ver">{view.version === null ? "" : $tr("update.version", { version: view.version })}</p>
 
   <div class="row">
     <Button ariaDisabled={busy} onclick={check}>{$tr("update.check")}</Button>
     {#if showInstall}
       <Button variant="primary" ariaDisabled={busy || blocked} ariaDescribedby={blocked ? "update-blocked" : undefined} onclick={install}>{$tr("update.install")}</Button>
     {/if}
+    {#if message !== ""}
+      <p class="status" class:err={view.status === "error" || view.status === "installFailed"}>{message}</p>
+    {/if}
   </div>
 
   {#if blocked}
     <p id="update-blocked" class="muted">{$tr("update.blocked")}</p>
-  {/if}
-
-  {#if message !== ""}
-    <p class="status" class:err={view.status === "error" || view.status === "installFailed"}>{message}</p>
   {/if}
 
   {#if view.status === "installing" || view.status === "restarting"}
@@ -107,34 +108,61 @@
     </div>
   {/if}
 
-  <label class="switch">
-    <input
-      type="checkbox" role="switch" checked={view.auto} disabled={view.autoSaving} aria-describedby="update-auto-note"
-      onchange={(e) => void session.setAuto(e.currentTarget.checked)}
-    />
-    {$tr("update.auto.label")}
-  </label>
-  <p id="update-auto-note" class="muted">{$tr("update.auto.note")}</p>
-  {#if view.autoFailed}<p role="alert">{$tr("update.auto.error")}</p>{/if}
+  <div class="auto">
+    <label class="switch">
+      <input
+        type="checkbox" role="switch" checked={view.auto} disabled={view.autoSaving} aria-describedby="update-auto-note"
+        onchange={(e) => void session.setAuto(e.currentTarget.checked)}
+      />
+      <span>{$tr("update.auto.label")}</span>
+    </label>
+    <p id="update-auto-note" class="muted">{$tr("update.auto.note")}</p>
+    {#if view.autoFailed}<p role="alert">{$tr("update.auto.error")}</p>{/if}
+  </div>
 </section>
+</Card>
 
 <style>
-  .update { margin: 0 0 var(--space-5); display: grid; gap: var(--space-2); }
-  h2 { margin-block: 0 var(--space-1); font-size: var(--fs-lg); }
+  .update { display: grid; gap: var(--space-3); }
+  .hd { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-1) var(--space-4); }
+  h2 { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-tight); }
   h3 { margin: 0; font-size: var(--fs-md); }
   p { margin: 0; }
-  .muted { color: var(--c-text-muted); }
-  .row { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+  .ver { color: var(--c-text-muted); font-size: var(--fs-sm); font-variant-numeric: var(--num); }
+  .muted { color: var(--c-text-muted); font-size: var(--fs-sm); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+  .status { flex: 1 1 14rem; min-inline-size: 0; }
   .status.err { font-weight: var(--fw-semibold); }
   .text { white-space: pre-line; overflow-wrap: anywhere; }
-  .notes { display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: var(--border-width) solid var(--c-border); border-radius: var(--radius-md); background: var(--c-surface); }
+  .notes { display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-md); background: var(--c-surface-sunken); }
   .progress { display: grid; gap: var(--space-1); }
-  .track { block-size: 0.75rem; overflow: hidden; border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md); background: var(--c-surface-sunken); }
-  .bar { block-size: 100%; background: var(--c-text); }
+  .track { block-size: 0.75rem; overflow: hidden; border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-pill); background: var(--c-surface-sunken); }
+  .bar { block-size: 100%; background: var(--c-accent); }
   .bar.indet { inline-size: 40%; animation: slide 1.4s linear infinite; }
   @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
   @media (prefers-reduced-motion: reduce) { .bar.indet { animation: none; inline-size: 100%; } }
   @media (forced-colors: active) { .bar { background: Highlight; } .track { border-color: ButtonText; } }
-  .switch { display: flex; align-items: center; gap: var(--space-2); min-block-size: var(--target-min); margin-block-start: var(--space-2); }
-  input[type="checkbox"] { inline-size: 1.25rem; block-size: 1.25rem; flex: none; }
+  .auto { display: grid; gap: var(--space-1); padding-block-start: var(--space-3); border-block-start: var(--border-width) solid var(--c-border-subtle); }
+  .switch { display: inline-flex; align-items: center; gap: var(--space-3); min-block-size: var(--target-min); font-weight: var(--fw-semibold); justify-self: start; }
+  /* Bryter: native avkrysning med eget utseende. Tilstand bæres av tommelposisjon og hake (ikke bare farge). */
+  input[type="checkbox"] {
+    appearance: none; position: relative; flex: none; margin: 0; inline-size: 2.5rem; block-size: 1.5rem; cursor: pointer;
+    border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-pill); background: var(--c-surface-sunken);
+  }
+  input[type="checkbox"]::before {
+    content: ""; position: absolute; inset-block: 0.1875rem; inset-inline-start: 0.1875rem; inline-size: 1rem; border-radius: var(--radius-pill);
+    background: var(--c-text-muted); transition: transform var(--dur-fast);
+  }
+  input[type="checkbox"]:checked { background: var(--c-accent); border-color: var(--c-accent); }
+  input[type="checkbox"]:checked::before { transform: translateX(1rem); background: var(--c-on-accent); }
+  input[type="checkbox"]:disabled { opacity: 0.6; cursor: not-allowed; }
+  input[type="checkbox"]:focus-visible { outline: var(--focus-width) solid var(--c-focus); outline-offset: var(--focus-offset); }
+  @media (prefers-reduced-motion: reduce) { input[type="checkbox"]::before { transition: none; } }
+  @media (forced-colors: active) {
+    input[type="checkbox"] { border-color: ButtonText; background: Canvas; }
+    input[type="checkbox"]::before { background: ButtonText; }
+    input[type="checkbox"]:checked { background: Highlight; border-color: Highlight; }
+    input[type="checkbox"]:checked::before { background: HighlightText; }
+    input[type="checkbox"]:disabled { border-color: GrayText; }
+  }
 </style>

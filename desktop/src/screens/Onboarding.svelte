@@ -1,10 +1,10 @@
-<!-- Onboarding (UX-2, PLAN-UX-I18N 3.1): velkommen → mapper → rask skann → resultat → seier. Ingen konto, ingen systemtillatelse.
+<!-- Onboarding (UX-2, PLAN-UX-I18N 3.1; M10 Loft: sentrert kort med trinnindikator): velkommen → mapper → rask skann → resultat → seier. Ingen konto, ingen systemtillatelse.
      Aksentfarge bare på én primærhandling per trinn. All tekst via $tr. Tilstand i onboardingState.ts. -->
 <script lang="ts">
   import { onDestroy, tick } from "svelte";
   import type { CoreBridge } from "../bridge/core-bridge";
   import { useBridge } from "../context";
-  import { Button, LiveRegion } from "../lib";
+  import { Button, LiveRegion, StatTile } from "../lib";
   import { fmt, tr } from "../lib/i18n";
   import { navigate } from "../router";
   import FolderDialog from "./FolderDialog.svelte";
@@ -99,11 +99,25 @@
       send({ type: "undoFailed" });
     }
   }
+  // Trinnindikator: tekst «Trinn n av 5» (skjermleser) + prikker (dekor). Aktivt trinn er bredere, så tilstand ikke hviler på farge.
+  const STEPS = 5;
+  const step = $derived(
+    view.kind === "welcome" ? 1
+    : view.kind === "chooseFolders" || view.kind === "noAccess" ? 2
+    : view.kind === "scanning" || view.kind === "partial" || view.kind === "nothingFound" ? 3
+    : view.kind === "result" ? 4 : 5,
+  );
   const goReview = () => navigate({ name: "review", kind: "exact_dup" });
   const goHome = () => navigate({ name: "home" });
 </script>
 
 <section bind:this={root} class="onb">
+  <div class="steps">
+    <p class="step">{$tr("onb.step", { step, total: STEPS })}</p>
+    <span class="dots" aria-hidden="true">
+      {#each Array.from({ length: STEPS }, (_, i) => i + 1) as n (n)}<span class="dot" class:now={n === step} class:past={n < step}></span>{/each}
+    </span>
+  </div>
   {#if view.kind === "welcome"}
     <h1 tabindex="-1">{$tr("onb.welcome.title")}</h1>
     <p>{$tr("onb.welcome.body")}</p>
@@ -140,6 +154,7 @@
   {:else if view.kind === "result"}
     <h1 tabindex="-1">{$tr("onb.result.summary", { count: view.count, size: fmt.bytes(view.bytes) })}</h1>
     {#if view.failed}<p role="alert">{$tr("review.error.body")}</p>{/if}
+    <div class="stats"><StatTile label={$tr("home.cat.exact_dup")} value={fmt.bytes(view.bytes)} hint={$tr("common.count.photos", { count: view.count })} /></div>
     {#if view.confirming}
       <!-- MassAck: avkrysning kreves, aldri forhåndskrysset. Esc/Avbryt lukker uten endring. -->
       <div class="ack" role="group" aria-labelledby="ack-title">
@@ -173,16 +188,28 @@
 </section>
 
 <style>
-  .onb { max-inline-size: 40rem; }
-  h1 { margin-block: 0 var(--space-3); font-size: var(--fs-xl); line-height: var(--lh-tight); }
+  .onb {
+    max-inline-size: var(--w-narrow); margin-inline: auto; margin-block-start: var(--space-5);
+    padding: var(--space-6) var(--space-6) var(--space-5);
+    background: var(--c-surface); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+  }
+  .steps { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4); margin-block-end: var(--space-5); }
+  .step { margin: 0; color: var(--c-text-muted); font-size: var(--fs-sm); font-weight: var(--fw-semibold); font-variant-numeric: var(--num); }
+  .dots { display: inline-flex; align-items: center; gap: var(--space-1); }
+  .dot { inline-size: var(--space-2); block-size: var(--space-2); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-pill); background: transparent; }
+  .dot.past { background: var(--c-border-strong); }
+  .dot.now { inline-size: var(--space-5); background: var(--c-accent); border-color: var(--c-accent); }
+  h1 { margin-block: 0 var(--space-3); font-size: var(--fs-xl); line-height: var(--lh-tight); letter-spacing: -0.01em; }
   h1:focus { outline: none; }
   h2 { margin: 0 0 var(--space-2); font-size: var(--fs-lg); }
   p { margin-block: 0 var(--space-4); }
   .muted { color: var(--c-text-muted); }
-  .live-count { font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
-  .row { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-block-start: var(--space-4); }
-  .folders { list-style: none; margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4); border: var(--border-width) solid var(--c-border); border-radius: var(--radius-md); background: var(--c-surface); }
-  .ack { padding: var(--space-4) var(--space-5); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-lg); background: var(--c-surface); }
+  .live-count { font-size: var(--fs-stat); font-weight: var(--fw-semibold); font-variant-numeric: var(--num); }
+  .stats { margin-block-end: var(--space-4); }
+  .row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); margin-block-start: var(--space-5); }
+  .folders { list-style: none; margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-md); background: var(--c-surface-sunken); overflow-wrap: anywhere; }
+  .ack { padding: var(--space-4) var(--space-5); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-lg); background: var(--c-surface-sunken); }
   .check { display: flex; gap: var(--space-3); align-items: flex-start; min-block-size: var(--target-min); }
   .check input { inline-size: 1.25rem; block-size: 1.25rem; margin-block-start: 0.15rem; flex: none; }
+  @media (max-width: 36rem) { .onb { padding: var(--space-4); } }
 </style>

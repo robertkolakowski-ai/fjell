@@ -5,16 +5,20 @@
   interface Props {
     heading?: string;
     headingLevel?: 2 | 3 | 4;
+    /** «raised» (standard, flate nivå 1 med tynn kant og lav skygge) eller «sunken» (innfelt nivå 2, uten skygge). */
+    tone?: "raised" | "sunken";
+    /** Innvendig luft. «none» for kort som har egne rader/bilder helt ut til kanten. */
+    padding?: "md" | "none";
     children: Snippet;
   }
-  let { heading, headingLevel = 2, children }: Props = $props();
+  let { heading, headingLevel = 2, tone = "raised", padding = "md", children }: Props = $props();
   const uid = $props.id();
   const tag = $derived(`h${headingLevel}`);
 </script>
 
 <!-- Gruppe, ikke region: et landemerke per kort gir støy i Narrator/NVDA-landemerkelisten, og aria-label som gjentar
      overskriften leses to ganger. Navnet kommer fra selve overskriften. -->
-<div class="card" role={heading ? "group" : undefined} aria-labelledby={heading ? `${uid}-t` : undefined}>
+<div class="card {tone} pad-{padding}" role={heading ? "group" : undefined} aria-labelledby={heading ? `${uid}-t` : undefined}>
   {#if heading}
     <svelte:element this={tag} id="{uid}-t" class="title">{heading}</svelte:element>
   {/if}
@@ -25,13 +29,16 @@
   .card {
     background: var(--c-surface);
     color: var(--c-text);
-    border: var(--border-width) solid var(--c-border);
+    border: var(--border-width) solid var(--c-border-subtle);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-card);
     padding: var(--space-4) var(--space-5);
+    min-inline-size: 0;
   }
+  .sunken { background: var(--c-surface-sunken); box-shadow: none; }
+  .pad-none { padding: 0; }
   .title {
-    margin: 0 0 var(--space-2);
+    margin: 0 0 var(--space-3);
     font-size: var(--fs-lg);
     line-height: var(--lh-tight);
   }

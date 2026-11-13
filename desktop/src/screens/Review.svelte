@@ -2,12 +2,12 @@
      «Flytt N til papirkurv (X)», bekreftelsesark ved ≥ 50, Angre etter commit. Tilstand i reviewState.ts.
      Taster: Mellomrom/Enter velger (knapper), Shift+klikk område, Ctrl+A velg alle, Delete = bunnlinjeknappen; alle bare med fokus i listen. -->
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import type { CoreBridge } from "../bridge/core-bridge";
   import { groupCards } from "../bridge/groups";
-  import { KIND_CODES, type BridgeError, type Card, type KindCode } from "../bridge/types";
+  import { KIND_CODES, type BridgeError, type KindSummary, type Card, type KindCode } from "../bridge/types";
   import { useBridge } from "../context";
-  import { Badge, BottomBar, Button, CloudWarning, LiveRegion, PhotoTile } from "../lib";
+  import { Badge, BottomBar, Banner, Button, Card as UiCard, CloudWarning, LiveRegion, PageHeader, PhotoTile, StatTile } from "../lib";
   import { fmt, reasonLabel, tr, type TFunction } from "../lib/i18n";
   import { formatHash } from "../router";
   import { cloudFromError, loadCloud } from "./cloud";
@@ -30,6 +30,8 @@
 
   let view: ReviewState = $state(initialReview);
   let days = $state(30);
+  /** Antall og størrelse per kategori til oversikten (fra samme getState som fra før). */
+  let perKind: KindSummary[] | null = $state(null);
   /** Skysynket bibliotek (leverandørkode): papirkurv er sperret synlig, med forklaring. */
   let cloud: string | null = $state(null);
   let keyNote = $state(false);
@@ -102,8 +104,15 @@
     observer = new IntersectionObserver((en) => { if (en.some((x) => x.isIntersecting)) void loadPage(true); });
     observer.observe(sentinel);
   });
+  // Kategorivalg i oversikten bytter bare rute-parameteren (komponenten gjenbrukes): last den nye kategorien.
+  // svelte-ignore state_referenced_locally
+  let shownKind = kind;
+  $effect(() => {
+    const k = kind;
+    untrack(() => { if (k !== shownKind) { shownKind = k; if (k) reload(); } });
+  });
   onMount(() => {
-    b.getState().then((s) => { if (!gone) { days = s.trashDays; cloud = s.cloudSync || null; } }).catch(() => undefined);
+    b.getState().then((s) => { if (!gone) { days = s.trashDays; cloud = s.cloudSync || null; perKind = s.perKind; } }).catch(() => undefined);
     void loadPage(false);
   });
   onDestroy(() => { gone = true; observer?.disconnect(); });
@@ -124,34 +133,42 @@
     const code = reasonSnake(c.reason);
     return [{ label: reasonLabel(code, code === "blurry" ? { pct: fmt.percent(c.confidence) } : {}) }];
   }
+  const statOf = (k: KindCode): KindSummary | undefined => perKind?.find((x) => x.kind === k);
   const nameOf = (c: Card, i: number, total: number, t: TFunction): string =>
     t("review.photo.name", { n: i + 1, total, size: fmt.bytes(c.bytes) }) + ` ${badges(c, t)[0].label}.`;
 </script>
 
 <section class="review">
-  <h1 tabindex="-1">{$tr("review.title")}{#if kind}<span class="sub"> · {$tr(catKey[kind])}</span>{/if}</h1>
-  <p><a href={formatHash({ name: "home" })}>{$tr("review.back")}</a></p>
+  <PageHeader title={$tr("review.title")} sub={kind ? $tr(catKey[kind]) : undefined} back={{ href: formatHash({ name: "home" }), label: $tr("review.back") }} />
   {#if cloud}<CloudWarning provider={cloud} />{/if}
 
   {#if !kind}
     <ul class="cats">
       {#each KIND_CODES as k (k)}
-        <li><a class="cat" href={formatHash({ name: "review", kind: k })}>{$tr(catKey[k])}</a></li>
+        {@const st = statOf(k)}
+        <li>
+          <StatTile label={$tr(catKey[k])} href={formatHash({ name: "review", kind: k })}
+            value={st ? fmt.bytes(st.bytes) : "\u2013"} hint={st ? $tr("common.count.photos", { count: st.count }) : undefined} />
+        </li>
       {/each}
     </ul>
   {:else if view.phase === "loading"}
     <p role="status">{$tr("common.loading")}</p>
   {:else if view.phase === "error" && view.items.length === 0}
-    <p role="alert">{$tr("review.error.body")}</p>
-    <Button onclick={reload}>{$tr("common.retry")}</Button>
+    <Banner tone="danger" role="alert">
+      <p>{$tr("review.error.body")}</p>
+      {#snippet actions()}<Button onclick={reload}>{$tr("common.retry")}</Button>{/snippet}
+    </Banner>
   {:else if view.phase === "empty" || (view.items.length === 0 && view.phase !== "committed")}
-    <h2>{$tr("review.empty.title")}</h2>
-    <p>{$tr("review.empty.body")}</p>
+    <UiCard>
+      <h2 class="empty">{$tr("review.empty.title")}</h2>
+      <p class="muted">{$tr("review.empty.body")}</p>
+    </UiCard>
   {:else}
-    {#if view.error}<p role="alert">{$tr(cloudFromError(view.error) ? "cloud.error.blocked" : "review.error.body")}</p>{/if}
-    {#if keyNote}<p class="note">{$tr("cloud.key.blocked")}</p>{/if}
+    {#if view.error}<Banner tone="danger" role="alert"><p>{$tr(cloudFromError(view.error) ? "cloud.error.blocked" : "review.error.body")}</p></Banner>{/if}
+    {#if keyNote}<Banner tone="warn" role="group"><p class="note">{$tr("cloud.key.blocked")}</p></Banner>{/if}
     <LiveRegion message={keyNote ? $tr("cloud.key.blocked") : ""} />
-    {#if grouped}<p class="muted">{$tr("group.exact.note")}</p>{/if}
+    {#if grouped}<p class="muted lead">{$tr("group.exact.note")}</p>{/if}
 
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="list" role="group" aria-label={$tr("review.title")} onkeydown={keydown} onclickcapture={(e) => (shift = e.shiftKey)}>
@@ -162,14 +179,19 @@
             {@const on = ids.every((id) => view.selected.has(id))}
             <li class="row" class:on>
               <button type="button" class="pick" aria-pressed={on} disabled={busy}
-                aria-label="{$tr('review.group.row', { count: g.cards.length })}, {fmt.bytes(g.bytes)}"
+                aria-label="{$tr('review.group.row', { count: g.cards.length })}, {fmt.bytes(g.bytes)}, {$tr('review.group.best')}"
                 onclick={() => send({ type: "toggleMany", ids })}>
+                <span class="thumbs" aria-hidden="true">
+                  {#each g.cards.slice(0, 3) as c, n (c.id)}<span class="thumb" style:--n={n}></span>{/each}
+                </span>
+                <span class="info">
+                  <span class="cnt">{$tr("review.group.row", { count: g.cards.length })}</span>
+                  <span class="muted size">{fmt.bytes(g.bytes)}</span>
+                  <span class="best"><Badge label={$tr("review.group.best")} /></span>
+                </span>
                 <span class="mark" aria-hidden="true">{on ? "✓" : ""}</span>
-                <span class="best"><Badge label={$tr("review.group.best")} /></span>
-                <span>{$tr("review.group.row", { count: g.cards.length })}</span>
-                <span class="muted">{fmt.bytes(g.bytes)}</span>
               </button>
-              <a href={formatHash({ name: "group", id: g.id })}>{$tr("group.title")}</a>
+              <a class="open" href={formatHash({ name: "group", id: g.id })}>{$tr("group.title")}</a>
             </li>
           {/each}
         </ul>
@@ -196,7 +218,6 @@
     </div>
 
     {#if view.next !== null}<p bind:this={sentinel} class="muted" role="status">{$tr("review.more")}</p>{/if}
-
     <BottomBar
       label={sum.count === 0 ? $tr("review.bar.none") : $tr("review.bar.trash", { count: sum.count, size: fmt.bytes(sum.bytes) })}
       announce={$tr("a11y.live.selected", { count: sum.count, size: fmt.bytes(sum.bytes) })}
@@ -228,27 +249,33 @@
 </section>
 
 <style>
-  .review { max-inline-size: 60rem; }
-  h1 { margin-block: 0 var(--space-3); font-size: var(--fs-xl); line-height: var(--lh-tight); }
-  h1:focus { outline: none; }
-  h2 { font-size: var(--fs-lg); margin-block: var(--space-5) var(--space-2); }
-  .sub { font-weight: var(--fw-regular, 400); }
+  .review { max-inline-size: var(--w-wide); }
+  h2 { font-size: var(--fs-lg); margin-block: var(--space-5) var(--space-1); }
+  h2.empty { margin-block-start: 0; }
   .muted { color: var(--c-text-muted); }
-  .note { margin-block: 0 var(--space-3); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md); }
+  .lead { margin-block: 0 var(--space-4); font-size: var(--fs-sm); max-inline-size: 62ch; }
+  .note { margin: 0; }
+  :global(.review .banner p) { margin: 0; }
   .live { align-self: center; }
   ul { list-style: none; margin: 0; padding: 0; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--space-3); }
-  .rows { display: grid; gap: var(--space-3); }
-  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--c-border); border-radius: var(--radius-md); background: var(--c-surface); }
-  .row.on { border: 3px solid var(--c-selected); padding: calc(var(--space-2) - 2px) calc(var(--space-3) - 2px); }
-  .pick { display: flex; flex: 1 1 14rem; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); min-block-size: var(--target-min); padding: 0; border: 0; background: none; color: var(--c-text); font: inherit; text-align: start; cursor: pointer; }
-  .mark { display: inline-grid; place-items: center; inline-size: 1.5rem; block-size: 1.5rem; border: 2px solid var(--c-border-strong); border-radius: var(--radius-sm); font-weight: var(--fw-semibold); }
-  .cats { display: grid; gap: var(--space-3); }
-  .cat { display: flex; align-items: center; min-block-size: var(--target-min); padding: var(--space-3) var(--space-4); color: var(--c-text); border: var(--border-width) solid var(--c-border); border-radius: var(--radius-lg); background: var(--c-surface); text-decoration: none; }
-  dialog { max-inline-size: min(32rem, calc(100vw - 2rem)); padding: var(--space-5); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-lg); background: var(--c-surface); color: var(--c-text); }
-  dialog::backdrop { background: rgb(0 0 0 / 0.5); }
+  .cats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--card-min)), 1fr)); gap: var(--space-4); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--tile-min)), 1fr)); gap: var(--space-3); margin-block-start: var(--space-3); }
+  .rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: var(--space-4); }
+  .row { position: relative; display: flex; flex-direction: column; padding: var(--space-3); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); background: var(--c-surface); box-shadow: var(--shadow-card); }
+  .row.on { border: 3px solid var(--c-selected); padding: calc(var(--space-3) - 2px); }
+  .pick { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-block-size: var(--target-min); padding: 0; border: 0; background: none; color: var(--c-text); font: inherit; text-align: start; cursor: pointer; }
+  .thumbs { display: flex; flex: none; padding-inline-end: var(--space-4); }
+  .thumb { inline-size: 3.5rem; block-size: 2.75rem; margin-inline-end: calc(var(--space-4) * -1); border: 2px solid var(--c-surface); border-radius: var(--radius-sm); background: repeating-linear-gradient(45deg, var(--c-surface-sunken), var(--c-surface-sunken) 6px, var(--c-border) 6px, var(--c-border) 7px); }
+  .info { display: flex; flex: 1 1 6rem; flex-direction: column; align-items: flex-start; gap: var(--space-1); min-inline-size: 0; }
+  .cnt { font-weight: var(--fw-semibold); }
+  .size { font-size: var(--fs-sm); font-variant-numeric: var(--num); }
+  .mark { display: inline-grid; flex: none; place-items: center; inline-size: 1.5rem; block-size: 1.5rem; border: 2px solid var(--c-border-strong); border-radius: var(--radius-sm); font-weight: var(--fw-semibold); }
+  .open { align-self: flex-start; margin-block-start: var(--space-2); font-size: var(--fs-sm); }
+  dialog { max-inline-size: min(32rem, calc(100vw - 2rem)); padding: var(--space-5); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); background: var(--c-surface); color: var(--c-text); box-shadow: var(--shadow-pop); }
+  dialog::backdrop { background: var(--c-scrim); }
   dialog h2 { margin-block-start: 0; }
   .ack { display: flex; align-items: flex-start; gap: var(--space-2); margin-block: var(--space-3); }
   .ack input { inline-size: 1.25rem; block-size: 1.25rem; flex: none; margin-block-start: 0.125rem; }
   .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }
+  @media (forced-colors: active) { .thumb { border-color: Canvas; } .pick { padding: var(--space-1) var(--space-2); border: var(--border-width) solid ButtonText; border-radius: var(--radius-sm); } }
 </style>

@@ -1,7 +1,13 @@
-/* Skall-stil. Farger, fonter og størrelser kommer fra src/lib/tokens.css og base.css. */
-body {
-  padding: var(--space-4) var(--space-5);
+/* Skall-stil (Loft, M10). Farger, fonter og størrelser kommer fra src/lib/tokens.css og base.css.
+   Sidemeny og arbeidsflate bygges i App.svelte; her ligger bare det som gjelder hele dokumentet. */
+body { padding: 0; }
+
+/* Fast bunnlinje (BottomBar) følger sidemenyen. Brytpunktet må samsvare med Sidebar.svelte/App.svelte (56.25rem = 900 px). */
+@media (min-width: 56.25rem) {
+  :root { --shell-inset: var(--nav-w); }
 }
 
 /* Lenker i innhold: tekstfarge med understrek (aksentfarge er forbeholdt primærhandling). Klasser og komponentstiler overstyrer. */
 main a { color: var(--c-text); text-decoration: underline; text-underline-offset: 0.2em; }
+/* Lenker som er flis/kort/nav oppfører seg som knapper: ingen understrek. */
+main a.stat, main a.cat, main a.btn { text-decoration: none; }
