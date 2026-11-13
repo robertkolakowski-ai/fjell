@@ -1,0 +1,60 @@
+# Ekte-app-e2e på Windows: Playwright kobler til WebView2 over CDP og kjører mot den bygde Tauri-appen
+# (ekte IPC, ekte Rust-kjerne, ekte miniatyrer, ekte Windows Papirkurv). Trege tester: kun manuelt og nattlig, ikke på hver PR.
+# Se docs/mvp/E2E-WINDOWS.md. Ingen hemmeligheter kreves (oppdateringsartefakter slås av, som i desktop.yml).
+name: e2e-windows
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * *"
+permissions:
+  contents: read
+concurrency:
+  group: e2e-windows
+  cancel-in-progress: true
+jobs:
+  real:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            core
+            desktop/src-tauri
+      - name: Installer frontend-avhengigheter
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+      - name: Bygg appen (uten pakke, uten oppdateringsartefakter)
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $cfg = Join-Path $env:RUNNER_TEMP "uten-oppdatering.json"
+          '{"bundle":{"createUpdaterArtifacts":false}}' | Set-Content -Path $cfg -Encoding utf8
+          npx tauri build --no-bundle --config $cfg
+      - name: Ekte e2e (Playwright over CDP mot WebView2)
+        working-directory: desktop
+        shell: pwsh
+        env:
+          FJELL_EXE: ${{ github.workspace }}\desktop\src-tauri\target\release\fjell-desktop.exe
+          FJELL_REAL_OUT: ${{ github.workspace }}\desktop\e2e-real\.results\rapport
+        run: npx playwright test -c e2e-real/playwright.real.config.ts
+      - name: Last opp ytelsestall (JSON)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-perf-json
+          path: desktop/e2e-real/.results/rapport/real-perf.json
+          if-no-files-found: ignore
+      - name: Last opp Playwright-resultater og skjermbilder
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-e2e-resultater
+          path: desktop/e2e-real/.results
+          if-no-files-found: ignore
