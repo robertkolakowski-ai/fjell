@@ -122,6 +122,16 @@ jobs:
           if (-not $exe) { throw "ingen app-exe etter installasjon i $dir" }
           Write-Host "Installert: $($exe.FullName), versjon $($exe.VersionInfo.ProductVersion)"
           Add-Content -Path $env:GITHUB_ENV -Value "FJELL_EXE=$($exe.FullName)"
+      # Tauri/wry setter selv AdditionalBrowserArguments, og WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS blir da ikke lagt til (sett i CI-logg:
+      # msedgewebview2 startet uten --remote-debugging-port). WebView2-policyen i registeret gjelder uavhengig av appens egne valg.
+      # Kun på denne runneren (ephemeral); gjelder også ny app etter oppdatering, som ønsket.
+      - name: Slå på CDP-port for WebView2 (policy i registeret, kun denne runneren)
+        shell: pwsh
+        run: |
+          $k = "HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments"
+          New-Item -Path $k -Force | Out-Null
+          New-ItemProperty -Path $k -Name "fjell-desktop.exe" -Value "--remote-debugging-port=9222" -PropertyType String -Force | Out-Null
+          Get-ItemProperty $k | Format-List
       - name: Test oppdatering via appen (Playwright over CDP)
         working-directory: desktop
         shell: pwsh
