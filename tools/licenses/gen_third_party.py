@@ -34,6 +34,13 @@ NPM_RUNTIME_ROOTS = ["@tauri-apps/api", "svelte"]  # svelte er devDependency, me
 LICENSE_FILE_RE = re.compile(r"^(LICEN[CS]E|COPYING|UNLICENSE|NOTICE|COPYRIGHT)([-_.].*)?$", re.I)
 OUT = ROOT / "THIRD_PARTY.md"
 
+# Ressurser som ligger i repoet og leveres i appen (ikke via cargo/npm). Lisensen må stå i ASSET_ALLOWED; deny.toml gjelder bare cargo.
+ASSET_ALLOWED = {"OFL-1.1"}
+BUNDLED_ASSETS = [
+    {"name": "Inter Variable (latin, latin-ext)", "version": "5.2.8", "license": "OFL-1.1", "source": "https://github.com/rsms/inter",
+     "dir": "desktop/src/assets/fonts", "files": ["OFL.txt"]},
+]
+
 
 # ---------- lisensuttrykk (SPDX) ----------
 def spdx_tokens(expr: str) -> list[str]:
@@ -197,13 +204,23 @@ def npm_components() -> list[dict]:
     return sorted(comps, key=lambda c: (c["name"].lower(), c["version"]))
 
 
+def asset_components() -> list[dict]:
+    out = []
+    for a in BUNDLED_ASSETS:
+        d = ROOT / a["dir"]
+        texts = [(f, (d / f).read_text(encoding="utf-8", errors="replace")) for f in a["files"] if (d / f).is_file()]
+        out.append({"ecosystem": "asset", "name": a["name"], "version": a["version"], "license": a["license"], "source": a["source"], "texts": texts})
+    return out
+
+
 # ---------- utdata ----------
 def norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
-def render(cargo: list[dict], npm: list[dict]) -> str:
-    comps = cargo + npm
+def render(cargo: list[dict], npm: list[dict], assets: list[dict] | None = None) -> str:
+    assets = assets or []
+    comps = cargo + npm + assets
     by_lic: dict[str, int] = defaultdict(int)
     for c in comps:
         by_lic[c["license"]] += 1
@@ -219,9 +236,10 @@ def render(cargo: list[dict], npm: list[dict]) -> str:
     a("Omfang:")
     a(f"- **Rust:** normale (innlenkede) avhengigheter av `{ROOT_CRATE}` for `{TARGET_TRIPLE}`; byggeverktøy og testbiblioteker er ikke med. Egne crates (`fjell-*`) er ikke listet.")
     a("- **npm:** kjøretidsavhengigheter som bundles i frontend (`@tauri-apps/api`, `svelte` og deres avhengigheter). Utviklingsverktøy (vite, vitest, playwright, axe-core, typescript) leveres ikke.")
-    a("- **Ikke med:** systemkomponenter fra Windows (WebView2, Segoe UI). Appen bundler ingen fonter, ingen bilder fra tredjepart og ingen modeller. Appikonet er et eget plassholderikon.")
+    a("- **Ikke med:** systemkomponenter fra Windows (WebView2, Segoe UI). Appen bundler ingen bilder fra tredjepart og ingen modeller. Appikonet og merket er egne.")
+    a("- **Bundlede ressurser:** skriften Inter Variable (SIL Open Font License 1.1) ligger som woff2-filer i `desktop/src/assets/fonts` og lastes lokalt (ingen CDN).")
     a("")
-    a(f"Antall komponenter: **{len(comps)}** (Rust {len(cargo)}, npm {len(npm)}).")
+    a(f"Antall komponenter: **{len(comps)}** (Rust {len(cargo)}, npm {len(npm)}" + (f", ressurser {len(assets)}" if assets else "") + ").")
     a("")
     a("## Lisenser i bruk")
     a("")
@@ -230,7 +248,9 @@ def render(cargo: list[dict], npm: list[dict]) -> str:
     for lic, n in sorted(by_lic.items(), key=lambda kv: (-kv[1], kv[0])):
         a(f"| {lic} | {n} |")
     a("")
-    for title, group in (("Rust-komponenter", cargo), ("npm-komponenter", npm)):
+    for title, group in (("Rust-komponenter", cargo), ("npm-komponenter", npm), ("Bundlede ressurser", assets)):
+        if not group and title == "Bundlede ressurser":
+            continue
         a(f"## {title}")
         a("")
         a("| Navn | Versjon | Lisens | Kilde |")
@@ -274,15 +294,16 @@ def render(cargo: list[dict], npm: list[dict]) -> str:
     return "\n".join(L).rstrip() + "\n"
 
 
-def collect() -> tuple[list[dict], list[dict]]:
-    return cargo_components(cargo_metadata()), npm_components()
+def collect() -> tuple[list[dict], list[dict], list[dict]]:
+    return cargo_components(cargo_metadata()), npm_components(), asset_components()
 
 
 def policy(comps: list[dict]) -> list[str]:
     allowed = allowed_from_deny(ROOT / "deny.toml")
     bad = []
     for c in comps:
-        if c["license"] in ("UKJENT", "(se lisensfil)") or not spdx_ok(c["license"], allowed):
+        ok_set = allowed | ASSET_ALLOWED if c["ecosystem"] == "asset" else allowed
+        if c["license"] in ("UKJENT", "(se lisensfil)") or not spdx_ok(c["license"], ok_set):
             bad.append(f"{c['ecosystem']}: {c['name']} {c['version']}: {c['license']}")
     return bad
 
@@ -292,23 +313,23 @@ def main() -> int:
     ap.add_argument("--check", action="store_true", help="feil hvis THIRD_PARTY.md er utdatert eller lisens ikke er tillatt")
     ap.add_argument("--policy", action="store_true", help="bare lisenssjekk")
     args = ap.parse_args()
-    cargo, npm = collect()
-    bad = policy(cargo + npm)
+    cargo, npm, assets = collect()
+    bad = policy(cargo + npm + assets)
     if bad:
         print("Lisenser utenfor tillatt liste (deny.toml; npm-pakker bruker samme liste):", *bad, sep="\n  ", file=sys.stderr)
     if args.policy:
         return 1 if bad else 0
-    text = render(cargo, npm)
+    text = render(cargo, npm, assets)
     if args.check:
         if bad:
             return 1
         if not OUT.exists() or OUT.read_text(encoding="utf-8") != text:
             print("THIRD_PARTY.md er utdatert: kjør `just third-party`", file=sys.stderr)
             return 1
-        print(f"THIRD_PARTY.md er oppdatert ({len(cargo) + len(npm)} komponenter)")
+        print(f"THIRD_PARTY.md er oppdatert ({len(cargo) + len(npm) + len(assets)} komponenter)")
         return 0
     OUT.write_text(text, encoding="utf-8")
-    print(f"skrev {OUT.relative_to(ROOT)}: {len(cargo)} Rust + {len(npm)} npm, {len(text) // 1024} kB")
+    print(f"skrev {OUT.relative_to(ROOT)}: {len(cargo)} Rust + {len(npm)} npm + {len(assets)} ressurser, {len(text) // 1024} kB")
     return 1 if bad else 0
 
 

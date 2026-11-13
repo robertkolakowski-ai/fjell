@@ -38,10 +38,12 @@
     min-block-size: calc(var(--target-min) - var(--space-2)); padding: var(--space-1) var(--space-3);
     border: var(--border-width) solid transparent; border-radius: var(--radius-sm);
     font-size: var(--fs-sm); font-weight: var(--fw-medium); text-align: center; color: var(--c-text);
+    transition: background-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
   }
   .face :global(.icon) { inline-size: 1em; block-size: 1em; }
   label:hover:not(.on) .face { background: var(--c-surface-hover); }
-  .on .face { background: var(--c-surface); border-color: var(--c-border-strong); font-weight: var(--fw-semibold); box-shadow: var(--shadow-card); }
+  .on .face { background: var(--c-surface-raised); border-color: var(--c-border-strong); font-weight: var(--fw-semibold); box-shadow: var(--shadow-1); }
+  .on .face :global(.icon) { color: var(--c-accent); }
   input:focus-visible + .face { outline: var(--focus-width) solid var(--c-focus); outline-offset: var(--focus-offset); }
   .disabled .face { opacity: 0.6; }
   .disabled input { cursor: not-allowed; }

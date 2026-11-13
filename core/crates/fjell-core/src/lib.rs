@@ -6,7 +6,7 @@
 //! ```text
 //! L4  api
 //! L3  pipeline
-//! L2  cluster   suggest   actions   rules
+//! L2  cluster   suggest   actions   rules   storage
 //! L1  store   hash   quality   screenshot
 //! L0  model
 //! ```
@@ -20,6 +20,7 @@ pub mod pipeline;
 pub mod quality;
 pub mod rules;
 pub mod screenshot;
+pub mod storage;
 pub mod store;
 pub mod suggest;
 

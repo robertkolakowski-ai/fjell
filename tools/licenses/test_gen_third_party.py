@@ -43,6 +43,14 @@ class Render(unittest.TestCase):
         self.assertIn("- c 1.0.0 (MIT)", out)
         self.assertIn("**3**", out)
 
+    def test_bundlede_ressurser_i_egen_seksjon(self):
+        f = self.comp("asset", "Skrift", "OFL-1.1", "SIL OPEN FONT LICENSE")
+        out = g.render([], [], [f])
+        self.assertIn("## Bundlede ressurser", out)
+        self.assertIn("ressurser 1", out)
+        self.assertEqual(g.policy([f]), [])  # OFL-1.1 er tillatt for ressurser
+        self.assertEqual(len(g.policy([dict(f, ecosystem="npm")])), 1)  # men ikke for npm/cargo
+
     def test_deterministisk(self):
         a = self.comp("cargo", "a", "MIT", "t")
         self.assertEqual(g.render([a], []), g.render([a], []))

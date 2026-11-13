@@ -413,7 +413,8 @@ fn index_without_rules_migrates_and_behaves_as_before() {
     crate::store::migrate_to(&mut conn, 2).unwrap();
     conn.execute("INSERT INTO grp(kind, keeper_id, created_at, keeper_reason) VALUES ('exact', NULL, 0, 'older')", [])
         .unwrap();
-    crate::store::migrate_to(&mut conn, 3).unwrap();
+    // Regelmotorens migrering er nr. 4 (nr. 3 er indeksen fra main).
+    crate::store::migrate_to(&mut conn, 4).unwrap();
     let rule: Option<String> = conn
         .query_row("SELECT keeper_rule FROM grp", [], |r| r.get(0))
         .unwrap();

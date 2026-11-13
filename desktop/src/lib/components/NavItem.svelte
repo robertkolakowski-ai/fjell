@@ -34,11 +34,13 @@
   a {
     display: flex; flex: 1; align-items: center; gap: var(--space-3);
     min-block-size: var(--target-min); padding: var(--space-2) var(--space-3);
-    color: var(--c-text); text-decoration: none; font-weight: var(--fw-medium);
+    color: var(--c-text); text-decoration: none; font-weight: var(--fw-medium); font-size: var(--fs-md);
     border-inline-start: 3px solid transparent; border-radius: var(--radius-md);
+    transition: background-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
   }
   a:hover { background: var(--c-surface-hover); }
-  .current a { background: var(--c-nav-active-bg); border-inline-start-color: var(--c-text); font-weight: var(--fw-semibold); box-shadow: var(--shadow-card); }
+  a:active { transform: scale(0.985); }
+  .current a { background: var(--c-nav-active-bg); border-inline-start-color: var(--c-accent); font-weight: var(--fw-semibold); box-shadow: var(--shadow-1); }
   .ico { display: inline-flex; color: var(--c-text-muted); }
   .current .ico { color: var(--c-text); }
   .lbl { min-inline-size: 0; }

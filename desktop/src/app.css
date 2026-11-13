@@ -1,6 +1,16 @@
-/* Skall-stil (Loft, M10). Farger, fonter og størrelser kommer fra src/lib/tokens.css og base.css.
+/* Skall-stil (Loft M10, V2 «Blåtime»). Farger, fonter og størrelser kommer fra src/lib/tokens.css og base.css.
    Sidemeny og arbeidsflate bygges i App.svelte; her ligger bare det som gjelder hele dokumentet. */
-body { padding: 0; }
+@import "./assets/fonts/fonts.css"; /* Inter Variable, lokal og bundlet (ingen CDN) */
+
+body {
+  padding: 0;
+  font-feature-settings: var(--font-features);
+  font-synthesis: none; /* ingen falsk fet/kursiv: variabelfonten har ekte vekter */
+  -webkit-font-smoothing: antialiased;
+}
+/* Overskrifter: hierarki fra størrelse og sporing, ikke fet skrift overalt (V2 2.2). */
+h1, h2, h3, h4 { line-height: var(--lh-heading); }
+button, input, select, textarea { font-feature-settings: inherit; }
 
 /* Fast bunnlinje (BottomBar) følger sidemenyen. Brytpunktet må samsvare med Sidebar.svelte/App.svelte (56.25rem = 900 px). */
 @media (min-width: 56.25rem) {
@@ -11,3 +21,14 @@ body { padding: 0; }
 main a { color: var(--c-text); text-decoration: underline; text-underline-offset: 0.2em; }
 /* Lenker som er flis/kort/nav oppfører seg som knapper: ingen understrek. */
 main a.stat, main a.cat, main a.btn { text-decoration: none; }
+
+/* Hjelpeklasser for skjermene (bølge 2): versaletikett (2xs, 600, +0.06em) og tabulære tall. */
+.caps { font-size: var(--fs-2xs); font-weight: var(--fw-semibold); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--c-text-muted); }
+.tnum { font-variant-numeric: var(--num); }
+
+/* Sidebytte (V2 2.5): ny skjerm toner inn på 90 ms. Bare opacity; tilstanden (DOM) er på plass straks, animasjonen er pynt.
+   «backwards»: ingen stablingskontekst etter at animasjonen er ferdig. Redusert bevegelse: av (base.css + --dur-1 = 0). */
+@media (prefers-reduced-motion: no-preference) {
+  main > * { animation: view-in var(--dur-1) var(--ease-out) backwards; }
+}
+@keyframes view-in { from { opacity: 0; } to { opacity: 1; } }

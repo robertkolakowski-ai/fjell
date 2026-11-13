@@ -312,6 +312,8 @@ pub struct PerfResult {
     pub rows_steps_s: [f64; 4],
     /// Topp RSS (VmHWM) i MB ved slutten av målingen; `None` utenfor Linux.
     pub peak_rss_mb: Option<f64>,
+    /// Topp RSS (VmHWM) rett etter at `rows`-indeksen er bygget (selve skanningen); budsjett 150 MB opp til 100 000 rader.
+    pub build_rss_mb: Option<f64>,
     pub failures: Vec<String>,
 }
 
@@ -346,7 +348,7 @@ pub fn peak_rss_mb() -> Option<f64> {
 
 fn rss_text() -> String {
     peak_rss_mb().map_or("topp RSS ikke målt her".into(), |m| {
-        format!("topp RSS {m:.0} MB (budsjett < 150 MB under skann)")
+        format!("topp RSS {m:.0} MB (VmHWM så langt i prosessen; budsjett 150 MB gjelder byggetrinnet, se YTELSE-STORT.md)")
     })
 }
 
@@ -525,6 +527,57 @@ pub fn run(o: &PerfOptions, out: &mut dyn Write) -> Result<PerfResult, String> {
         tm.cluster,
         rss_text()
     ))?;
+    r.build_rss_mb = peak_rss_mb();
+    if fac == 1.0 && o.rows <= 100_000 && r.build_rss_mb.is_some_and(|m| m > 150.0) {
+        r.failures.push(format!(
+            "topp RSS {:.0} MB etter bygging av {} bilder > 150 MB",
+            r.build_rss_mb.unwrap_or(0.0),
+            o.rows
+        ));
+    }
+    if std::env::var("FJ_BUILD_ONLY").is_ok() {
+        // Skaleringsmåling: bare byggetrinnet, pluss en hash av alle kort (grupper og forslag) for før/etter-sammenligning.
+        use std::hash::{Hash, Hasher};
+        // Kort-id og gruppe-id er rader i databasen og kan variere med skrivetidspunkt; hashen dekker innholdet.
+        let mut lines: Vec<String> = Vec::new();
+        let mut total = 0usize;
+        for kind in SuggestionKind::ALL {
+            let mut cur = None;
+            loop {
+                let page = f.cards(kind, 500, cur).map_err(|e| format!("{e:?}"))?;
+                total += page.cards.len();
+                for c in &page.cards {
+                    lines.push(format!(
+                        "{:?} {:?} {:?} {:?} {:?} {} {} {:?}",
+                        c.kind,
+                        c.asset,
+                        c.keeper,
+                        c.reason,
+                        c.group.is_some(),
+                        c.confidence,
+                        c.bytes,
+                        c.protect_flags
+                    ));
+                }
+                match page.next {
+                    Some(n) => cur = Some(n),
+                    None => break,
+                }
+            }
+        }
+        lines.sort();
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        lines.hash(&mut h);
+        say(format!(
+            "build-only: {} kort, utdatahash {:016x}, {}",
+            total,
+            h.finish(),
+            rss_text()
+        ))?;
+        drop(f);
+        clean(&o.dir, "rows");
+        return Ok(r);
+    }
     let (mut c, mut d, mut u) = (vec![], vec![], vec![]);
     for k in 0..o.rounds {
         if let Ok(ms) = std::env::var("FJ_SLEEP") {
@@ -601,6 +654,9 @@ pub fn run(o: &PerfOptions, out: &mut dyn Write) -> Result<PerfResult, String> {
     let src = Arc::new(SynthSource::new(o.rows).with_delay(Duration::from_micros(300)));
     let f = Fjell::new(fresh_db(&o.dir, "rows2")?, src.clone(), Arc::new(SysClock));
     scan_and_wait(&f, ScanMode::Full)?;
+    if std::env::var("FJ_PROF").is_ok() {
+        eprintln!("rows2 bygget: {}", rss_text());
+    }
     src.grow(extra);
     start(&f, ScanMode::Full)?;
     // Vent til skanningen faktisk har startet (fasen er `Done` fra forrige skanning inntil den nullstilles).

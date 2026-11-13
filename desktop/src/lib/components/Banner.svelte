@@ -38,19 +38,22 @@
     display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-2) var(--space-3);
     margin-block-end: var(--space-4); padding: var(--space-3) var(--space-4);
     background: var(--c-info-bg); color: var(--c-text);
-    border: var(--border-width) solid var(--c-border-strong); border-inline-start-width: 4px; border-radius: var(--radius-md);
+    border: var(--border-width) solid var(--c-border); border-inline-start: 4px solid var(--c-accent); border-radius: var(--radius-md);
+    animation: banner-in var(--dur-2) var(--ease-out) backwards;
   }
-  .warn { background: var(--c-badge-warn-bg); color: var(--c-badge-warn-text); }
-  .danger { background: var(--c-danger-bg); }
-  .ok { background: var(--c-ok-bg); }
-  .ico { display: inline-flex; padding-block-start: var(--space-0); }
+  .warn { background: var(--c-warn-bg); color: var(--c-warn); border-inline-start-color: var(--c-warn); }
+  .danger { background: var(--c-danger-bg); border-inline-start-color: var(--c-danger); }
+  .ok { background: var(--c-ok-bg); border-inline-start-color: var(--c-ok); }
+  .ico { display: inline-flex; padding-block-start: var(--space-0); color: var(--c-accent); }
+  .warn .ico { color: var(--c-warn); }
   .danger .ico { color: var(--c-danger); }
   .ok .ico { color: var(--c-ok); }
+  @keyframes banner-in { from { opacity: 0; transform: translateY(-0.25rem); } to { opacity: 1; transform: none; } }
   .body { flex: 1 1 16rem; min-inline-size: 0; }
   .body :global(p) { margin: 0 0 var(--space-2); overflow-wrap: anywhere; }
   .body :global(p:last-child) { margin-block-end: 0; }
   .body :global(.muted) { color: inherit; opacity: 1; }
-  .title { margin: 0 0 var(--space-1); font-size: var(--fs-md); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
+  .title { margin: 0 0 var(--space-1); font-size: var(--fs-md); font-weight: var(--fw-semibold); line-height: var(--lh-heading); }
   .danger .title { color: var(--c-danger); }
   .act { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
   .banner :global(a) { color: inherit; }

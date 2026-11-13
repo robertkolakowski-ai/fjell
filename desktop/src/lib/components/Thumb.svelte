@@ -79,21 +79,21 @@
 </span>
 
 <style>
-  .thumb { position: relative; display: block; inline-size: 100%; block-size: 100%; min-block-size: 0; overflow: hidden; background: var(--c-surface-sunken); }
-  img { display: block; inline-size: 100%; block-size: 100%; }
-  .skel { display: block; inline-size: 100%; block-size: 100%; background: var(--c-surface-sunken); }
-  .err { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); inline-size: 100%; block-size: 100%; padding: var(--space-2); box-sizing: border-box; text-align: center; color: var(--c-text); border: var(--border-width) dashed var(--c-border-strong); font-size: var(--fs-xs); line-height: 1.3; overflow-wrap: anywhere; }
+  .thumb { position: relative; display: block; inline-size: 100%; block-size: 100%; min-block-size: 0; overflow: hidden; background: var(--c-well); border-radius: var(--radius-xs); }
+  /* Bildet toner inn når det er dekodet (V2 2.5); ingen skjelett-shimmer. Konturen holder lyse bilder fra å flyte ut. */
+  img { display: block; inline-size: 100%; block-size: 100%; animation: thumb-in var(--dur-1) var(--ease-out); }
+  .thumb::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: var(--photo-outline); pointer-events: none; }
+  .skel { display: block; inline-size: 100%; block-size: 100%; background: var(--c-well); }
+  @keyframes thumb-in { from { opacity: 0; } to { opacity: 1; } }
+  .err { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); inline-size: 100%; block-size: 100%; padding: var(--space-2); box-sizing: border-box; text-align: center; color: var(--c-text-muted); border: var(--border-width) dashed transparent; /* nøytral flate; kanten vises bare i høykontrast */ font-size: var(--fs-xs); line-height: 1.3; overflow-wrap: anywhere; }
   .txt.gen::after { content: attr(data-text); }
   .err svg { inline-size: 1.75rem; block-size: 1.75rem; flex: none; }
   .sm .err { padding: 0; border-width: 1px; }
   .sm .err svg { inline-size: 1.125rem; block-size: 1.125rem; }
-  @media (prefers-reduced-motion: no-preference) {
-    .skel { background: linear-gradient(90deg, var(--c-surface-sunken) 0%, var(--c-border-subtle) 50%, var(--c-surface-sunken) 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-  }
-  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
   @media (forced-colors: active) {
     .thumb, .skel { background: Canvas; }
     .skel { border: 1px solid CanvasText; box-sizing: border-box; }
     .err { border-color: CanvasText; color: CanvasText; }
+    .thumb::after { box-shadow: none; }
   }
 </style>
