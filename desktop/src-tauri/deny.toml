@@ -1,6 +1,7 @@
-# cargo-deny for desktop-skallet (Tauri). Kjøres: cargo deny --manifest-path desktop/src-tauri/Cargo.toml --config desktop/src-tauri/deny.toml check
-# Egen konfig fordi rot-deny.toml er skrevet for kjernen: der er `tokio` bannlyst (K7-12: ingen async-runtime i kjernen),
-# men Tauri trenger tokio. Forbudet gjelder bare `core/`; skallet ligger i eget workspace og kjernen får det aldri som avhengighet.
+# cargo-deny for desktop-skallet (eget workspace, utenfor core/).
+# Kjøres slik: cargo deny --manifest-path desktop/src-tauri/Cargo.toml --config desktop/src-tauri/deny.toml check
+# Kjernens egen konfigurasjon ligger i deny.toml i reporoten; denne er bevisst et eget, like strengt utgangspunkt
+# med bare de unntakene Tauri-skallet trenger (MVP-PLAN 4c punkt 14).
 [graph]
 all-features = true
 
@@ -8,16 +9,13 @@ all-features = true
 version = 2
 yanked = "deny"
 ignore = [
-    # proc-macro-error (RUSTSEC-2024-0370) er uvedlikeholdt, ikke en sårbarhet. Kommer bare via glib-macros -> gtk-rs 0.18
-    # (gtk/webkit2gtk), som Tauri 2 bruker på Linux. Går ikke inn i Windows-bygget (MVP-plattformen). Ingen trygg oppgradering finnes
-    # før Tauri går over til gtk4-rs. Fjernes når Tauri oppdaterer; sjekk ved hver Tauri-oppgradering.
-    { id = "RUSTSEC-2024-0370", reason = "unmaintained, proc-macro (byggetid), kun via gtk-rs 0.18 på Linux; ikke i Windows-bygget" },
+    # proc-macro-error er "unmaintained" (ikke en sårbarhet). Kommer bare som byggetids-makro via GTK3-bindingene
+    # (gtk3-macros) som Tauri bruker på Linux; brukes ikke på Windows-målet. Fjernes når Tauri/wry går bort fra GTK3.
+    { id = "RUSTSEC-2024-0370", reason = "unmaintained, kun byggetids-makro via gtk3-macros (Linux), ikke i Windows-bygget" },
 ]
 
 [licenses]
 version = 2
-# Samme tillatelsesliste som kjernen (deny.toml i rota), verifisert mot skallets avhengighetstre 2026-11-12.
-# Ingen ekstra lisenser er åpnet for Tauri; `cargo deny check licenses` måtte bestå uten tillegg.
 allow = [
     "MIT",
     "Apache-2.0",
@@ -29,17 +27,21 @@ allow = [
     "Zlib",
     "CC0-1.0",
     "MPL-2.0",
+    # Nytt med oppdatering (tauri-plugin-updater -> rustls-platform-verifier -> webpki-root-certs):
+    # CDLA-Permissive-2.0 dekker Mozillas CA-liste (kun data, permissiv, ingen copyleft).
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.9
 
+# Egne crates er publish = false og har ingen lisensfelt ennå
 [licenses.private]
 ignore = true
 
 [bans]
-# Tauri drar inn mange dobbeltversjoner (gtk-rs, phf, syn 1/2, toml): bare varsel, ikke feil.
 multiple-versions = "warn"
 wildcards = "deny"
-# tokio er bevisst tillatt her (Tauri-runtime). Ingen ban-liste i skallet.
+# Tokio-forbudet gjelder bare kjernen (K7-12, se deny.toml i roten). Tauri bruker tokio som sin async-runtime,
+# så forbudet er bevisst ikke med her; kjernen (fjell-core) holdes tokio-fri av kjernens egen deny-jobb.
 allow-wildcard-paths = true
 
 [sources]

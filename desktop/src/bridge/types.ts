@@ -131,3 +131,13 @@ export interface AppSettings {
   quarantineDir: string | null;
   emptyDefault: "recycle";
 }
+
+// ---- Beta-kanal: oppdatering (M9). Egen blokk nederst for enkel sammenslåing. ----
+
+/** Svar fra oppdateringssjekken. `version`, `notes` og `date` finnes bare når `available` er true. `date` er ISO 8601. */
+export interface UpdateCheck {
+  available: boolean;
+  version?: string;
+  notes?: string;
+  date?: string;
+}

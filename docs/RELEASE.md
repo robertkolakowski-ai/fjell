@@ -9,7 +9,7 @@ Status: beslutningsgrunnlag for MVP-PLAN åpne spørsmål 11–13. **Ingenting h
 | Format | **NSIS per bruker** (`installMode: currentUser`, ingen administrator). MSIX vurderes etter 1.0 (Microsoft Store). |
 | WebView2 | Bootstrapper i installasjonsprogrammet (`embedBootstrapper` i dag). Offline-variant bare for bedrifter/isolerte maskiner. |
 | Signering | **Azure Trusted Signing** (hvis kvalifisert utgiver), ellers OV-sertifikat i skybasert HSM. Usignert bare i intern alfa. |
-| Oppdatering | Ingen automatisk oppdatering i MVP (ingen nettverkskall). Ny versjon = nytt installasjonsprogram over gammelt. |
+| Oppdatering | Beta-kanalen oppdaterer fra en rullerende GitHub Release («beta»); brukeren trykker selv «Installer og start på nytt» (aldri automatisk installasjon). Se `docs/OPPDATERING.md`. Uten kanal: nytt installasjonsprogram over gammelt. |
 | Versjonering | SemVer `MAJOR.MINOR.PATCH`, én kilde, `0.x` til brukbarhetsmålene i BETA.md er nådd. |
 
 ## 2. NSIS mot MSIX
@@ -20,7 +20,7 @@ Status: beslutningsgrunnlag for MVP-PLAN åpne spørsmål 11–13. **Ingenting h
 | Filsystemtilgang | Full (appen er vanlig Win32) | Pakkeidentitet; broad file access (`broadFileSystemAccess`) må søkes/begrunnes, virtualisering av `%LOCALAPPDATA%` kan flytte indeksen og `.fjell-karantene`-semantikken. **Stor risiko for en bildeapp som flytter filer på eksterne disker og UNC.** |
 | Nettverksstasjoner/UNC, eksterne disker | Uproblematisk | Må vurderes per capability |
 | Tauri-støtte | Innebygd (`--bundles nsis`) | Ikke innebygd i Tauri 2-bundleren (eksternt verktøy/`makeappx`) |
-| Oppdateringer | Egen løsning (ingen i MVP) | Store/App Installer gir det gratis, men er et nettverkskall utenfor appen |
+| Oppdateringer | Egen løsning: beta-kanal via GitHub Release (`docs/OPPDATERING.md`) | Store/App Installer gir det gratis, men er et nettverkskall utenfor appen |
 | Avinstallasjon | Programmer og funksjoner, beholder brukerdata (vår innstilling) | Rent, men brukerdata følger pakken |
 | SmartScreen | Trenger signering og omdømme | Signert pakke/Store gir bedre omdømme |
 | Distribusjon | Nedlasting fra egen side | Store (gebyr, gjennomgang) eller sideload |
@@ -70,7 +70,7 @@ Krav uansett: tidsstempling (RFC 3161), SHA-256, signer **både** installasjonsp
 - **Algoritmeversjon** `ALGO_VER` (core) er **uavhengig** av appversjonen og endres bare når hash/kvalitetsalgoritmer endres (ARKITEKTUR 14). Frosset i M8 (K8).
 - **Databaseskjema** (`PRAGMA user_version`) migreres framover automatisk. Ingen nedgradering: nyere indeks i eldre app åpnes ikke, og brukeren får beskjed uten tap.
 - **Endringslogg:** `CHANGELOG.md` (ikke opprettet ennå) med brukervendt norsk tekst. Ingen «sendt til server»-språk.
-- **Oppdatering:** ingen automatisk. Brukeren laster ned nytt installasjonsprogram; installasjon over gammel versjon beholder brukerdata (BETA.md I12).
+- **Oppdatering:** bare på brukerens kommando (beta-kanalen, `docs/OPPDATERING.md`), aldri automatisk installasjon. Alternativt laster brukeren ned nytt installasjonsprogram; installasjon over gammel versjon beholder brukerdata (BETA.md I12).
 
 ## 6. Utgivelsessjekkliste
 

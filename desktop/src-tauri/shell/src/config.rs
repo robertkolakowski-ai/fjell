@@ -14,6 +14,9 @@ struct Config {
     /// Onboarding er vist (første gang). Settes når første skann startes; vises aldri på nytt.
     #[serde(default)]
     onboarded: bool,
+    /// «Sjekk automatisk ved oppstart» (beta-kanalen). Standard av; gamle filer uten feltet leses som av.
+    #[serde(default)]
+    auto_update: bool,
     /// Språkvalg: `system`, `nb` eller `en`. `None` = aldri valgt (frontend faller da tilbake på sitt eget valg).
     #[serde(default)]
     language: Option<String>,
@@ -42,6 +45,16 @@ pub fn first_run(data_dir: &Path) -> bool {
 pub fn save_library(data_dir: &Path, library: &Path) -> std::io::Result<()> {
     let mut c = read(data_dir);
     c.library = Some(library.to_string_lossy().into_owned());
+    write(data_dir, &c)
+}
+
+pub fn auto_update(data_dir: &Path) -> bool {
+    read(data_dir).auto_update
+}
+
+pub fn set_auto_update(data_dir: &Path, on: bool) -> std::io::Result<()> {
+    let mut c = read(data_dir);
+    c.auto_update = on;
     write(data_dir, &c)
 }
 

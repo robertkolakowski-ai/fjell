@@ -388,6 +388,47 @@ fn first_run_until_onboarding_done_or_library_chosen() {
 }
 
 #[test]
+fn auto_update_is_off_by_default_persists_and_keeps_other_config() {
+    let e = env("autoupd");
+    assert!(!e.sh.auto_update(), "standard er av");
+    e.sh.set_library(e.lib.to_str().unwrap()).unwrap();
+    e.sh.complete_onboarding().unwrap();
+    assert!(e.sh.set_auto_update(true).unwrap());
+    assert!(e.sh.auto_update());
+    // Overlever omstart (ny Shell på samme app-data), og bevarer mappe og onboarding.
+    let again = Shell::with_data_dir(&e.data, e.bin.clone() as Arc<dyn RecycleBin>);
+    assert!(again.auto_update());
+    assert!(!again.first_run());
+    assert_eq!(again.library().as_deref(), e.lib.to_str());
+    // Andre skrivinger overskriver ikke valget.
+    again.complete_onboarding().unwrap();
+    assert!(again.auto_update());
+    // Kan slås av igjen.
+    assert!(!again.set_auto_update(false).unwrap());
+    assert!(!Shell::with_data_dir(&e.data, e.bin.clone() as Arc<dyn RecycleBin>).auto_update());
+}
+
+#[test]
+fn old_shell_json_without_auto_update_reads_unchanged() {
+    let e = env("autoold");
+    fs::write(
+        e.data.join("shell.json"),
+        br#"{ "library": null, "onboarded": true }"#,
+    )
+    .unwrap();
+    let sh = Shell::with_data_dir(&e.data, e.bin.clone() as Arc<dyn RecycleBin>);
+    assert!(!sh.auto_update());
+    assert!(!sh.first_run(), "onboarded leses uendret");
+}
+
+#[test]
+fn mock_mode_auto_update_is_always_off() {
+    let sh = Shell::mock();
+    assert!(!sh.auto_update());
+    assert!(!sh.set_auto_update(true).unwrap());
+}
+
+#[test]
 fn choosing_a_library_alone_ends_first_run() {
     let e = env("firstlib");
     assert!(e.sh.first_run());

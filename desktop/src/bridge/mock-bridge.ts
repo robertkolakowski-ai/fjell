@@ -4,7 +4,7 @@ import type { CoreBridge } from "./core-bridge";
 import {
   KIND_CODES, type AppState, type BridgeError, type Card, type CardPage, type Decision,
   type AppSettings, type EmptyResult, type KindCode, type PermanentAck, type ReasonCode, type RestoreResult,
-  type ScanPhase, type TrashedItem,
+  type ScanPhase, type TrashedItem, type UpdateCheck,
 } from "./types";
 
 export interface MockOptions {
@@ -23,11 +23,18 @@ export interface MockOptions {
   firstRun?: boolean;
   /** Antall `getState`-kall skannet blir stående i «analyserer» før det er ferdig (tester av pause/fortsett/avbryt). Standard 0 = straks ferdig. */
   scanPolls?: number;
+  /** Oppdatering (M9). none = ingen ny versjon, available = ny versjon, error = sjekk feiler (frakoblet), slow = ny versjon med treg installasjon (fremdrift synlig). Standard: none. */
+  update?: MockUpdate;
+  /** «Sjekk automatisk ved oppstart». Standard: false. */
+  autoUpdate?: boolean;
   /** Mappevalg («Bla …»): en sti = valgt mappe, `null` = bruker avbryter, `undefined` (standard) = ikke tilgjengelig (som i nettleser). */
   pick?: string | null;
   /** Lagret språkvalg i «skallet» (system, nb, en). Standard null = aldri valgt (frontend migrerer localStorage). */
   language?: string | null;
 }
+
+export type MockUpdate = "none" | "available" | "error" | "slow";
+export const MOCK_UPDATES: readonly MockUpdate[] = ["none", "available", "error", "slow"];
 
 const DAY = 86_400;
 const QUARANTINE = ".fjell-karantene";
@@ -76,6 +83,8 @@ export class MockBridge implements CoreBridge {
   private library: string | null;
   private firstRun: boolean;
   private readonly scanPolls: number;
+  private readonly update: MockUpdate;
+  private auto: boolean;
   private language: string | null;
   private pollsLeft = 0;
   private paused = false;
@@ -96,6 +105,8 @@ export class MockBridge implements CoreBridge {
     this.library = opts.library === undefined ? "C:\\Bilder" : opts.library;
     this.firstRun = opts.firstRun ?? false;
     this.scanPolls = opts.scanPolls ?? 0;
+    this.update = opts.update ?? "none";
+    this.auto = opts.autoUpdate ?? false;
     this.language = opts.language ?? null;
   }
 
@@ -343,5 +354,43 @@ export class MockBridge implements CoreBridge {
     this.freed += bytes;
     this.freedSince ??= Date.now();
     return { ...none, purged: n, freedBytes: bytes };
+  }
+
+  // ---- Beta-kanal: oppdatering (M9) ----
+  async getAppVersion(): Promise<string> {
+    await this.wait();
+    return "dev";
+  }
+
+  async checkForUpdate(): Promise<UpdateCheck> {
+    await this.wait();
+    if (this.update === "error") throw err("update_check_failed", "offline");
+    if (this.update === "none") return { available: false };
+    return {
+      available: true, version: "0.1.99", date: "2026-11-12T10:00:00Z",
+      notes: "Rettet en feil i Papirkurv.\nBedre ytelse ved skanning av store mapper.",
+    };
+  }
+
+  async installUpdate(onProgress: (done: number, total: number | null) => void): Promise<void> {
+    if (this.update !== "available" && this.update !== "slow") throw err("no_update");
+    const total = 24_000_000;
+    const steps = this.update === "slow" ? 8 : 2;
+    onProgress(0, total);
+    for (let i = 1; i <= steps; i++) {
+      if (this.update === "slow") await new Promise((r) => setTimeout(r, 400));
+      onProgress(Math.round((total * i) / steps), total);
+    }
+  }
+
+  async getAutoUpdate(): Promise<boolean> {
+    await this.wait();
+    return this.auto;
+  }
+
+  async setAutoUpdate(on: boolean): Promise<boolean> {
+    await this.wait();
+    this.auto = on;
+    return this.auto;
   }
 }

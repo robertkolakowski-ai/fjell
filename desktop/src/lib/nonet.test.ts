@@ -36,13 +36,27 @@ const FORBIDDEN_API: [string, RegExp][] = [
   ["navigator.serviceWorker", /\bserviceWorker\b/],
   ["importScripts", /\bimportScripts\b/],
   ["dynamic import av URL", /\bimport\s*\(\s*["'`]https?:/],
-  ["Tauri http/shell/fs/opener-plugin", /@tauri-apps\/plugin-(http|shell|fs|opener|updater|websocket)/],
+  // plugin-updater har eget unntak (beta-kanalen, M9): bare i tauri-bridge.ts, se «oppdatering» nedenfor.
+  ["Tauri http/shell/fs/opener-plugin", /@tauri-apps\/plugin-(http|shell|fs|opener|websocket)/],
   ["window.open", /\bwindow\.open\s*\(/],
 ];
 
 describe("frontend: ingen nettverkskall (desktop/src)", () => {
   test("det finnes kildefiler å skanne", () => {
     expect(srcFiles.length).toBeGreaterThan(20);
+  });
+
+  // Unntak (beta-kanalen, M9, docs/PERSONVERN.md «Oppdateringssjekk»): oppdateringspluginen får brukes i én fil, og bare via
+  // dynamisk import slik at ingenting lastes før brukeren trykker «Se etter oppdatering» (eller auto er på). Rust-pluginen
+  // gjør selve forespørselen; frontend har fortsatt ingen fetch/XHR/WebSocket.
+  const UPDATE_PLUGIN = /@tauri-apps\/plugin-(updater|process)/;
+  const UPDATE_FILE = "src/bridge/tauri-bridge.ts";
+  test("oppdatering: plugin-updater/-process brukes bare i tauri-bridge.ts, og bare via dynamisk import()", () => {
+    const hits = srcFiles.filter((f) => UPDATE_PLUGIN.test(readFileSync(f, "utf8"))).map((f) => relative(desktop, f).split("\\").join("/"));
+    expect(hits).toEqual([UPDATE_FILE]);
+    const txt = readFileSync(join(desktop, UPDATE_FILE), "utf8");
+    expect(txt).not.toMatch(/^\s*import\b[^(\n]*from\s+["']@tauri-apps\/plugin-(updater|process)/m);
+    expect(txt).toMatch(/await import\("@tauri-apps\/plugin-updater"\)/);
   });
 
   test.each(FORBIDDEN_API)("ingen %s", (_name, re) => {
@@ -82,9 +96,10 @@ describe("frontend: ingen nettverkskall (desktop/src)", () => {
   test("ingen nettverks-pakker i package.json (dependencies)", () => {
     const pkg = JSON.parse(readFileSync(join(desktop, "package.json"), "utf8")) as { dependencies?: Record<string, string> };
     const deps = Object.keys(pkg.dependencies ?? {});
-    expect(deps.filter((d) => /^(axios|got|node-fetch|ky|superagent|socket\.io|ws|undici|@tauri-apps\/plugin-(http|shell|fs|opener|updater|websocket))/.test(d))).toEqual([]);
-    // kjøretidsavhengigheter; ny avhengighet krever oppdatering her og i THIRD_PARTY.md. plugin-dialog = «Bla …» (mappevalg, ingen nettverk)
-    expect(deps.sort()).toEqual(["@tauri-apps/api", "@tauri-apps/plugin-dialog"]);
+    expect(deps.filter((d) => /^(axios|got|node-fetch|ky|superagent|socket\.io|ws|undici|@tauri-apps\/plugin-(http|shell|fs|opener|websocket))/.test(d))).toEqual([]);
+    // Kjøretidsavhengigheter, nøyaktig disse: api; plugin-dialog = «Bla …» (mappevalg, ingen nettverk); plugin-updater/-process = beta-kanalen (M9).
+    // Ny avhengighet krever oppdatering her og i THIRD_PARTY.md.
+    expect(deps.sort()).toEqual(["@tauri-apps/api", "@tauri-apps/plugin-dialog", "@tauri-apps/plugin-process", "@tauri-apps/plugin-updater"]);
   });
 
   test("bygget dist (hvis det finnes) har ingen eksterne URL-er eller fetch-kall fra appkode", () => {
@@ -144,22 +159,30 @@ describe("CSP og Tauri-rettigheter", () => {
     expect(csp).not.toMatch(/unsafe-eval/);
   });
 
-  // Eneste unntak fra «bare core:»: mappevalg (`dialog:allow-open`). Ikke `dialog:default`, ingen save/message/ask/confirm.
+  // Nøyaktig disse rettighetene utover core:*, ingenting annet: mappevalg (`dialog:allow-open`; ikke `dialog:default`, ingen
+  // save/message/ask/confirm) og beta-kanalen (M9): sjekk/installer og omstart.
   const DIALOG_OPEN = "dialog:allow-open";
-
-  test("capabilities: ingen http-, shell-, fs-, opener- eller updater-rettigheter", () => {
+  const UPDATE_PERMISSIONS = ["updater:default", "process:allow-restart"];
+  const EXTRA_PERMISSIONS = [DIALOG_OPEN, ...UPDATE_PERMISSIONS];
+  test("capabilities: ingen http-, shell-, fs- eller opener-rettigheter; utover core:* bare mappevalg, sjekk/installer og omstart", () => {
     const dir = join(desktop, "src-tauri", "capabilities");
     for (const f of readdirSync(dir).filter((n) => n.endsWith(".json"))) {
       const cap = JSON.parse(readFileSync(join(dir, f), "utf8")) as { permissions: (string | { identifier: string })[] };
       const ids = cap.permissions.map((p) => (typeof p === "string" ? p : p.identifier));
-      expect(ids.filter((i) => i !== DIALOG_OPEN).filter((i) => /^(http|shell|fs|opener|updater|websocket|process|os|dialog)\b|:allow-(fetch|open|spawn|execute)/.test(i)), f).toEqual([]);
-      expect(ids.every((i) => i.startsWith("core:") || i === DIALOG_OPEN), `${f}: ${ids.join(",")}`).toBe(true);
+      const rest = ids.filter((i) => !EXTRA_PERMISSIONS.includes(i));
+      expect(rest.filter((i) => /^(http|shell|fs|opener|updater|websocket|process|os|dialog)\b|:allow-(fetch|open|spawn|execute)/.test(i)), f).toEqual([]);
+      expect(rest.every((i) => i.startsWith("core:")), `${f}: ${ids.join(",")}`).toBe(true);
     }
   });
 
-  test("ingen autoupdate i tauri.conf.json", () => {
-    const raw = readFileSync(join(desktop, "src-tauri", "tauri.conf.json"), "utf8");
-    expect(raw).not.toMatch(/"updater"|"endpoints"|createUpdaterArtifacts/);
+  test("oppdatering i tauri.conf.json: ett endepunkt (GitHub-release «beta»), fast offentlig nøkkel, kun HTTPS", () => {
+    const conf2 = JSON.parse(readFileSync(join(desktop, "src-tauri", "tauri.conf.json"), "utf8")) as {
+      plugins?: { updater?: { endpoints?: string[]; pubkey?: string; dangerousInsecureTransportProtocol?: boolean } };
+    };
+    const u = conf2.plugins?.updater;
+    expect(u?.endpoints).toEqual(["https://github.com/robertkolakowski-ai/fjell/releases/download/beta/latest.json"]);
+    expect(u?.pubkey).toBe("dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJCN0NFNjU2REU1OTE1NTcKUldSWEZWbmVWdVo4dS9IWi85QUU1bEo1c2FLVnhSWGRZaUFQSm1nYWxwNmxkNk9TRkVjdTF5WXQK");
+    expect(u?.dangerousInsecureTransportProtocol).toBeUndefined();
   });
 });
 
@@ -182,9 +205,15 @@ describe("Rust: appens egne crates bruker ingen nettverks-API", () => {
     expect(names.filter((n) => /^(reqwest|hyper|hyper-util|ureq|curl|isahc|surf|attohttpc|tokio|h2|rustls|native-tls|openssl|openssl-sys|tungstenite|tokio-tungstenite|socket2|mio)$/.test(n))).toEqual([]);
   });
 
+  test("tauri-plugin-updater (beta-kanalen, M9) finnes bare i skallets Cargo.toml (desktop/src-tauri), ingen andre crates", () => {
+    const manifests = [...walk(join(repo, "core", "crates"), (p) => p.endsWith("Cargo.toml")), join(desktop, "src-tauri", "shell", "Cargo.toml")].filter(existsSync);
+    expect(manifests.filter((m) => /tauri-plugin-updater/.test(readFileSync(m, "utf8"))).map((m) => relative(repo, m))).toEqual([]);
+    expect(readFileSync(join(desktop, "src-tauri", "Cargo.toml"), "utf8")).toMatch(/^\s*tauri-plugin-updater\s*=/m);
+  });
+
   test("egne crates har ingen direkte nettverksavhengighet i Cargo.toml", () => {
     const manifests = [...walk(join(repo, "core", "crates"), (p) => p.endsWith("Cargo.toml")), join(desktop, "src-tauri", "Cargo.toml"), join(desktop, "src-tauri", "shell", "Cargo.toml")].filter(existsSync);
-    const hits = manifests.filter((m) => /^\s*(reqwest|hyper|ureq|curl|isahc|surf|attohttpc|tokio|tungstenite|tauri-plugin-(http|shell|fs|opener|updater|websocket))\b/m.test(readFileSync(m, "utf8"))).map((m) => relative(repo, m));
+    const hits = manifests.filter((m) => /^\s*(reqwest|hyper|ureq|curl|isahc|surf|attohttpc|tokio|tungstenite|tauri-plugin-(http|shell|fs|opener|websocket))\b/m.test(readFileSync(m, "utf8"))).map((m) => relative(repo, m));
     expect(hits).toEqual([]);
   });
 });
