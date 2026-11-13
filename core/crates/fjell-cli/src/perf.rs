@@ -307,6 +307,11 @@ pub struct PerfResult {
     pub scan_decide_p95_ms: f64,
     pub scan_undo_p95_ms: f64,
     pub scan_samples: usize,
+    /// Sekunder for full skanning av `rows`-indeksen (del 2), og dens trinn (enumerer, rask, full, klynging).
+    pub rows_build_s: f64,
+    pub rows_steps_s: [f64; 4],
+    /// Topp RSS (VmHWM) i MB ved slutten av målingen; `None` utenfor Linux.
+    pub peak_rss_mb: Option<f64>,
     pub failures: Vec<String>,
 }
 
@@ -324,6 +329,25 @@ pub fn p95(v: &mut [f64]) -> f64 {
     }
     v.sort_by(|a, b| a.partial_cmp(b).unwrap());
     v[((v.len() as f64 * 0.95).ceil() as usize).clamp(1, v.len()) - 1]
+}
+
+/// Topp resident minne (VmHWM) for prosessen i MB. Bare Linux (`/proc/self/status`); ellers `None`.
+pub fn peak_rss_mb() -> Option<f64> {
+    let s = std::fs::read_to_string("/proc/self/status").ok()?;
+    let kb: f64 = s
+        .lines()
+        .find_map(|l| l.strip_prefix("VmHWM:"))?
+        .split_whitespace()
+        .next()?
+        .parse()
+        .ok()?;
+    Some(kb / 1024.0)
+}
+
+fn rss_text() -> String {
+    peak_rss_mb().map_or("topp RSS ikke målt her".into(), |m| {
+        format!("topp RSS {m:.0} MB (budsjett < 150 MB under skann)")
+    })
 }
 
 fn ms(t: Instant) -> f64 {
@@ -486,11 +510,20 @@ pub fn run(o: &PerfOptions, out: &mut dyn Write) -> Result<PerfResult, String> {
     let src = Arc::new(SynthSource::new(o.rows));
     let f = Fjell::new(fresh_db(&o.dir, "rows")?, src.clone(), Arc::new(SysClock));
     let t = Instant::now();
-    scan_and_wait(&f, ScanMode::Full)?;
+    let rep = scan_and_wait(&f, ScanMode::Full)?;
+    r.rows_build_s = t.elapsed().as_secs_f64();
+    let tm = &rep.timings;
+    r.rows_steps_s = [tm.enumerate, tm.quick, tm.full, tm.cluster].map(|d| d.as_secs_f64());
     say(format!(
-        "indeks med {} bilder bygget på {:.1} s",
+        "indeks med {} bilder bygget på {:.1} s ({:.3} ms/rad; enumerer {:?}, rask {:?}, full {:?}, klynging {:?}); {}",
         o.rows,
-        t.elapsed().as_secs_f64()
+        r.rows_build_s,
+        r.rows_build_s * 1000.0 / o.rows as f64,
+        tm.enumerate,
+        tm.quick,
+        tm.full,
+        tm.cluster,
+        rss_text()
     ))?;
     let (mut c, mut d, mut u) = (vec![], vec![], vec![]);
     for k in 0..o.rounds {
@@ -619,6 +652,8 @@ pub fn run(o: &PerfOptions, out: &mut dyn Write) -> Result<PerfResult, String> {
     }
     drop(f);
     clean(&o.dir, "rows2");
+    r.peak_rss_mb = peak_rss_mb();
+    say(format!("perf: {}", rss_text()))?;
     for f in &r.failures {
         say(format!("BRUDD: {f}"))?;
     }

@@ -122,9 +122,12 @@ impl FsDeleter {
     }
 
     fn path_for(&self, id: AssetId, sid: &SourceId) -> Option<PathBuf> {
-        self.quarantine
-            .as_ref()
-            .and_then(|q| q.locate(id))
+        let q = self.quarantine.as_ref();
+        // Gjenopprettet etter bekreftelsen: filen er aktiv på opprinnelig sti, ikke slett den.
+        if q.is_some_and(|q| q.was_restored(id)) {
+            return None;
+        }
+        q.and_then(|q| q.locate(id))
             .or_else(|| resolve(&self.library, sid).ok())
     }
 

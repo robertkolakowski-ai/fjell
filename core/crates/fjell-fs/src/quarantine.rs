@@ -64,6 +64,9 @@ pub trait Quarantine: Send + Sync {
 pub struct FsQuarantine {
     library: PathBuf,
     dir: PathBuf,
+    /// Id-er som er gjenopprettet (`unstage`) i denne prosessen og ikke staged på nytt siden.
+    /// «Tøm» skal aldri falle tilbake til opprinnelig sti for dem (F2).
+    restored: std::sync::Mutex<std::collections::HashSet<u64>>,
 }
 
 fn map_io(e: std::io::Error) -> QuarantineError {
@@ -86,6 +89,25 @@ impl FsQuarantine {
         FsQuarantine {
             library: library.into(),
             dir: base.as_ref().join(QUARANTINE_DIR),
+            restored: Default::default(),
+        }
+    }
+
+    /// Er id gjenopprettet fra karantenen og ikke staged på nytt? Da ligger filen aktiv på
+    /// opprinnelig sti og må ikke slettes av «Tøm».
+    pub fn was_restored(&self, id: AssetId) -> bool {
+        self.restored.lock().is_ok_and(|r| r.contains(&id.0))
+    }
+
+    fn mark_restored(&self, ids: &[u64], on: bool) {
+        if let Ok(mut r) = self.restored.lock() {
+            for i in ids {
+                if on {
+                    r.insert(*i);
+                } else {
+                    r.remove(i);
+                }
+            }
         }
     }
 
@@ -260,6 +282,8 @@ impl Quarantine for FsQuarantine {
         if plan.is_empty() {
             return out;
         }
+        let planned: Vec<u64> = plan.iter().map(|(id, _, _)| id.0).collect();
+        self.mark_restored(&planned, false);
         manifest
             .entries
             .extend(plan.iter().map(|(_, _, e)| e.clone()));
@@ -311,6 +335,7 @@ impl Quarantine for FsQuarantine {
                 Err(err) => out.push((*id, Err(err))),
             }
         }
+        self.mark_restored(&done, true);
         self.drop_entries(&done);
         out
     }

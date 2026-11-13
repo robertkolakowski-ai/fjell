@@ -155,3 +155,74 @@ fn quarantine_rename_same_volume_on_long_path_keeps_content() {
     assert_eq!(blake3::hash(&fs::read(ext(&full)).unwrap()), hash);
     let _ = fs::remove_dir_all(ext(&root));
 }
+
+// --- WIC-dekoding (HEIC/RAW). Aldri kjørt: bare kompilert lokalt mot windows-gnu (uten linking);
+// første ekte kjøring er windows-latest. Ingen ekte HEIC/RAW-fil brukes. Se docs/mvp/DEKODING.md.
+
+/// Sender WIC-dekoderen under en endelse `image`-stien ikke tar, så WIC dekoder en vanlig JPEG.
+struct WicAsWj;
+
+impl fjell_fs::thumb::FrameDecoder for WicAsWj {
+    fn extensions(&self) -> &[&str] {
+        &["wj"]
+    }
+    fn probe(&self, p: &Path) -> Result<(u32, u32, u8), fjell_core::model::SourceError> {
+        fjell_fs::thumb::FrameDecoder::probe(&fjell_fs::wic::WicDecoder, p)
+    }
+    fn decode(
+        &self,
+        p: &Path,
+        m: u32,
+    ) -> Result<fjell_fs::thumb::Decoded, fjell_core::model::SourceError> {
+        fjell_fs::thumb::FrameDecoder::decode(&fjell_fs::wic::WicDecoder, p, m)
+    }
+}
+
+#[test]
+fn wic_jpeg_and_image_jpeg_hash_within_tolerance() {
+    use fjell_core::hash::perceptual;
+    use fjell_fs::thumb::{make_thumb, make_thumb_with, oriented_dims, oriented_dims_with};
+    let root = tempdir("w-wic-jpeg");
+    for (name, o) in [("plain", None), ("rot6", Some(6u8))] {
+        let bytes = jpeg(640, 360, o);
+        write(&root, &format!("{name}.jpg"), &bytes);
+        write(&root, &format!("{name}.wj"), &bytes);
+        let a = root.join(format!("{name}.jpg"));
+        let b = root.join(format!("{name}.wj"));
+        assert_eq!(
+            oriented_dims(&a),
+            oriented_dims_with(&b, Some(&WicAsWj)),
+            "{name}: dimensjoner"
+        );
+        let ta = make_thumb(&a).unwrap();
+        let tb = make_thumb_with(&b, Some(&WicAsWj)).unwrap();
+        assert_eq!((ta.w, ta.h), (tb.w, tb.h), "{name}: miniatyrstørrelse");
+        let ((da, pa), (db, pb)) = (perceptual(&ta), perceptual(&tb));
+        // Toleransen (4 av 64 biter) er et anslag, ikke målt; justeres etter første CI-kjøring.
+        assert!(da.hamming(db) <= 4, "{name}: dHash {}", da.hamming(db));
+        assert!(pa.hamming(pb) <= 4, "{name}: pHash {}", pa.hamming(pb));
+    }
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn wic_garbage_heic_never_panics_and_is_unavailable_or_corrupt() {
+    use fjell_core::model::SourceError;
+    use fjell_fs::thumb::make_thumb;
+    let root = tempdir("w-wic-garbage");
+    write(&root, "a.heic", b"dette er ikke et bilde");
+    write(&root, "b.dng", b"");
+    for n in ["a.heic", "b.dng"] {
+        // Uten HEIF-utvidelse: Unavailable. Med: Corrupt. Aldri Ok, aldri panikk.
+        let e = make_thumb(&root.join(n)).unwrap_err();
+        assert!(
+            matches!(e, SourceError::Unavailable | SourceError::Corrupt),
+            "{n}: {e:?}"
+        );
+    }
+    assert_eq!(
+        make_thumb(&root.join("finnes-ikke.heic")).unwrap_err(),
+        SourceError::NotFound
+    );
+    let _ = fs::remove_dir_all(&root);
+}
