@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Fjell: appikon</title>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e5f6e"/><stop offset="1" stop-color="#0a4a57"/></linearGradient>
+    <clipPath id="c"><rect x="3" y="9" width="12" height="12" rx="2"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="225" fill="url(#g)"/>
+  <g transform="translate(176 176) scale(28)" fill="none" stroke="#eaf4f5" stroke-width="1.8" stroke-linejoin="round">
+    <rect x="9" y="3" width="12" height="12" rx="2"/>
+    <g clip-path="url(#c)" stroke="none">
+      <rect x="3" y="9" width="12" height="12" fill="#eaf4f5"/>
+      <path d="M3 17 15 10.07V21H3z" fill="#8fbcc5"/>
+    </g>
+    <rect x="3" y="9" width="12" height="12" rx="2"/>
+  </g>
+</svg>

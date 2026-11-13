@@ -30,7 +30,7 @@
 <style>
   .sr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2) var(--space-5); padding: var(--space-3) var(--space-5); border-block-start: var(--border-width) solid var(--c-border-subtle); }
   .sr:first-child { border-block-start: 0; }
-  .lbl, label { font-weight: var(--fw-semibold); }
+  .lbl, label { font-weight: var(--fw-medium); }
   label { display: block; }
   p { margin: var(--space-0) 0 0; color: var(--c-text-muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
   .ctl { justify-self: end; min-inline-size: 0; max-inline-size: 100%; }

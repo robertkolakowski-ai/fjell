@@ -91,7 +91,7 @@
     {#each NAV_ROUTES as n (n)}
       {@const c = countOf(n)}
       <NavItem href={navHash(n)} label={$tr(label[n])} current={navFor($route) === n} count={c.count} countLabel={c.label}>
-        {#snippet icon()}<Icon name={iconOf[n]} />{/snippet}
+        {#snippet icon()}<Icon name={iconOf[n]} filled={navFor($route) === n} />{/snippet}
       </NavItem>
     {/each}
     {#snippet footer()}
@@ -123,13 +123,16 @@
 
 <style>
   /* Appskall: ≥ 900 px sidemeny + arbeidsflate (rutenett med to kolonner), under 900 px toppmeny over arbeidsflaten. Se docs/design/LOFT.md. */
-  .app { min-block-size: 100vh; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .app { min-block-size: 100vh; background: var(--c-bg); display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   main { min-inline-size: 0; padding: var(--space-5) var(--gutter) var(--space-6); }
   main:focus { outline: none; }
   .kb { display: inline-flex; align-items: center; gap: var(--space-2); }
   .ver { color: var(--c-text-muted); font-size: var(--fs-xs); font-variant-numeric: var(--num); padding-inline: var(--space-3); }
+  .skip { border-radius: var(--radius-sm); box-shadow: var(--shadow-2); }
   @media (min-width: 56.25rem) {
     .app { grid-template-columns: var(--nav-w) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+    /* Sidemenyen er sticky og 100 vh; kolonnen under den males i menyens farge så den når hele dokumenthøyden (ingen lys stripe nederst). */
+    .app { background: linear-gradient(to right, var(--c-nav-bg) calc(var(--nav-w) - var(--border-width)), var(--c-border-subtle) calc(var(--nav-w) - var(--border-width)), var(--c-border-subtle) var(--nav-w), var(--c-bg) var(--nav-w)); }
     main { padding-block-start: var(--space-6); }
   }
   .skip { position: absolute; z-index: 20; inset-inline-start: var(--space-2); inset-block-start: -10rem; background: var(--c-surface); padding: var(--space-2) var(--space-3); }

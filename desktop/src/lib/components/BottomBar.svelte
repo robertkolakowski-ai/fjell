@@ -56,7 +56,7 @@
     inset-block-end: 0;
     z-index: 10;
     padding: var(--space-3) var(--gutter) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-    background: var(--c-surface);
+    background: var(--c-surface-raised);
     border-block-start: var(--border-width) solid var(--c-border-subtle);
     box-shadow: var(--shadow-lg);
   }

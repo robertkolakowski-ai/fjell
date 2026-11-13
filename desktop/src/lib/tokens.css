@@ -1,29 +1,37 @@
 /*
- * Design tokens for Fjell (desktop). ENESTE kilde for farge, radius, skygge, font-size og spacing.
+ * Design tokens for Fjell (desktop), V2 «Blåtime» (docs/design/V2.md). ENESTE kilde for farge, radius, skygge, font-size og spacing.
  * Komponenter bruker bare var(--...). Ingen heksverdier utenfor denne filen.
  * Kontrast sjekkes av `npm run contrast` (scripts/contrast.mjs) som leser blokkene merket «theme:<navn>».
- * Systemfonter, ingen eksterne fonter. Størrelser i rem slik at Windows-skalering (opptil 200 %) og
- * nettleserens skriftstørrelse slår igjennom.
+ * Skrift: Inter Variable bundlet lokalt (src/assets/fonts), med systemfonter som reserve. Ingen eksterne fonter.
+ * Størrelser i rem slik at Windows-skalering (opptil 200 %) og nettleserens skriftstørrelse slår igjennom.
  */
 
 /* ---------- Tema-uavhengige tokens ---------- */
 :root {
-  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+  --font-features: "cv11", "ss03", "calt"; /* Inter: enkel a, runde anførselstegn; ligaturer */
 
-  /* Størrelsesskala (LOFT.md del 3). Tettere enn før: Windows-skrivebord, ikke mobil. Alt i rem. */
+  /* Størrelsesskala (V2 2.2). Alt i rem. 2xs bare til versaletikett, aldri løpende tekst. */
+  --fs-2xs: 0.75rem;
   --fs-xs: 0.8125rem;
   --fs-sm: 0.875rem;
   --fs-md: 0.9375rem;
-  --fs-lg: 1.125rem;
-  --fs-xl: 1.5rem;
-  --fs-stat: 1.625rem; /* tall i StatTile */
-  --fs-display: 2.25rem;
-  --lh-tight: 1.2;
+  --fs-lg: 1.0625rem;
+  --fs-xl: 1.375rem;
+  --fs-2xl: 1.75rem;
+  --fs-stat: var(--fs-2xl); /* alias (tall i StatTile) */
+  --fs-display: 2.5rem;
+  --lh-tight: 1.15;
+  --lh-heading: 1.3;
   --lh-body: 1.5;
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-semibold: 600;
+  --fw-display: 650;
+  --ls-tight: -0.02em; /* display og 2xl */
+  --ls-snug: -0.01em; /* xl */
+  --ls-caps: 0.06em; /* versaletikett (2xs, 600) */
   --num: tabular-nums; /* font-variant-numeric for alle tall som står i kolonner eller endres */
 
   --space-0: 0.125rem;
@@ -37,28 +45,49 @@
   --space-8: 4rem;
   --gutter: clamp(var(--space-3), 2.5vw, var(--space-6)); /* sidemarg i arbeidsflaten */
 
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
+  --radius-xs: 0.25rem; /* miniatyrer, merker, tastehint */
+  --radius-sm: 0.375rem; /* knapper, felt */
+  --radius-md: 0.625rem; /* kort, paneler */
+  --radius-lg: 0.875rem; /* dialog, onboarding */
   --radius-pill: 999px;
 
   --target-min: 2.5rem; /* 40 px ved 100 %; langt over WCAG 2.5.8 (24 px) */
   --control-sm: 2rem; /* tett knapp (størrelse «sm»): 32 px, fortsatt over 24 px */
 
-  /* Layout (LOFT.md del 2). Brytpunkt for sidemeny er 56.25rem (= 900 px ved 100 %); media-spørringer kan ikke bruke var(). */
+  /* Layout (LOFT.md del 2, V2 2.3). Brytpunkt for sidemeny er 56.25rem (= 900 px ved 100 %); media-spørringer kan ikke bruke var(). */
   --nav-w: 15rem;
   --w-narrow: 40rem; /* skjemaer og innstillinger */
   --w-content: 64rem; /* standard arbeidsflate */
   --w-wide: 84rem; /* absolutt tak for innhold */
   --card-min: 14rem; /* minste kortbredde i auto-fit-rutenett */
-  --tile-min: 11rem; /* minste bildeflis */
+  --tile-min: 9rem; /* minste bildeflis (tett rutenett; Papirkurv bruker 11rem selv) */
   --shell-inset: 0px; /* bredden sidemenyen tar; app.css setter den til --nav-w ≥ 900 px. Fast bunnlinje følger den */
   --focus-width: 3px;
   --focus-offset: 2px;
   --border-width: 1px;
+  --hairline: var(--border-width) solid var(--c-border-subtle);
 
-  --dur-fast: 120ms;
-  --dur-base: 200ms;
+  /* Tetthet (V2 2.3) */
+  --row-h: 2.75rem;
+  --row-h-comfort: 3.5rem;
+  --thumb-gap: 0.25rem;
+  --panel-w: 18rem;
+  --strip-w: 12rem;
+  --header-h: 4rem;
+
+  /* Bevegelse (V2 2.5): bare opacity og transform animeres; tilstanden byttes straks, animasjonen er pynt etterpå. */
+  --dur-1: 90ms; /* hover, trykk */
+  --dur-2: 160ms; /* segment, hake, toast inn */
+  --dur-3: 240ms; /* kort ut, panel, dialog */
+  --dur-4: 480ms; /* ring/stolpe fylles, bare ved første visning */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-move: cubic-bezier(0.3, 0, 0.1, 1);
+  --dur-fast: var(--dur-1); /* alias, fjernes etter bølge 2 */
+  --dur-base: var(--dur-2); /* alias, fjernes etter bølge 2 */
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --dur-4: 0ms; }
 }
 
 /* ---------- Lys (standard) ---------- */
@@ -66,43 +95,64 @@
 :root,
 :root[data-theme="light"] {
   color-scheme: light;
-  --c-bg: #f4f6f8;
-  --c-surface: #ffffff;
-  --c-surface-sunken: #e9edf1;
-  --c-text: #14181d;
-  --c-text-muted: #444d59;
-  --c-border: #c3cad3;
-  --c-border-strong: #6b7685;
-  --c-accent: #0b5cad;
-  --c-accent-hover: #084a8c;
-  --c-on-accent: #ffffff;
-  --c-focus: #0b5cad;
-  --c-ring-track: #7a8798;
-  --c-ring-fill: #0b5cad;
-  --c-badge-bg: #e3e9f1;
-  --c-badge-text: #1d2733;
-  --c-badge-warn-bg: #fbe9c8;
-  --c-badge-warn-text: #4a3000;
-  --c-selected: #0b5cad;
-  --c-danger: #a5231b;
-  --c-inverse-bg: #1d2530;
-  --c-inverse-text: #f4f6f8;
-  --c-inverse-action: #9cc9ff;
-  --c-scrim: rgb(20 24 29 / 0.5);
-  --c-nav-bg: #ebeff3;
+  --c-bg: #f2f4f4;
+  --c-nav-bg: #e8ebeb;
+  --c-surface: #fcfdfd;
+  --c-surface-raised: #ffffff;
+  --c-surface-sunken: #e5e9e9;
+  --c-surface-hover: #edf0f0;
   --c-nav-active-bg: #ffffff;
-  --c-surface-hover: #f0f3f6;
-  --c-border-subtle: #dde2e8;
-  --c-accent-subtle: #e4eefa;
-  --c-ok: #1b6a43;
-  --c-ok-bg: #e3f3ea;
-  --c-danger-bg: #fdeceb;
-  --c-info-bg: #e4eefa;
-  --shadow-sm: 0 1px 2px rgb(20 24 29 / 0.14);
-  --shadow-md: 0 4px 12px rgb(20 24 29 / 0.16);
-  --shadow-lg: 0 -6px 20px rgb(20 24 29 / 0.18);
-  --shadow-card: 0 1px 2px rgb(20 24 29 / 0.06), 0 1px 1px rgb(20 24 29 / 0.04);
-  --shadow-pop: 0 12px 32px rgb(20 24 29 / 0.22);
+  --c-text: #161b1d;
+  --c-text-muted: #465055;
+  --c-border-subtle: #dbe0e1;
+  --c-border: #c0c8ca;
+  --c-border-strong: #667277;
+  --c-accent: #0e5f6e;
+  --c-accent-hover: #0a4a57;
+  --c-on-accent: #ffffff;
+  --c-accent-subtle: #dff0f2;
+  --c-focus: #0e5f6e;
+  --c-selected: #0e5f6e;
+  --c-ring-track: #7d8c91;
+  --c-ring-fill: #0e5f6e;
+  --c-seg-1: #0e5f6e;
+  --c-seg-2: #2f7a88;
+  --c-seg-3: #52909c;
+  --c-seg-4: #667277;
+  --c-ok: #2f6327;
+  --c-ok-bg: #e6f1df;
+  --c-warn: #4d3300;
+  --c-warn-bg: #f8e8c4;
+  --c-danger: #a3301f;
+  --c-danger-bg: #fbebe7;
+  --c-info-bg: #dff0f2;
+  --c-badge-bg: #e3e8e9;
+  --c-badge-text: #1b2326;
+  --c-badge-warn-bg: var(--c-warn-bg);
+  --c-badge-warn-text: var(--c-warn);
+  --c-well: #e9e9e9;
+  --c-stage: #101112;
+  --c-stage-text: #f2f2f2;
+  --c-stage-muted: #b4b4b4;
+  --c-stage-border: #2c2d2e;
+  --c-stage-focus: #8dd3de;
+  --c-stage-ok: #8fce7e;
+  --c-stage-danger: #ff9d8c;
+  --c-inverse-bg: #1b2022;
+  --c-inverse-text: #f2f4f4;
+  --c-inverse-action: #8dd3de;
+  --c-scrim: rgb(22 27 29 / 0.5);
+  --c-photo-outline: rgb(0 0 0 / 0.08);
+  --photo-outline: inset 0 0 0 1px var(--c-photo-outline);
+  --shadow-1: 0 1px 2px rgb(22 27 29 / 0.07), 0 0 1px rgb(22 27 29 / 0.08);
+  --shadow-2: 0 6px 18px rgb(22 27 29 / 0.14), 0 1px 3px rgb(22 27 29 / 0.1);
+  --shadow-3: 0 20px 48px rgb(22 27 29 / 0.26), 0 2px 8px rgb(22 27 29 / 0.12);
+  --shadow-lg: 0 -6px 20px rgb(22 27 29 / 0.14);
+  /* Alias (fjernes etter bølge 2) */
+  --shadow-card: var(--shadow-1);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-pop: var(--shadow-3);
 }
 
 /* ---------- Mørk ---------- */
@@ -110,85 +160,127 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
-    --c-bg: #101419;
-    --c-surface: #1a2028;
-    --c-surface-sunken: #0b0e12;
-    --c-text: #eef1f5;
-    --c-text-muted: #b3bcc8;
-    --c-border: #35404d;
-    --c-border-strong: #8a96a6;
-    --c-accent: #7ab7ff;
-    --c-accent-hover: #9cc9ff;
-    --c-on-accent: #07213f;
-    --c-focus: #9cc9ff;
-    --c-ring-track: #67748a;
-    --c-ring-fill: #7ab7ff;
-    --c-badge-bg: #2a3441;
-    --c-badge-text: #e6ebf2;
-    --c-badge-warn-bg: #4a3a12;
-    --c-badge-warn-text: #ffe2a0;
-    --c-selected: #7ab7ff;
-    --c-danger: #ff9b92;
-    --c-inverse-bg: #eef1f5;
-    --c-inverse-text: #14181d;
-    --c-inverse-action: #0b4f96;
+    --c-bg: #131718;
+    --c-nav-bg: #0e1112;
+    --c-surface: #1b2022;
+    --c-surface-raised: #232a2c;
+    --c-surface-sunken: #0f1314;
+    --c-surface-hover: #262e30;
+    --c-nav-active-bg: #232a2c;
+    --c-text: #e8eced;
+    --c-text-muted: #a3adb0;
+    --c-border-subtle: #2a3133;
+    --c-border: #3a4346;
+    --c-border-strong: #7d898d;
+    --c-accent: #6fc4d1;
+    --c-accent-hover: #8dd3de;
+    --c-on-accent: #06262b;
+    --c-accent-subtle: #12323a;
+    --c-focus: #8dd3de;
+    --c-selected: #6fc4d1;
+    --c-ring-track: #718085;
+    --c-ring-fill: #6fc4d1;
+    --c-seg-1: #6fc4d1;
+    --c-seg-2: #4f9fae;
+    --c-seg-3: #3a8392;
+    --c-seg-4: #7d898d;
+    --c-ok: #8fce7e;
+    --c-ok-bg: #1b2a1a;
+    --c-warn: #f3cf7a;
+    --c-warn-bg: #2e2409;
+    --c-danger: #ff9d8c;
+    --c-danger-bg: #2e1814;
+    --c-info-bg: #12323a;
+    --c-badge-bg: #2a3234;
+    --c-badge-text: #e3e9ea;
+    --c-badge-warn-bg: var(--c-warn-bg);
+    --c-badge-warn-text: var(--c-warn);
+    --c-well: #0c0d0e;
+    --c-stage: #101112;
+    --c-stage-text: #f2f2f2;
+    --c-stage-muted: #b4b4b4;
+    --c-stage-border: #2c2d2e;
+    --c-stage-focus: #8dd3de;
+    --c-stage-ok: #8fce7e;
+    --c-stage-danger: #ff9d8c;
+    --c-inverse-bg: #e8eced;
+    --c-inverse-text: #161b1d;
+    --c-inverse-action: #0a4a57;
     --c-scrim: rgb(0 0 0 / 0.6);
-    --c-nav-bg: #0c1015;
-    --c-nav-active-bg: #1a2028;
-    --c-surface-hover: #222b36;
-    --c-border-subtle: #27313c;
-    --c-accent-subtle: #1a2a40;
-    --c-ok: #7fd1a4;
-    --c-ok-bg: #14291f;
-    --c-danger-bg: #3a1b19;
-    --c-info-bg: #1a2a40;
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
-    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.55);
-    --shadow-lg: 0 -6px 20px rgb(0 0 0 / 0.55);
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
-    --shadow-pop: 0 12px 32px rgb(0 0 0 / 0.6);
+    --c-photo-outline: rgb(255 255 255 / 0.06);
+    --photo-outline: inset 0 0 0 1px var(--c-photo-outline);
+    --shadow-1: none;
+    --shadow-2: 0 2px 10px rgb(0 0 0 / 0.4);
+    --shadow-3: 0 20px 48px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 -6px 20px rgb(0 0 0 / 0.45);
+    /* Alias (fjernes etter bølge 2) */
+    --shadow-card: var(--shadow-1);
+    --shadow-sm: var(--shadow-1);
+    --shadow-md: var(--shadow-2);
+    --shadow-pop: var(--shadow-3);
   }
 }
 /* theme:dark */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --c-bg: #101419;
-  --c-surface: #1a2028;
-  --c-surface-sunken: #0b0e12;
-  --c-text: #eef1f5;
-  --c-text-muted: #b3bcc8;
-  --c-border: #35404d;
-  --c-border-strong: #8a96a6;
-  --c-accent: #7ab7ff;
-  --c-accent-hover: #9cc9ff;
-  --c-on-accent: #07213f;
-  --c-focus: #9cc9ff;
-  --c-ring-track: #67748a;
-  --c-ring-fill: #7ab7ff;
-  --c-badge-bg: #2a3441;
-  --c-badge-text: #e6ebf2;
-  --c-badge-warn-bg: #4a3a12;
-  --c-badge-warn-text: #ffe2a0;
-  --c-selected: #7ab7ff;
-  --c-danger: #ff9b92;
-  --c-inverse-bg: #eef1f5;
-  --c-inverse-text: #14181d;
-  --c-inverse-action: #0b4f96;
+  --c-bg: #131718;
+  --c-nav-bg: #0e1112;
+  --c-surface: #1b2022;
+  --c-surface-raised: #232a2c;
+  --c-surface-sunken: #0f1314;
+  --c-surface-hover: #262e30;
+  --c-nav-active-bg: #232a2c;
+  --c-text: #e8eced;
+  --c-text-muted: #a3adb0;
+  --c-border-subtle: #2a3133;
+  --c-border: #3a4346;
+  --c-border-strong: #7d898d;
+  --c-accent: #6fc4d1;
+  --c-accent-hover: #8dd3de;
+  --c-on-accent: #06262b;
+  --c-accent-subtle: #12323a;
+  --c-focus: #8dd3de;
+  --c-selected: #6fc4d1;
+  --c-ring-track: #718085;
+  --c-ring-fill: #6fc4d1;
+  --c-seg-1: #6fc4d1;
+  --c-seg-2: #4f9fae;
+  --c-seg-3: #3a8392;
+  --c-seg-4: #7d898d;
+  --c-ok: #8fce7e;
+  --c-ok-bg: #1b2a1a;
+  --c-warn: #f3cf7a;
+  --c-warn-bg: #2e2409;
+  --c-danger: #ff9d8c;
+  --c-danger-bg: #2e1814;
+  --c-info-bg: #12323a;
+  --c-badge-bg: #2a3234;
+  --c-badge-text: #e3e9ea;
+  --c-badge-warn-bg: var(--c-warn-bg);
+  --c-badge-warn-text: var(--c-warn);
+  --c-well: #0c0d0e;
+  --c-stage: #101112;
+  --c-stage-text: #f2f2f2;
+  --c-stage-muted: #b4b4b4;
+  --c-stage-border: #2c2d2e;
+  --c-stage-focus: #8dd3de;
+  --c-stage-ok: #8fce7e;
+  --c-stage-danger: #ff9d8c;
+  --c-inverse-bg: #e8eced;
+  --c-inverse-text: #161b1d;
+  --c-inverse-action: #0a4a57;
   --c-scrim: rgb(0 0 0 / 0.6);
-  --c-nav-bg: #0c1015;
-  --c-nav-active-bg: #1a2028;
-  --c-surface-hover: #222b36;
-  --c-border-subtle: #27313c;
-  --c-accent-subtle: #1a2a40;
-  --c-ok: #7fd1a4;
-  --c-ok-bg: #14291f;
-  --c-danger-bg: #3a1b19;
-  --c-info-bg: #1a2a40;
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
-  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.55);
-  --shadow-lg: 0 -6px 20px rgb(0 0 0 / 0.55);
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
-  --shadow-pop: 0 12px 32px rgb(0 0 0 / 0.6);
+  --c-photo-outline: rgb(255 255 255 / 0.06);
+  --photo-outline: inset 0 0 0 1px var(--c-photo-outline);
+  --shadow-1: none;
+  --shadow-2: 0 2px 10px rgb(0 0 0 / 0.4);
+  --shadow-3: 0 20px 48px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 -6px 20px rgb(0 0 0 / 0.45);
+  /* Alias (fjernes etter bølge 2) */
+  --shadow-card: var(--shadow-1);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-pop: var(--shadow-3);
 }
 
 /* ---------- Høykontrast (valgfritt tema, AAA der det er mulig) ---------- */
@@ -196,88 +288,124 @@
 :root[data-theme="hc"] {
   color-scheme: dark;
   --c-bg: #000000;
+  --c-nav-bg: #000000;
   --c-surface: #000000;
+  --c-surface-raised: #000000;
   --c-surface-sunken: #000000;
+  --c-surface-hover: #000000;
+  --c-nav-active-bg: #000000;
   --c-text: #ffffff;
   --c-text-muted: #ffffff;
+  --c-border-subtle: #ffffff;
   --c-border: #ffffff;
   --c-border-strong: #ffffff;
   --c-accent: #ffe14d;
   --c-accent-hover: #ffffff;
   --c-on-accent: #000000;
+  --c-accent-subtle: #000000;
   --c-focus: #4dd2ff;
+  --c-selected: #ffe14d;
   --c-ring-track: #ffffff;
   --c-ring-fill: #ffe14d;
+  --c-seg-1: #ffe14d;
+  --c-seg-2: #4dd2ff;
+  --c-seg-3: #66ff99;
+  --c-seg-4: #ffffff;
+  --c-ok: #66ff99;
+  --c-ok-bg: #000000;
+  --c-warn: #ffe14d;
+  --c-warn-bg: #000000;
+  --c-danger: #ff8080;
+  --c-danger-bg: #000000;
+  --c-info-bg: #000000;
   --c-badge-bg: #000000;
   --c-badge-text: #ffffff;
-  --c-badge-warn-bg: #000000;
-  --c-badge-warn-text: #ffe14d;
-  --c-selected: #ffe14d;
-  --c-danger: #ff8080;
+  --c-badge-warn-bg: var(--c-warn-bg);
+  --c-badge-warn-text: var(--c-warn);
+  --c-well: #000000;
+  --c-stage: #000000;
+  --c-stage-text: #ffffff;
+  --c-stage-muted: #ffffff;
+  --c-stage-border: #ffffff;
+  --c-stage-focus: #4dd2ff;
+  --c-stage-ok: #66ff99;
+  --c-stage-danger: #ff8080;
   --c-inverse-bg: #ffffff;
   --c-inverse-text: #000000;
   --c-inverse-action: #0000cc;
   --c-scrim: rgb(0 0 0 / 0.85);
-  --c-nav-bg: #000000;
-  --c-nav-active-bg: #000000;
-  --c-surface-hover: #000000;
-  --c-border-subtle: #ffffff;
-  --c-accent-subtle: #000000;
-  --c-ok: #66ff99;
-  --c-ok-bg: #000000;
-  --c-danger-bg: #000000;
-  --c-info-bg: #000000;
-  --shadow-sm: none;
-  --shadow-md: none;
+  --c-photo-outline: #ffffff;
+  --photo-outline: inset 0 0 0 1px var(--c-photo-outline);
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-3: none;
   --shadow-lg: none;
-  --shadow-card: none;
-  --shadow-pop: none;
   --border-width: 2px;
+  /* Alias (fjernes etter bølge 2) */
+  --shadow-card: var(--shadow-1);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-pop: var(--shadow-3);
 }
 
 /* theme:forced (hoppes over av kontrasttesten) */
 /* ---------- Windows høykontrast / forced-colors: systemfarger overstyrer ----------
  * Her brukes CSS-systemfarger. Kontrasten bestemmes av brukerens Windows-tema og kan ikke regnes ut
- * av kontrasttesten; komponentene må derfor ikke stole på farge alene (kantlinjer, ikoner, tekst). */
+ * av kontrasttesten; komponentene må derfor ikke stole på farge alene (kantlinjer, ikoner, tekst, mønster). */
 @media (forced-colors: active) {
   :root {
     --c-bg: Canvas;
+    --c-nav-bg: Canvas;
     --c-surface: Canvas;
+    --c-surface-raised: Canvas;
     --c-surface-sunken: Canvas;
+    --c-surface-hover: Canvas;
+    --c-nav-active-bg: Canvas;
     --c-text: CanvasText;
     --c-text-muted: CanvasText;
+    --c-border-subtle: CanvasText;
     --c-border: CanvasText;
     --c-border-strong: CanvasText;
     --c-accent: ButtonFace;
     --c-accent-hover: ButtonFace;
     --c-on-accent: ButtonText;
+    --c-accent-subtle: Canvas;
     --c-focus: Highlight;
+    --c-selected: Highlight;
     --c-ring-track: GrayText;
     --c-ring-fill: Highlight;
+    --c-seg-1: Highlight;
+    --c-seg-2: LinkText;
+    --c-seg-3: VisitedText;
+    --c-seg-4: CanvasText;
+    --c-ok: CanvasText;
+    --c-ok-bg: Canvas;
+    --c-warn: CanvasText;
+    --c-warn-bg: Canvas;
+    --c-danger: CanvasText;
+    --c-danger-bg: Canvas;
+    --c-info-bg: Canvas;
     --c-badge-bg: Canvas;
     --c-badge-text: CanvasText;
     --c-badge-warn-bg: Canvas;
     --c-badge-warn-text: CanvasText;
-    --c-selected: Highlight;
-    --c-danger: CanvasText;
+    --c-well: Canvas;
+    --c-stage: Canvas;
+    --c-stage-text: CanvasText;
+    --c-stage-muted: CanvasText;
+    --c-stage-border: CanvasText;
+    --c-stage-focus: Highlight;
+    --c-stage-ok: CanvasText;
+    --c-stage-danger: CanvasText;
     --c-inverse-bg: Canvas;
     --c-inverse-text: CanvasText;
     --c-inverse-action: LinkText;
     --c-scrim: Canvas;
-    --c-nav-bg: Canvas;
-    --c-nav-active-bg: Canvas;
-    --c-surface-hover: Canvas;
-    --c-border-subtle: CanvasText;
-    --c-accent-subtle: Canvas;
-    --c-ok: CanvasText;
-    --c-ok-bg: Canvas;
-    --c-danger-bg: Canvas;
-    --c-info-bg: Canvas;
-    --shadow-sm: none;
-    --shadow-md: none;
+    --c-photo-outline: CanvasText;
+    --shadow-1: none;
+    --shadow-2: none;
+    --shadow-3: none;
     --shadow-lg: none;
-    --shadow-card: none;
-    --shadow-pop: none;
     --border-width: 2px;
   }
 }
