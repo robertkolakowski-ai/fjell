@@ -58,7 +58,7 @@ export async function tour(page: Page, visit: Visit, lang: Lang = "nb"): Promise
   await page.locator("h1").first().waitFor();
   await page.waitForTimeout(150);
   await visit("papirkurv");
-  const purge = pseudo ? page.locator(".actions button:visible") : page.getByRole("button", { name: /Tøm papirkurv|Empty trash/ });
+  const purge = pseudo ? page.locator(".trash .ph .btn.danger") : page.getByRole("button", { name: /Tøm papirkurv|Empty trash/ });
   if ((await purge.count()) > 0 && (await purge.first().isEnabled({ timeout: 1000 }))) {
     await purge.first().click();
     await expect(page.getByRole("dialog")).toBeVisible();

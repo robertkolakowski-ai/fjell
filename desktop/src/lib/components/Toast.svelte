@@ -39,10 +39,10 @@
     max-inline-size: min(100%, 36rem);
     padding: var(--space-3) var(--space-4);
     border: var(--border-width) solid var(--c-inverse-text);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     background: var(--c-inverse-bg);
     color: var(--c-inverse-text);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-pop);
     animation: in var(--dur-base) ease-out;
   }
   .msg { margin: 0; flex: 1 1 12rem; min-inline-size: 0; }

@@ -45,7 +45,7 @@ async function tour(page: Page, lang: Lang, scheme: "light" | "dark", only?: str
   await go(page, "#/trash");
   await page.locator(".trash .summary").waitFor();
   if (want("papirkurv")) await shot(page, `papirkurv-${tag}`);
-  await page.locator(".actions button").click();
+  await page.locator(".trash .ph .btn.danger").click();
   if (want("papirkurv-tom-ark")) await shot(page, `papirkurv-tom-ark-${tag}`);
   await page.keyboard.press("Escape");
   await go(page, "#/cards");

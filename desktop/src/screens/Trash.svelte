@@ -1,12 +1,14 @@
 <!-- Papirkurv (UX-5, PLAN-UX-I18N 3.6): «Nylig slettet» med forklaring, utløpsvarsel, liste per bilde (Utløpt / Utløper snart /
      Andre) med «Gjenopprett» og «Gjenopprett alt» (umiddelbart, uten bekreftelse), Tøm-ark (Windows Papirkurv som standard,
      permanent med eget trinn og avkrysning; filer Papirkurv ikke kan ta ligger urørt i karantenen til brukeren velger), resultat og historikk. Tilstand i trashState.ts, flyt i trashFlow.ts.
-     Ikke med ennå: miniatyrer i listen (raden viser filnavn, størrelse og datoer). -->
+     Loft (M10): sammendrag som StatTile-rad, tett liste i Card, dialoger i felles ark-stil (sheet.css).
+     Ikke med ennå: ekte miniatyrer (bridge har ingen), raden har en nøytral plassholder. -->
 <script lang="ts">
   import { onDestroy, onMount, tick } from "svelte";
   import type { CoreBridge } from "../bridge/core-bridge";
   import { useBridge } from "../context";
-  import { Button, LiveRegion } from "../lib";
+  import { Banner, Button, Card, Icon, LiveRegion, PageHeader, StatTile } from "../lib";
+  import "./sheet.css";
   import { fmt, tr } from "../lib/i18n";
   import { TrashSession } from "./trashFlow";
   import { daysLeft, hasExpired, initialTrash, sectionsOf, type PurgeOutcome, type TrashSectionId, type TrashState } from "./trashState";
@@ -26,6 +28,7 @@
   const info = $derived(view.info);
   const nowS = Math.floor(Date.now() / 1000);
   const sections = $derived(sectionsOf(view.items, nowS));
+  const soonCount = $derived(sections.find((x) => x.id === "soon")?.items.length ?? 0);
   const sectionKey = { expired: "trash.section.expired", soon: "trash.section.soon", other: "trash.section.other" } as const satisfies Record<TrashSectionId, string>;
   const canRestore = $derived(view.phase === "list" && !view.restoring);
   const outcome = $derived(view.outcome);
@@ -53,7 +56,7 @@
     const p = view.phase;
     if (p !== "confirmUnsupported" && p !== "confirmPermanent") return;
     void tick().then(() => {
-      sheet?.querySelector<HTMLElement>(p === "confirmPermanent" ? ".ack input" : ".dlg-actions button")?.focus();
+      sheet?.querySelector<HTMLElement>(p === "confirmPermanent" ? ".ack input" : ".sheet-actions button")?.focus();
     });
   });
   onMount(() => void session.load());
@@ -61,69 +64,90 @@
 </script>
 
 <section class="trash">
-  <h1 tabindex="-1">{$tr("trash.title")}</h1>
+  <PageHeader title={$tr("trash.title")} description={info && info.count > 0 ? $tr("trash.freed.note") : undefined}>
+    {#snippet actions()}
+      {#if info && info.count > 0}
+        <Button variant="danger" disabled={view.phase !== "list"} onclick={() => session.send({ type: "openPurge" })}>{$tr("trash.empty.button")}</Button>
+      {/if}
+    {/snippet}
+  </PageHeader>
   <LiveRegion message={announce} />
 
   {#if view.phase === "loading"}
     <p role="status">{$tr("common.loading")}</p>
   {:else if view.phase === "error" && !info}
-    <p role="alert">{$tr("trash.error.body")}</p>
-    <Button onclick={() => { session.send({ type: "reload" }); void session.load(); }}>{$tr("common.retry")}</Button>
+    <Banner tone="danger" role="alert"><p>{$tr("trash.error.body")}</p>
+      {#snippet actions()}<Button onclick={() => { session.send({ type: "reload" }); void session.load(); }}>{$tr("common.retry")}</Button>{/snippet}
+    </Banner>
   {:else if info}
-    {#if view.error}<p role="alert">{$tr("trash.error.body")}</p>{/if}
+    {#if view.error}<Banner tone="danger" role="alert"><p>{$tr("trash.error.body")}</p></Banner>{/if}
 
     {#if view.phase === "purged" && outcome}
-      <div class="done" role="status">
-        {#if outcomeText(outcome)}<p>{outcomeText(outcome)}</p>{/if}
-        {#if outcome.kept > 0}<p>{$tr("trash.purged.kept", { count: outcome.kept })}</p>{/if}
-        {#if outcome.marked > 0}<p>{$tr("trash.purge.marked", { count: outcome.marked })}</p>{/if}
-        <Button onclick={() => session.send({ type: "dismiss" })}>{$tr("common.done")}</Button>
+      <div class="done">
+        <Banner tone="ok" role="status">
+          {#if outcomeText(outcome)}<p>{outcomeText(outcome)}</p>{/if}
+          {#if outcome.kept > 0}<p>{$tr("trash.purged.kept", { count: outcome.kept })}</p>{/if}
+          {#if outcome.marked > 0}<p>{$tr("trash.purge.marked", { count: outcome.marked })}</p>{/if}
+          {#snippet actions()}<Button onclick={() => session.send({ type: "dismiss" })}>{$tr("common.done")}</Button>{/snippet}
+        </Banner>
       </div>
     {/if}
 
     {#if info.count === 0}
-      <h2>{$tr("trash.empty.title")}</h2>
+      <Card>
+        <h2 class="empty">{$tr("trash.empty.title")}</h2>
+      </Card>
     {:else}
-      <p class="summary">{$tr("trash.summary", { count: info.count, size: fmt.bytes(info.bytes) })}</p>
-      <p class="muted">{$tr("trash.freed.note")}</p>
-      {#if hasExpired(info)}
-        <p class="expired"><strong>{$tr("trash.row.expired")}</strong>: {fmt.number(info.expired)}</p>
-      {/if}
-      <div class="actions">
-        <Button disabled={!canRestore || view.selected.size === 0} onclick={() => void session.restore(false)}>{$tr("trash.restore")}</Button>
-        <Button disabled={!canRestore} onclick={() => void session.restore(true)}>{$tr("trash.restore.all")}</Button>
-        <Button variant="primary" disabled={view.phase !== "list"} onclick={() => session.send({ type: "openPurge" })}>{$tr("trash.empty.button")}</Button>
+      <div class="tiles">
+        <StatTile label={$tr("trash.stat.count")} value={fmt.number(info.count)} />
+        <StatTile label={$tr("trash.stat.size")} value={fmt.bytes(info.bytes)} />
+        <StatTile label={$tr("trash.section.soon")} value={fmt.number(soonCount)} tone={soonCount > 0 ? "warn" : "default"} />
+        {#if hasExpired(info)}<StatTile label={$tr("trash.row.expired")} value={fmt.number(info.expired)} tone="danger" />{/if}
       </div>
-      {#if view.restored !== null}
-        <p class="muted" role="status">{$tr("restore.done", { count: view.restored })} {$tr("restore.where")}</p>
-      {:else if view.restoreFailed}
-        <p role="alert">{$tr("restore.failed")}</p>
-      {:else}
-        <p class="muted">{view.selected.size === 0 ? $tr("restore.none") : $tr("restore.selected", { count: view.selected.size })}</p>
-      {/if}
 
-      <div class="listbar">
-        <Button disabled={!canRestore} onclick={() => session.send({ type: "selectAll" })}>{$tr("review.select.all")}</Button>
-      </div>
-      <div role="group" aria-label={$tr("restore.list.label")}>
-        {#each sections as sec (sec.id)}
-          <h2 class="sec">{$tr(sectionKey[sec.id])}</h2>
-          <ul class="items">
-            {#each sec.items as it (it.asset)}
-              <li>
-                <label class="row">
-                  <input type="checkbox" checked={view.selected.has(it.asset)} disabled={!canRestore}
-                    aria-label={$tr("restore.row.select", { name: it.name })}
-                    onchange={() => session.send({ type: "toggle", asset: it.asset })} />
-                  <span class="name">{it.name}</span>
-                  <span class="meta">{fmt.bytes(it.bytes)} · {$tr("trash.row.moved", { date: fmt.date(it.trashedAt * 1000) })}</span>
-                  <span class="meta">{#if it.expired}<strong>{$tr("trash.row.expired")}</strong>{:else}{$tr("trash.row.expires", { days: daysLeft(it, nowS) })}{/if}</span>
-                </label>
-              </li>
-            {/each}
-          </ul>
-        {/each}
-      </div>
+      <Card padding="none">
+        <div class="toolbar">
+          <p class="summary">{$tr("trash.summary", { count: info.count, size: fmt.bytes(info.bytes) })}</p>
+          <div class="actions">
+            <Button size="sm" disabled={!canRestore} onclick={() => session.send({ type: "selectAll" })}>{$tr("review.select.all")}</Button>
+            <Button variant="primary" size="sm" disabled={!canRestore || view.selected.size === 0} onclick={() => void session.restore(false)}>{$tr("trash.restore")}</Button>
+            <Button size="sm" disabled={!canRestore} onclick={() => void session.restore(true)}>{$tr("trash.restore.all")}</Button>
+          </div>
+          {#if view.restored !== null}
+            <p class="muted note" role="status">{$tr("restore.done", { count: view.restored })} {$tr("restore.where")}</p>
+          {:else if view.restoreFailed}
+            <p class="note" role="alert">{$tr("restore.failed")}</p>
+          {:else}
+            <p class="muted note">{view.selected.size === 0 ? $tr("restore.none") : $tr("restore.selected", { count: view.selected.size })}</p>
+          {/if}
+        </div>
+
+        <div role="group" aria-label={$tr("restore.list.label")}>
+          {#each sections as sec (sec.id)}
+            <h2 class="sec {sec.id}">
+              {#if sec.id === "expired"}<Icon name="danger" />{:else if sec.id === "soon"}<Icon name="warn" />{/if}
+              {$tr(sectionKey[sec.id])}
+              <span class="count">{fmt.number(sec.items.length)}</span>
+            </h2>
+            <ul class="items">
+              {#each sec.items as it (it.asset)}
+                <li>
+                  <label class="row">
+                    <input type="checkbox" checked={view.selected.has(it.asset)} disabled={!canRestore}
+                      aria-label={$tr("restore.row.select", { name: it.name })}
+                      onchange={() => session.send({ type: "toggle", asset: it.asset })} />
+                    <span class="thumb" aria-hidden="true"></span>
+                    <span class="name">{it.name}</span>
+                    <span class="meta size">{fmt.bytes(it.bytes)}</span>
+                    <span class="meta moved">{$tr("trash.row.moved", { date: fmt.date(it.trashedAt * 1000) })}</span>
+                    <span class="meta exp" class:warn={sec.id !== "other"}>{#if it.expired}<strong>{$tr("trash.row.expired")}</strong>{:else}{$tr("trash.row.expires", { days: daysLeft(it, nowS) })}{/if}</span>
+                  </label>
+                </li>
+              {/each}
+            </ul>
+          {/each}
+        </div>
+      </Card>
     {/if}
 
     {#if info.freedBytes > 0 && info.freedSince}
@@ -131,71 +155,80 @@
     {/if}
   {/if}
 
-  <dialog bind:this={sheet} aria-labelledby="tr-t" oncancel={(e) => { if (view.phase === "purging") e.preventDefault(); }}
+  <dialog class="sheet" bind:this={sheet} aria-labelledby="tr-t" oncancel={(e) => { if (view.phase === "purging") e.preventDefault(); }}
     onclose={() => session.send({ type: "cancel" })}>
     {#if info}
       {#if view.phase === "confirmPermanent"}
-        <h2 id="tr-t">{$tr("trash.permanent.title")}</h2>
-        <p>{$tr("trash.purge.summary", { count: info.count, size: fmt.bytes(info.bytes) })}</p>
-        <label class="ack">
-          <input type="checkbox" checked={view.ack} onchange={(e) => session.send({ type: "setAck", value: e.currentTarget.checked })} />
-          <span>{$tr("trash.permanent.ack")}</span>
-        </label>
+        <div class="sheet-body">
+          <h2 id="tr-t">{$tr("trash.permanent.title")}</h2>
+          <Banner tone="danger"><p>{$tr("trash.purge.summary", { count: info.count, size: fmt.bytes(info.bytes) })}</p></Banner>
+          <label class="opt ack">
+            <input type="checkbox" checked={view.ack} onchange={(e) => session.send({ type: "setAck", value: e.currentTarget.checked })} />
+            <span>{$tr("trash.permanent.ack")}</span>
+          </label>
+        </div>
         <!-- Destruktiv knapp sist i fokusrekkefølgen. -->
-        <div class="dlg-actions">
+        <div class="sheet-actions">
           <Button onclick={() => session.send({ type: "cancel" })}>{$tr("common.cancel")}</Button>
-          <Button disabled={!view.ack} onclick={() => void session.confirm()}>{$tr("trash.permanent.go", { count: info.count })}</Button>
+          <Button variant="danger" disabled={!view.ack} onclick={() => void session.confirm()}>{$tr("trash.permanent.go", { count: info.count })}</Button>
         </div>
       {:else if view.phase === "confirmUnsupported"}
         <!-- Filer Papirkurv ikke kan ta ligger urørt i karantenen. «La ligge» er standard og første i fokusrekkefølgen;
              den destruktive knappen er sist og fører til eget trinn med avkrysning (PermanentAck). -->
-        <h2 id="tr-t">{$tr("trash.unsupported.title")}</h2>
-        <p role="alert">{$tr("trash.unsupported.body", { count: view.unsupported })}</p>
-        <p>{$tr("trash.unsupported.options")}</p>
-        <div class="dlg-actions">
+        <div class="sheet-body">
+          <h2 id="tr-t">{$tr("trash.unsupported.title")}</h2>
+          <Banner tone="warn" role="alert"><p>{$tr("trash.unsupported.body", { count: view.unsupported })}</p></Banner>
+          <p>{$tr("trash.unsupported.options")}</p>
+        </div>
+        <div class="sheet-actions">
           <Button variant="primary" onclick={() => session.send({ type: "keepUnsupported" })}>{$tr("trash.unsupported.keep")}</Button>
-          <Button onclick={() => session.send({ type: "deleteUnsupported" })}>{$tr("trash.unsupported.delete")}</Button>
+          <Button variant="danger" onclick={() => session.send({ type: "deleteUnsupported" })}>{$tr("trash.unsupported.delete")}</Button>
         </div>
       {:else}
-        <h2 id="tr-t">{$tr("trash.purge.title")}</h2>
-        <p>{$tr("trash.purge.summary", { count: info.count, size: fmt.bytes(info.bytes) })}</p>
-        <fieldset disabled={view.phase === "purging"}>
-          <legend class="sr-only">{$tr("trash.purge.title")}</legend>
-          <label><input type="radio" name="mode" checked={view.mode === "recycle"} onchange={() => session.send({ type: "setMode", mode: "recycle" })} /> {$tr("trash.purge.mode.recycle")}</label>
-          <label><input type="radio" name="mode" checked={view.mode === "permanent"} onchange={() => session.send({ type: "setMode", mode: "permanent" })} /> {$tr("trash.purge.mode.permanent")}</label>
-        </fieldset>
-        <div class="dlg-actions">
+        <div class="sheet-body">
+          <h2 id="tr-t">{$tr("trash.purge.title")}</h2>
+          <p>{$tr("trash.purge.summary", { count: info.count, size: fmt.bytes(info.bytes) })}</p>
+          <fieldset disabled={view.phase === "purging"}>
+            <legend class="sr-only">{$tr("trash.purge.title")}</legend>
+            <label class="opt"><input type="radio" name="mode" checked={view.mode === "recycle"} onchange={() => session.send({ type: "setMode", mode: "recycle" })} /> <span>{$tr("trash.purge.mode.recycle")}</span></label>
+            <label class="opt"><input type="radio" name="mode" checked={view.mode === "permanent"} onchange={() => session.send({ type: "setMode", mode: "permanent" })} /> <span>{$tr("trash.purge.mode.permanent")}</span></label>
+          </fieldset>
+          {#if view.phase === "purging"}<p role="status">{$tr("common.loading")}</p>{/if}
+        </div>
+        <div class="sheet-actions">
           <Button disabled={view.phase === "purging"} onclick={() => session.send({ type: "cancel" })}>{$tr("common.cancel")}</Button>
           <Button variant="primary" disabled={view.phase === "purging"} onclick={() => void session.confirm()}>{$tr("common.continue")}</Button>
         </div>
-        {#if view.phase === "purging"}<p role="status">{$tr("common.loading")}</p>{/if}
       {/if}
     {/if}
   </dialog>
 </section>
 
 <style>
-  .trash { max-inline-size: 40rem; }
-  h1 { margin-block: 0 var(--space-3); font-size: var(--fs-xl); line-height: var(--lh-tight); }
-  h1:focus { outline: none; }
-  h2 { font-size: var(--fs-lg); }
+  .trash { max-inline-size: var(--w-content); }
   .muted { color: var(--c-text-muted); }
-  .expired { padding: var(--space-3); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md); background: var(--c-badge-warn-bg); color: var(--c-badge-warn-text); }
-  .actions, .dlg-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
-  .dlg-actions { justify-content: flex-end; margin-block-start: var(--space-3); }
-  .listbar { margin-block: var(--space-3); }
-  .sec { margin-block: var(--space-4) var(--space-2); font-size: var(--fs-md); }
-  .items { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
-  .row { flex-wrap: wrap; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--c-border); border-radius: var(--radius-md); background: var(--c-surface); }
-  .name { flex: 1 1 8rem; font-weight: var(--fw-semibold); overflow-wrap: anywhere; }
-  .meta { color: var(--c-text-muted); }
-  .done { margin-block: var(--space-3); padding: var(--space-3); border: var(--border-width) solid var(--c-border); border-radius: var(--radius-md); background: var(--c-surface); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--tile-min), 1fr)); gap: var(--space-4); margin-block-end: var(--space-4); }
+  .empty { margin: 0; font-size: var(--fs-lg); }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-3) var(--space-4); border-block-end: var(--border-width) solid var(--c-border-subtle); }
+  .summary { margin: 0; flex: 1 1 14rem; font-weight: var(--fw-semibold); font-variant-numeric: var(--num); }
+  .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .note { margin: 0; flex-basis: 100%; font-size: var(--fs-sm); }
+  .sec { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-2) var(--space-4); background: var(--c-surface-sunken); border-block-end: var(--border-width) solid var(--c-border-subtle); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+  .sec.expired { color: var(--c-danger); }
+  .count { padding-inline: var(--space-2); border-radius: var(--radius-pill); background: var(--c-surface); color: var(--c-text-muted); font-variant-numeric: var(--num); }
+  .items { list-style: none; margin: 0; padding: 0; }
+  .items li + li { border-block-start: var(--border-width) solid var(--c-border-subtle); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-4); min-block-size: var(--target-min); cursor: pointer; }
+  .row:hover { background: var(--c-surface-hover); }
+  .thumb { flex: none; inline-size: 2.5rem; block-size: 2rem; border-radius: var(--radius-sm); border: var(--border-width) solid var(--c-border-subtle); background: repeating-linear-gradient(45deg, var(--c-surface-sunken), var(--c-surface-sunken) 5px, var(--c-border) 5px, var(--c-border) 6px); }
+  .name { flex: 1 1 10rem; min-inline-size: 0; font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+  .meta { color: var(--c-text-muted); font-size: var(--fs-sm); font-variant-numeric: var(--num); }
+  .size { min-inline-size: 4.5rem; text-align: end; }
+  .moved, .exp { min-inline-size: 8rem; }
+  .exp.warn { color: var(--c-text); font-weight: var(--fw-semibold); }
+  .done { margin-block-end: var(--space-4); }
+  .done :global(.banner) { margin-block-end: 0; }
   .history { margin-block-start: var(--space-5); }
-  dialog { max-inline-size: min(32rem, calc(100vw - 2rem)); padding: var(--space-5); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-lg); background: var(--c-surface); color: var(--c-text); }
-  dialog::backdrop { background: var(--c-scrim); }
-  dialog h2 { margin-block-start: 0; }
   fieldset { display: grid; gap: var(--space-2); margin: 0; padding: 0; border: 0; }
-  label { display: flex; align-items: center; gap: var(--space-2); min-block-size: var(--target-min); }
-  .ack { align-items: flex-start; }
   input[type="checkbox"], input[type="radio"] { inline-size: 1.25rem; block-size: 1.25rem; flex: none; }
 </style>

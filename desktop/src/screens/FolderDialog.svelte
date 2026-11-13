@@ -4,7 +4,8 @@
      Fokus tilbake til feltet etter valg; valgt sti annonseres i LiveRegion inne i dialogen (resten av siden er inert).
      Brukes av Hjem og Onboarding. -->
 <script lang="ts">
-  import { Button, LiveRegion } from "../lib";
+  import { Banner, Button, LiveRegion } from "../lib";
+  import "./sheet.css";
   import { tr } from "../lib/i18n";
   import type { CoreBridge } from "../bridge/core-bridge";
   import { browseFolder } from "./homeFlow";
@@ -60,37 +61,27 @@
   }
 </script>
 
-<dialog bind:this={dlg} aria-labelledby="fd-t" onclose={onClose}>
+<dialog class="sheet" bind:this={dlg} aria-labelledby="fd-t" onclose={onClose}>
   <form onsubmit={submit}>
-    <h2 id="fd-t">{$tr("home.folder.title")}</h2>
-    <p>{$tr("home.folder.note")}</p>
-    <div class="field">
-      <label for="fd-path">{$tr("home.folder.path")}</label>
-      <div class="row">
-        <input id="fd-path" bind:this={input} type="text" bind:value={path} autocomplete="off" spellcheck="false" aria-describedby="fd-ex" aria-invalid={failed ? "true" : undefined} />
-        <Button onclick={browse} disabled={!bridge.canPickFolder || picking}>{$tr("home.folder.browse")}</Button>
+    <div class="sheet-body">
+      <h2 id="fd-t">{$tr("home.folder.title")}</h2>
+      <p>{$tr("home.folder.note")}</p>
+      <div class="field">
+        <label for="fd-path">{$tr("home.folder.path")}</label>
+        <div class="row">
+          <input id="fd-path" bind:this={input} type="text" bind:value={path} autocomplete="off" spellcheck="false" aria-describedby="fd-ex" aria-invalid={failed ? "true" : undefined} />
+          <Button onclick={browse} disabled={!bridge.canPickFolder || picking}>{$tr("home.folder.browse")}</Button>
+        </div>
+        <p id="fd-ex" class="muted">{$tr("home.folder.example")}</p>
       </div>
+      {#if !bridge.canPickFolder}<p class="muted">{$tr("home.folder.browse.unavailable")}</p>{/if}
+      {#if browseFailed}<Banner tone="warn" role="alert"><p>{$tr("home.folder.browse.unavailable")}</p></Banner>{/if}
+      <LiveRegion message={announce} />
+      {#if failed}<Banner tone="danger" role="alert"><p>{$tr("home.folder.error")}</p></Banner>{/if}
     </div>
-    <p id="fd-ex" class="muted">{$tr("home.folder.example")}</p>
-    {#if !bridge.canPickFolder}<p class="muted">{$tr("home.folder.browse.unavailable")}</p>{/if}
-    {#if browseFailed}<p role="alert">{$tr("home.folder.browse.unavailable")}</p>{/if}
-    <LiveRegion message={announce} />
-    {#if failed}<p role="alert">{$tr("home.folder.error")}</p>{/if}
-    <div class="actions">
+    <div class="sheet-actions">
       <Button onclick={onClose}>{$tr("common.cancel")}</Button>
       <Button variant="primary" type="submit" disabled={busy || path.trim() === ""}>{$tr("home.folder.submit")}</Button>
     </div>
   </form>
 </dialog>
-
-<style>
-  dialog { max-inline-size: min(32rem, calc(100vw - 2rem)); padding: var(--space-5); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-lg); background: var(--c-surface); color: var(--c-text); }
-  dialog::backdrop { background: var(--c-scrim); }
-  h2 { margin-block-start: 0; font-size: var(--fs-lg); }
-  .field { display: grid; gap: var(--space-1); }
-  .row { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: stretch; }
-  .row input { flex: 1 1 12rem; min-inline-size: 0; }
-  input { min-block-size: var(--target-min); padding: 0 var(--space-3); font: inherit; color: var(--c-text); background: var(--c-surface); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md); }
-  .muted { color: var(--c-text-muted); }
-  .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); margin-block-start: var(--space-3); }
-</style>

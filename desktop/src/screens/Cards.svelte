@@ -6,7 +6,7 @@
   import type { CoreBridge } from "../bridge/core-bridge";
   import type { Card, KindCode } from "../bridge/types";
   import { useBridge } from "../context";
-  import { Badge, Button, CloudWarning, LiveRegion } from "../lib";
+  import { Badge, Banner, Button, Card as UiCard, CloudWarning, LiveRegion, PageHeader } from "../lib";
   import { fmt, reasonLabel, tr as tx } from "../lib/i18n";
   import { formatHash } from "../router";
   import { cloudFromError, loadCloud } from "./cloud";
@@ -136,59 +136,76 @@
 <svelte:window onkeydown={windowKey} />
 
 <section class="cards">
-  <h1 tabindex="-1">{$tx("cards.title")}</h1>
-  <p><a href={formatHash({ name: "home" })}>{$tx("common.back")}</a></p>
+  <PageHeader title={$tx("cards.title")} back={{ href: formatHash({ name: "home" }), label: $tx("common.back") }} />
   {#if cloud}<CloudWarning provider={cloud} />{/if}
   <LiveRegion message={live} />
 
   {#if view.phase === "loading"}
     <p role="status">{$tx("cards.loading")}</p>
   {:else if view.phase === "error"}
-    <p role="alert">{$tx("cards.error.body")}</p>
-    <Button onclick={() => void session.load()}>{$tx("common.retry")}</Button>
+    <Banner tone="danger" role="alert">
+      <p>{$tx("cards.error.body")}</p>
+      {#snippet actions()}<Button onclick={() => void session.load()}>{$tx("common.retry")}</Button>{/snippet}
+    </Banner>
   {:else if view.phase === "deckEmpty"}
-    <div class="end" bind:this={summary} tabindex="-1">
-      <h2>{$tx("cards.empty.title")}</h2>
-      <p>{$tx("cards.summary", { trashed: view.trashed, kept: fmt.number(view.kept) })}</p>
-    </div>
-    {#if view.history.length > 0}<Button onclick={undo} ariaKeyshortcuts={ariaKeys("undo")}>{$tx("cards.undo.last")}</Button>{/if}
-  {:else if top}
-    {#if view.error}<p role="alert">{$tx(cloudFromError(view.error) ? "cloud.error.blocked" : "review.error.body")}</p>{/if}
-    {#if blockedShown}<p class="note">{$tx("cloud.key.blocked")}</p>{/if}
-    <p class="muted" aria-hidden="true">{$tx("cards.remaining", { count: left })}</p>
-    <p class="sr-only">{$tx("a11y.keys.focusmode")}</p>
-
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions, a11y_no_noninteractive_tabindex -->
-    <div class="deck" class:zoom={view.zoom} role="group" tabindex="0" bind:this={deck}
-      aria-label={label(top)} aria-keyshortcuts="ArrowLeft ArrowUp ArrowRight Delete Space"
-      onkeydown={(e) => onKey(e, true)} onpointerdown={down} onpointermove={move} onpointerup={up}
-      onpointercancel={() => (drag = null)} ondblclick={() => session.send({ type: "toggleZoom" })}>
-      {#each [...behind].reverse() as c, i (c.id)}
-        <div class="card back" style:--depth={behind.length - i} aria-hidden="true"></div>
-      {/each}
-      <div class="card front" style:transform={drag ? `translate(${drag.dx}px, ${drag.dy}px)` : undefined}>
-        <span class="ph" aria-hidden="true"></span>
-        <p class="meta">
-          <Badge label={reasonLabel(reasonSnake(top.reason), { pct: fmt.percent(top.confidence) })} />
-          <span class="muted">{fmt.bytes(top.bytes)}</span>
-        </p>
-        {#if hintAction}
-          <span class="overlay" class:on={intent !== null} aria-hidden="true">
-            {hintAction === "keep" ? "✓ " + $tx("cards.overlay.keep") : hintAction === "trash" ? "✕ " + $tx("cards.overlay.trash") : "→ " + $tx("cards.overlay.skip")}
-          </span>
-        {/if}
+    <UiCard>
+      <div class="end" bind:this={summary} tabindex="-1">
+        <h2>{$tx("cards.empty.title")}</h2>
+        <p>{$tx("cards.summary", { trashed: view.trashed, kept: fmt.number(view.kept) })}</p>
       </div>
-    </div>
-    <p class="muted hint">{$tx("cards.drag.hint")}</p>
+      {#if view.history.length > 0}<Button onclick={undo} ariaKeyshortcuts={ariaKeys("undo")}>{$tx("cards.undo.last")}</Button>{/if}
+    </UiCard>
+  {:else if top}
+    {#if view.error}<Banner tone="danger" role="alert"><p>{$tx(cloudFromError(view.error) ? "cloud.error.blocked" : "review.error.body")}</p></Banner>{/if}
+    {#if blockedShown}<Banner tone="warn" role="group"><p class="note">{$tx("cloud.key.blocked")}</p></Banner>{/if}
 
-    <div class="actions">
-      <Button onclick={() => act("keep")} ariaKeyshortcuts={ariaKeys("keep")}>{$tx("cards.keep")}</Button>
-      <Button onclick={() => act("trash")} ariaKeyshortcuts={ariaKeys("trash")} ariaDisabled={!!cloud} ariaDescribedby="cloud-why">{$tx("cards.trash")}</Button>
-      <Button onclick={() => act("skip")} disabled={left < 2} ariaKeyshortcuts={ariaKeys("skip")}>{$tx("cards.skip")}</Button>
-      <Button onclick={() => session.send({ type: "toggleZoom" })} ariaKeyshortcuts={ariaKeys("zoom")}>{$tx("common.zoom")}</Button>
-      <Button onclick={undo} disabled={view.history.length === 0} ariaKeyshortcuts={ariaKeys("undo")}>{$tx("common.undo")}</Button>
-      <Button onclick={() => (helpOpen = true)} ariaKeyshortcuts={ariaKeys("help")}>{$tx("common.shortcuts")}</Button>
-    </div>
+    <div class="cq"><div class="layout">
+      <div class="stage">
+        <p class="muted count" aria-hidden="true">{$tx("cards.remaining", { count: left })}</p>
+        <p class="sr-only">{$tx("a11y.keys.focusmode")}</p>
+
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions, a11y_no_noninteractive_tabindex -->
+        <div class="deck" class:zoom={view.zoom} role="group" tabindex="0" bind:this={deck}
+          aria-label={label(top)} aria-keyshortcuts="ArrowLeft ArrowUp ArrowRight Delete Space"
+          onkeydown={(e) => onKey(e, true)} onpointerdown={down} onpointermove={move} onpointerup={up}
+          onpointercancel={() => (drag = null)} ondblclick={() => session.send({ type: "toggleZoom" })}>
+          {#each [...behind].reverse() as c, i (c.id)}
+            <div class="card back" style:--depth={behind.length - i} aria-hidden="true"></div>
+          {/each}
+          <div class="card front" style:transform={drag ? `translate(${drag.dx}px, ${drag.dy}px)` : undefined}>
+            <span class="ph" aria-hidden="true"></span>
+            <p class="meta">
+              <Badge label={reasonLabel(reasonSnake(top.reason), { pct: fmt.percent(top.confidence) })} />
+              <span class="muted size">{fmt.bytes(top.bytes)}</span>
+            </p>
+            {#if hintAction}
+              <span class="overlay" class:on={intent !== null} aria-hidden="true">
+                {hintAction === "keep" ? "✓ " + $tx("cards.overlay.keep") : hintAction === "trash" ? "✕ " + $tx("cards.overlay.trash") : "→ " + $tx("cards.overlay.skip")}
+              </span>
+            {/if}
+          </div>
+        </div>
+        <p class="muted hint">{$tx("cards.drag.hint")}</p>
+      </div>
+
+      <div class="side">
+        <div class="actions">
+          <Button variant="primary" onclick={() => act("keep")} ariaKeyshortcuts={ariaKeys("keep")}>{$tx("cards.keep")}</Button>
+          <Button onclick={() => act("trash")} ariaKeyshortcuts={ariaKeys("trash")} ariaDisabled={!!cloud} ariaDescribedby="cloud-why">{$tx("cards.trash")}</Button>
+          <Button onclick={() => act("skip")} disabled={left < 2} ariaKeyshortcuts={ariaKeys("skip")}>{$tx("cards.skip")}</Button>
+          <Button onclick={() => session.send({ type: "toggleZoom" })} ariaKeyshortcuts={ariaKeys("zoom")}>{$tx("common.zoom")}</Button>
+          <Button onclick={undo} disabled={view.history.length === 0} ariaKeyshortcuts={ariaKeys("undo")}>{$tx("common.undo")}</Button>
+          <Button onclick={() => (helpOpen = true)} ariaKeyshortcuts={ariaKeys("help")}>{$tx("common.shortcuts")}</Button>
+        </div>
+        <UiCard tone="sunken" heading={$tx("cards.help.title")} headingLevel={2}>
+          <dl class="keys">
+            {#each CARD_KEYS as k (k.id)}
+              <dt><kbd>{keyName(k.id)}</kbd></dt><dd>{keyAction(k.id)}</dd>
+            {/each}
+          </dl>
+        </UiCard>
+      </div>
+    </div></div>
   {/if}
 
   <dialog bind:this={help} aria-labelledby="cd-ht" onclose={() => (helpOpen = false)}>
@@ -206,24 +223,37 @@
 </section>
 
 <style>
-  .cards { max-inline-size: 40rem; }
-  h1 { margin-block: 0 var(--space-3); font-size: var(--fs-xl); line-height: var(--lh-tight); }
-  h1:focus, .end:focus { outline: none; }
+  .cards { max-inline-size: var(--w-wide); }
+  .cq { container-type: inline-size; }
+  .end:focus { outline: none; }
   .muted { color: var(--c-text-muted); }
-  .note { margin-block: 0 var(--space-3); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-md); }
-  .hint { font-size: var(--fs-sm, 0.875rem); }
-  .deck { position: relative; display: grid; min-block-size: 20rem; margin-block: var(--space-3); touch-action: none; cursor: grab; border-radius: var(--radius-lg); }
-  .deck.zoom { min-block-size: min(32rem, 70vh); }
-  .card { grid-area: 1 / 1; border: var(--border-width) solid var(--c-border); border-radius: var(--radius-lg); background: var(--c-surface); box-shadow: var(--shadow-sm); }
-  .back { transform: translateY(calc(var(--depth) * 0.5rem)) scale(calc(1 - var(--depth) * 0.03)); background: var(--c-surface-sunken); }
+  :global(.cards .banner p) { margin: 0; }
+  .end h2 { margin-block: 0 var(--space-2); font-size: var(--fs-lg); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+  .stage { min-inline-size: 0; inline-size: 100%; max-inline-size: 32rem; margin-inline: auto; }
+  .count { margin: 0; font-size: var(--fs-sm); font-variant-numeric: var(--num); }
+  .hint { margin-block: 0; font-size: var(--fs-sm); text-align: center; }
+  .deck { position: relative; display: grid; min-block-size: 22rem; margin-block: var(--space-2) var(--space-3); touch-action: none; cursor: grab; border-radius: var(--radius-lg); }
+  .deck.zoom { min-block-size: min(34rem, 70vh); }
+  .card { grid-area: 1 / 1; border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); background: var(--c-surface); box-shadow: var(--shadow-pop); }
+  .back { transform: translateY(calc(var(--depth) * 0.5rem)) scale(calc(1 - var(--depth) * 0.03)); background: var(--c-surface-sunken); box-shadow: none; border-color: var(--c-border); }
   .front { position: relative; display: flex; flex-direction: column; padding: var(--space-3); gap: var(--space-3); }
-  .ph { flex: 1; min-block-size: 12rem; border-radius: var(--radius-md); background: var(--c-surface-sunken); }
-  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: 0; }
+  .ph { flex: 1; min-block-size: 14rem; border-radius: var(--radius-md); background: var(--c-surface-sunken); }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); margin: 0; }
+  .size { font-variant-numeric: var(--num); }
   .overlay { position: absolute; inset-block-start: var(--space-3); inset-inline-start: var(--space-3); padding: var(--space-2) var(--space-3); border: 3px dashed var(--c-border-strong); border-radius: var(--radius-md); background: var(--c-surface); color: var(--c-text); font-weight: var(--fw-semibold); }
   .overlay.on { border-style: solid; border-color: var(--c-selected); }
-  .actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+  .side { display: flex; flex-direction: column; gap: var(--space-4); min-inline-size: 0; }
+  .actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr)); gap: var(--space-2); }
+  .keys { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2) var(--space-3); margin: 0; font-size: var(--fs-sm); }
+  .keys dt { justify-self: start; }
+  .keys dd { margin: 0; color: var(--c-text-muted); }
+  @container (min-width: 52rem) {
+    .layout { grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem); gap: var(--space-6); }
+    .actions { grid-template-columns: minmax(0, 1fr); }
+  }
   @media (prefers-reduced-motion: no-preference) { .card { transition: transform var(--dur-fast); } }
-  dialog { max-inline-size: min(32rem, calc(100vw - 2rem)); padding: var(--space-5); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-lg); background: var(--c-surface); color: var(--c-text); }
+  dialog { max-inline-size: min(32rem, calc(100vw - 2rem)); padding: var(--space-5); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); background: var(--c-surface); color: var(--c-text); box-shadow: var(--shadow-pop); }
   dialog::backdrop { background: var(--c-scrim); }
   dialog h2 { margin-block-start: 0; }
   table { border-collapse: collapse; inline-size: 100%; }
