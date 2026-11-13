@@ -128,10 +128,12 @@ jobs:
       - name: Slå på CDP-port for WebView2 (policy i registeret, kun denne runneren)
         shell: pwsh
         run: |
-          $k = "HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments"
-          New-Item -Path $k -Force | Out-Null
-          New-ItemProperty -Path $k -Name "fjell-desktop.exe" -Value "--remote-debugging-port=9222" -PropertyType String -Force | Out-Null
-          Get-ItemProperty $k | Format-List
+          foreach ($hive in "HKCU", "HKLM") {
+            $k = "${hive}:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments"
+            New-Item -Path $k -Force | Out-Null
+            foreach ($n in "fjell-desktop.exe", "*") { New-ItemProperty -Path $k -Name $n -Value "--remote-debugging-port=9222" -PropertyType String -Force | Out-Null }
+            Get-Item $k | Format-List
+          }
       - name: Test oppdatering via appen (Playwright over CDP)
         working-directory: desktop
         shell: pwsh
