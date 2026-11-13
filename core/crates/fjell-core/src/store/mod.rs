@@ -116,6 +116,11 @@ impl Store {
         &self.conn
     }
 
+    /// Tilkoblingen til rene lesespørringer utenfor `store` (`storage`). Kallere skriver aldri via den.
+    pub(crate) fn read_conn(&self) -> &Connection {
+        &self.conn
+    }
+
     /// Egen skrivebeskyttet tilkobling for lesing (blokkeres ikke av skriver i WAL). `None` for minnedatabase.
     pub fn reader(&self) -> Result<Option<Connection>, StoreError> {
         match &self.path {
