@@ -3,7 +3,7 @@ import { cloudProvider } from "./cloud";
 import type { CoreBridge } from "./core-bridge";
 import {
   KIND_CODES, type AppState, type BridgeError, type Card, type CardPage, type Decision,
-  type AppSettings, type EmptyResult, type KindCode, type PermanentAck, type ReasonCode, type RestoreResult,
+  type AppSettings, type EmptyResult, type KindCode, type LibraryRoot, type PermanentAck, type ReasonCode, type RestoreResult,
   type ScanPhase, type Thumbnail, type ThumbErrorCode, type TrashedItem, type UpdateCheck,
 } from "./types";
 
@@ -112,6 +112,9 @@ export class MockBridge implements CoreBridge {
   private days: number;
   private readonly now: () => number;
   private library: string | null;
+  /** Ekstra mapper (nøkkel ≥ 2). Mocken har ingen filer: kortene hører alle til første mappe. */
+  private extraRoots: { key: number; path: string }[] = [];
+  private nextRootKey = 2;
   private firstRun: boolean;
   private readonly scanPolls: number;
   private readonly update: MockUpdate;
@@ -168,7 +171,56 @@ export class MockBridge implements CoreBridge {
       scanTotal: this.phase === "idle" ? 0 : 100, trashDays: this.days, freedSince: this.freedSince,
       scanPaused: this.paused,
       cloudSync: this.cloud(),
+      roots: this.roots(false),
     };
+  }
+
+  private roots(stats: boolean): LibraryRoot[] {
+    if (this.library === null) return [];
+    const all = [{ key: 1, path: this.library }, ...this.extraRoots];
+    return all.map((r) => {
+      const sep = r.path.includes("\\") ? "\\" : "/";
+      const base: LibraryRoot = {
+        key: r.key, path: r.path, primary: r.key === 1, cloudSync: cloudProvider(r.path),
+        quarantineDir: `${r.path.replace(/[\\/]+$/, "")}${sep}${QUARANTINE}`,
+      };
+      if (!stats) return base;
+      const own = r.key === 1;
+      return {
+        ...base, online: true,
+        count: own ? this.cards.length + this.kept.length : 0,
+        bytes: own ? [...this.cards, ...this.kept].reduce((s, c) => s + c.bytes, 0) : 0,
+        videos: 0, videoBytes: 0, trashed: own ? this.trashed.length : 0,
+      };
+    });
+  }
+
+  async listLibraryRoots(): Promise<LibraryRoot[]> {
+    await this.wait();
+    if (this.library === null) throw err("no_library");
+    return this.roots(true);
+  }
+
+  async addLibraryRoot(path: string): Promise<LibraryRoot[]> {
+    await this.wait();
+    if (this.library === null) throw err("no_library");
+    const p = path.trim();
+    if (p === "" || p.includes("\0")) throw err("not_a_folder", path);
+    // Samme regel som skallet, på tekst: lik, inni eller rundt en eksisterende mappe.
+    const norm = (s: string) => s.replace(/[\\/]+/g, "/").replace(/\/$/, "").toLowerCase() + "/";
+    const hit = this.roots(false).find((r) => norm(r.path).startsWith(norm(p)) || norm(p).startsWith(norm(r.path)));
+    if (hit) throw err("root_overlap", `${p} overlapper ${hit.path}`);
+    this.extraRoots.push({ key: this.nextRootKey++, path: p });
+    return this.roots(true);
+  }
+
+  async removeLibraryRoot(key: number): Promise<LibraryRoot[]> {
+    await this.wait();
+    if (this.library === null) throw err("no_library");
+    if (key === 1) throw err("root_is_primary");
+    if (!this.extraRoots.some((r) => r.key === key)) throw err("not_found");
+    this.extraRoots = this.extraRoots.filter((r) => r.key !== key);
+    return this.roots(true);
   }
 
   /** Skysynket bibliotek etter mappenavn (samme regler som kjernen). */
@@ -322,6 +374,8 @@ export class MockBridge implements CoreBridge {
     await this.wait();
     if (path.trim() === "" || path.includes("\0")) throw err("not_a_folder", path);
     this.library = path.trim();
+    // Som skallet: `setLibrary` erstatter biblioteket med én mappe.
+    this.extraRoots = [];
     this.firstRun = false;
   }
 

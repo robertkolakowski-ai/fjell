@@ -53,6 +53,34 @@ export interface AppState {
   freedSince?: number | null;
   /** Gjeldende bibliotek ligger i en skysynket mappe (etter mappenavn, ikke en garanti). Papirkurv-valg gir `cloud_synced_readonly`. Mangler/null = ikke skysynket. */
   cloudSync?: CloudCode | null;
+  /** Bibliotekets mapper i rekkefølge (første er `primary`). Her uten tall (`online`/`count`/… mangler); `listLibraryRoots` fyller dem ut. Mangler = eldre skall/mock uten bibliotek. */
+  roots?: LibraryRoot[];
+}
+
+/**
+ * Én mappe (rot) i biblioteket. Speiler RootDto. Flere mapper: docs/mvp/FLERE-MAPPER.md.
+ * `cloudSync` på en rot sperrer papirkurv bare for bildene i den roten (`cloud_synced_readonly`);
+ * `AppState.cloudSync` er satt bare når ALLE røtter er skysynket.
+ */
+export interface LibraryRoot {
+  /** Stabil nøkkel (1 = første mappe). Brukes i `removeLibraryRoot`. Gjenbrukes aldri. */
+  key: number;
+  path: string;
+  /** Første mappe: eier indeksen og kan ikke fjernes (bytt bibliotek med `setLibrary`). */
+  primary: boolean;
+  cloudSync: CloudCode | null;
+  /** Mappens egen karantenemappe (`<mappe>/.fjell-karantene`). */
+  quarantineDir: string;
+  /** Mappen er tilgjengelig nå (ekstern disk tilkoblet). Bare fra `listLibraryRoots`. */
+  online?: boolean | null;
+  /** Aktive filer (bilder og video) og samlet størrelse. Bare fra `listLibraryRoots`. */
+  count?: number | null;
+  bytes?: number | null;
+  /** Herav video (telles og listes; får bare forslag som eksakt duplikat). */
+  videos?: number | null;
+  videoBytes?: number | null;
+  /** Antall i «Nylig slettet» fra denne mappen. Over 0: mappen kan ikke fjernes (`root_has_trash`). */
+  trashed?: number | null;
 }
 
 /** Brukerens ekstra bekreftelse for permanent sletting (avkrysning + antallet på knappen). Speiler PermanentAckDto. */
@@ -104,6 +132,9 @@ export type BridgeErrorCode =
   | "ack_required" | "unknown_card" | "unknown_asset" | "nothing_to_undo" | "not_undoable"
   | "already_purged" | "purge_stale" | "plan_stale" | "not_trashed" | "core_error"
   | "bad_request" | "unsupported" | "cloud_synced_readonly"
+  // Flere mapper: overlapp (detail = forklaring), bilder i «Nylig slettet» (detail = antall),
+  // første mappe kan ikke fjernes, mappen har en Fjell-karantene fra et annet bibliotek (detail = sti).
+  | "root_overlap" | "root_has_trash" | "root_is_primary" | "root_has_quarantine" | "not_a_folder"
   | ThumbErrorCode;
 
 export interface BridgeError {

@@ -6,8 +6,11 @@
 //!   sett ut som slettet; ARKITEKTUR 21, T27).
 //! - Karantenemappen `.fjell-karantene` hoppes over (ARKITEKTUR 20).
 //! - Skyplassholdere: `is_local = false`; innholdet leses aldri (`Unavailable`).
-//! - JPEG/PNG (hvis dekoding er på, standard): dimensjoner og miniatyr etter EXIF-orientering; andre formater har bredde/høyde 0
-//!   og `thumbnail` gir `Unavailable`. Ødelagt JPEG/PNG gir `Corrupt`.
+//! - Skannlisten er `SCAN_FORMATS` (JPEG/PNG, HEIC/HEIF/AVIF, RAW, video). JPEG/PNG (hvis dekoding er
+//!   på, standard): dimensjoner og miniatyr etter EXIF-orientering. Formater uten dekoder på
+//!   plattformen (HEIC/RAW uten WIC, all video) har bredde/høyde 0 og `thumbnail` gir `Unavailable`
+//!   (ikke feil); `read_bytes` virker, så de kan hashes. Ødelagt JPEG/PNG gir `Corrupt`.
+//! - Flere røtter i ett bibliotek: se `roots` (`MultiSource` over én `FsSource` per rot).
 //! - Inkrementelt token er `fs1:<maks mtime>`. Fjernede filer (T11) meldes ved inkrementell
 //!   skanning som de kjente id-ene (`with_known_ids`: indeksens AKTIVE bilder, aldri de i papirkurven,
 //!   siden de ligger i karantenemappen med vilje) som ikke finnes i en vellykket, full gjennomgang av
@@ -22,7 +25,7 @@
 use crate::locality::{default_probe, LocalProbe};
 use crate::path::{os_path, resolve, strip_extended};
 use crate::quarantine::QUARANTINE_DIR;
-use crate::thumb;
+use crate::thumb::{self, FrameDecoder};
 use crate::thumbcache::ThumbCache;
 use fjell_core::model::{
     AssetMeta, AssetSource, ChangeSet, ChangeToken, Kind, ProtectFlags, SourceError, SourceId,
@@ -43,6 +46,8 @@ pub struct FsSource {
     decode: bool,
     known: Option<KnownIds>,
     cache: Option<ThumbCache>,
+    /// Ekstra dekoder for formater `image`-craten ikke tar (WIC på Windows, ingen ellers).
+    extra: Option<&'static dyn FrameDecoder>,
 }
 
 /// 128-bit nøkkel (to FNV-1a med ulike startverdier) som hex. Bare hex-tegn, så den aldri kan
@@ -60,16 +65,43 @@ fn cache_key(parts: &[&[u8]]) -> String {
     format!("{a:016x}{b:016x}")
 }
 
-fn mime_and_kind(path: &Path) -> Option<(&'static str, Kind)> {
+/// Skannlisten: (filendelse, MIME, type). Alt annet hoppes over ved skanning.
+/// - JPEG/PNG dekodes overalt. HEIC/HEIF/AVIF og RAW dekodes bare der plattformen har kodek
+///   (Windows via WIC); ellers er de synlige (telles, hashes, kan være eksakte duplikater), men
+///   `thumbnail` gir `Unavailable` og de får ingen visuell analyse.
+/// - Video dekodes aldri: telles og listes med størrelse, og kan bare bli eksakt duplikat (hash).
+pub const SCAN_FORMATS: &[(&str, &str, Kind)] = &[
+    ("jpg", "image/jpeg", Kind::Photo),
+    ("jpeg", "image/jpeg", Kind::Photo),
+    ("png", "image/png", Kind::Photo),
+    ("heic", "image/heic", Kind::Photo),
+    ("heif", "image/heif", Kind::Photo),
+    ("avif", "image/avif", Kind::Photo),
+    ("dng", "image/x-adobe-dng", Kind::Photo),
+    ("cr2", "image/x-canon-cr2", Kind::Photo),
+    ("cr3", "image/x-canon-cr3", Kind::Photo),
+    ("nef", "image/x-nikon-nef", Kind::Photo),
+    ("arw", "image/x-sony-arw", Kind::Photo),
+    ("orf", "image/x-olympus-orf", Kind::Photo),
+    ("rw2", "image/x-panasonic-rw2", Kind::Photo),
+    ("raf", "image/x-fuji-raf", Kind::Photo),
+    ("mp4", "video/mp4", Kind::Video),
+    ("m4v", "video/x-m4v", Kind::Video),
+    ("mov", "video/quicktime", Kind::Video),
+    ("avi", "video/x-msvideo", Kind::Video),
+    ("mkv", "video/x-matroska", Kind::Video),
+    ("webm", "video/webm", Kind::Video),
+    ("wmv", "video/x-ms-wmv", Kind::Video),
+    ("3gp", "video/3gpp", Kind::Video),
+];
+
+/// MIME og type for en fil på skannlisten (`None` = ikke med i skanningen).
+pub fn mime_and_kind(path: &Path) -> Option<(&'static str, Kind)> {
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
-    Some(match ext.as_str() {
-        "jpg" | "jpeg" => ("image/jpeg", Kind::Photo),
-        "png" => ("image/png", Kind::Photo),
-        "heic" => ("image/heic", Kind::Photo),
-        "mp4" => ("video/mp4", Kind::Video),
-        "mov" => ("video/quicktime", Kind::Video),
-        _ => return None,
-    })
+    SCAN_FORMATS
+        .iter()
+        .find(|(e, _, _)| *e == ext)
+        .map(|(_, mime, kind)| (*mime, *kind))
 }
 
 fn io_err(e: std::io::Error) -> SourceError {
@@ -87,7 +119,19 @@ impl FsSource {
             decode: true,
             known: None,
             cache: None,
+            extra: thumb::platform_decoder(),
         }
+    }
+
+    /// Roten denne kilden leser fra (som oppgitt).
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// Bytter den ekstra dekoderen (tester: fake-dekoder for HEIC/RAW; `None` = som Linux).
+    pub fn with_frame_decoder(mut self, extra: Option<&'static dyn FrameDecoder>) -> FsSource {
+        self.extra = extra;
+        self
     }
 
     /// Gir adapteren indeksens kjente id-er, så fjernede filer også oppdages etter omstart.
@@ -180,7 +224,7 @@ impl FsSource {
         let is_local = (self.local)(p, &md);
         // Plassholdere dekodes aldri (ville lastet ned); andre formater har ingen dekoder.
         let (width, height) = if is_local && self.decode {
-            thumb::oriented_dims(&os_path(p)).unwrap_or((0, 0))
+            thumb::oriented_dims_with(&os_path(p), self.extra).unwrap_or((0, 0))
         } else {
             (0, 0)
         };
@@ -290,7 +334,7 @@ impl AssetSource for FsSource {
                 return Ok(hit);
             }
         }
-        let made = thumb::make_thumb(&os_path(&p))?;
+        let made = thumb::make_thumb_with(&os_path(&p), self.extra)?;
         if let (Some(c), Some(k)) = (&self.cache, &key) {
             let _ = c.put(k, &made);
         }

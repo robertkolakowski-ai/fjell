@@ -17,9 +17,9 @@ describe("identisk grensesnitt", () => {
     const names = (o: object) =>
       Object.getOwnPropertyNames(Object.getPrototypeOf(o)).filter((n) => n !== "constructor" && !n.startsWith("wait")).sort();
     const pub = [
-      "cancelScan", "checkForUpdate", "completeOnboarding", "decide", "emptyTrash", "getAppVersion", "getAutoUpdate",
-      "getFirstRun", "getLanguage", "getLibrary", "getSettings", "getState", "getThumbnail", "installUpdate", "listCards", "listTrashed",
-      "pauseScan", "pickFolder", "purge", "restore", "restoreAll", "resumeScan", "setAutoUpdate", "setKeeper", "setLanguage",
+      "addLibraryRoot", "cancelScan", "checkForUpdate", "completeOnboarding", "decide", "emptyTrash", "getAppVersion", "getAutoUpdate",
+      "getFirstRun", "getLanguage", "getLibrary", "getSettings", "getState", "getThumbnail", "installUpdate", "listCards", "listLibraryRoots", "listTrashed",
+      "pauseScan", "pickFolder", "purge", "removeLibraryRoot", "restore", "restoreAll", "resumeScan", "setAutoUpdate", "setKeeper", "setLanguage",
       "setLibrary", "setTrashDays", "startScan", "undo",
     ];
     expect(names(new TauriBridge())).toEqual(pub);

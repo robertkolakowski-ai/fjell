@@ -3,7 +3,7 @@
 //! Avhenger av: `tauri`, `tauri-plugin-dialog`, `tauri-plugin-process`, `tauri-plugin-updater`, `fjell-shell`.
 //! Grensesnitt: `run()` (kalles fra `main.rs`). Kommandoer: `get_state`, `start_scan`,
 //! `cancel_scan`, `list_cards`, `decide_cards`, `set_keeper`, `undo`, `trash_summary`,
-//! `empty_trash`, `set_library`, `get_library`, `pause_scan`, `resume_scan`, `list_trashed`,
+//! `empty_trash`, `set_library`, `get_library`, `list_library_roots`, `add_library_root`, `remove_library_root`, `pause_scan`, `resume_scan`, `list_trashed`,
 //! `restore_trashed`, `restore_all_trashed`, `get_thumbnail`, `get_settings`, `set_trash_days`, `get_first_run`,
 //! `complete_onboarding`, `get_auto_update`, `set_auto_update`, `get_language`, `set_language`. Plugins: `dialog` (mappevalg),
 //! `updater` (bare skrivebord) og `process` (omstart etter oppdatering); sjekk/installasjon kalles fra frontend. Ingen logikk her; ingen sletting utenom
@@ -16,8 +16,8 @@
 //! IKKE bygget eller kjørt i utviklingsmiljøet (krever webkit2gtk/WebView2).
 
 use fjell_shell::dto::{
-    CardPageDto, DecisionDto, EmptyDto, ErrorDto, PermanentAckDto, RestoreDto, SettingsDto,
-    StateDto, ThumbDto, TrashSummaryDto, TrashedDto,
+    CardPageDto, DecisionDto, EmptyDto, ErrorDto, PermanentAckDto, RestoreDto, RootDto,
+    SettingsDto, StateDto, ThumbDto, TrashSummaryDto, TrashedDto,
 };
 use fjell_shell::{default_recycle_bin, Shell};
 use std::sync::Arc;
@@ -102,6 +102,33 @@ async fn set_library(shell: State<'_, Arc<Shell>>, path: String) -> Res<StateDto
 #[tauri::command]
 async fn get_library(shell: State<'_, Arc<Shell>>) -> Res<Option<String>> {
     Ok(shell.library())
+}
+
+/// Bibliotekets mapper med tall per mappe (leser indeksen; ingen bildefiler åpnes).
+#[tauri::command]
+async fn list_library_roots(shell: State<'_, Arc<Shell>>) -> Res<Vec<RootDto>> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.list_library_roots())
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
+}
+
+/// Legger en mappe til i biblioteket (stien kommer fra mappevelgeren, som for `set_library`).
+#[tauri::command]
+async fn add_library_root(shell: State<'_, Arc<Shell>>, path: String) -> Res<Vec<RootDto>> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.add_library_root(&path))
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
+}
+
+/// Tar en mappe ut av biblioteket. Ingen filer røres; avvises hvis mappen har bilder i «Nylig slettet».
+#[tauri::command]
+async fn remove_library_root(shell: State<'_, Arc<Shell>>, key: u32) -> Res<Vec<RootDto>> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.remove_library_root(key))
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
 }
 
 #[tauri::command]
@@ -213,6 +240,9 @@ pub fn run() {
             empty_trash,
             set_library,
             get_library,
+            list_library_roots,
+            add_library_root,
+            remove_library_root,
             pause_scan,
             resume_scan,
             list_trashed,

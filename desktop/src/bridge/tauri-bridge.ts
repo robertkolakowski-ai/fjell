@@ -2,7 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CoreBridge } from "./core-bridge";
 import type {
-  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, PermanentAck, RestoreResult, ThumbDto, Thumbnail, TrashedItem, UpdateCheck,
+  AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, LibraryRoot, PermanentAck, RestoreResult, ThumbDto, Thumbnail, TrashedItem, UpdateCheck,
 } from "./types";
 import { thumbFromDto, thumbError } from "./thumbs";
 
@@ -103,6 +103,15 @@ export class TauriBridge implements CoreBridge {
   }
   async setLibrary(path: string): Promise<void> {
     await this.call("set_library", { path });
+  }
+  listLibraryRoots(): Promise<LibraryRoot[]> {
+    return this.call<LibraryRoot[]>("list_library_roots");
+  }
+  addLibraryRoot(path: string): Promise<LibraryRoot[]> {
+    return this.call<LibraryRoot[]>("add_library_root", { path });
+  }
+  removeLibraryRoot(key: number): Promise<LibraryRoot[]> {
+    return this.call<LibraryRoot[]>("remove_library_root", { key });
   }
   getFirstRun(): Promise<boolean> {
     return this.call<boolean>("get_first_run");

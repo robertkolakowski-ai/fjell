@@ -30,7 +30,7 @@ fn is_image_crate(path: &Path) -> bool {
 
 /// Filendelser WIC forsøkes på (bare Windows). Kodeken kan mangle; da gir dekoding `Unavailable`.
 pub const WIC_EXTENSIONS: &[&str] = &[
-    "heic", "heif", "dng", "cr2", "cr3", "nef", "arw", "orf", "rw2", "raf",
+    "heic", "heif", "avif", "dng", "cr2", "cr3", "nef", "arw", "orf", "rw2", "raf",
 ];
 
 /// Et dekodet bilde fra en `FrameDecoder`: RGBA8 uten orientering brukt.
