@@ -509,9 +509,9 @@ export class MockBridge implements CoreBridge {
     };
   }
 
-  /** Mock: en lokal adresse (ingen eksterne URL-er i frontend, se nonet.test.ts). Ekte adresse kommer fra skallet. */
+  /** Mock: en lokal sti uten skjema (ingen URL-er i bygget, se nonet.test.ts). Ekte adresse kommer fra skallet. */
   async getUpdateDownloadUrl(): Promise<string> {
-    return "http://localhost/fjell/releases/tag/beta";
+    return "/fjell/releases/tag/beta";
   }
 
   async installUpdate(onProgress: (done: number, total: number | null) => void): Promise<void> {
