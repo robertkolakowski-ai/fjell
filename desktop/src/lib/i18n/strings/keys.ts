@@ -428,6 +428,56 @@ export interface MessageParams {
   "protect.toggle.off": Record<never, never>;
   "protect.toggle.hint": { scope: string | number };
   "rules.name.unnamed": Record<never, never>;
+  "people.description": Record<never, never>;
+  "people.off.title": Record<never, never>;
+  "people.off.body": Record<never, never>;
+  "people.enable.button": Record<never, never>;
+  "people.on.empty.title": Record<never, never>;
+  "people.on.empty.body": Record<never, never>;
+  "people.unnamed": Record<never, never>;
+  "people.person.pick": { name: string | number; photos: string | number };
+  "people.list.label": Record<never, never>;
+  "people.name.button": Record<never, never>;
+  "people.name.change": Record<never, never>;
+  "people.name.add.aria": { person: string | number };
+  "people.name.change.aria": { person: string | number };
+  "people.name.label": Record<never, never>;
+  "people.name.help": Record<never, never>;
+  "people.name.save": Record<never, never>;
+  "people.name.changed": { person: string | number };
+  "people.merge.aria": { person: string | number };
+  "people.merge.title": Record<never, never>;
+  "people.merge.body": { person: string | number };
+  "people.merge.other": Record<never, never>;
+  "people.merge.keep": Record<never, never>;
+  "people.merge.summary": { absorbed: string | number; target: string | number };
+  "people.merge.none": Record<never, never>;
+  "people.merge.done": { absorbed: string | number; target: string | number };
+  "people.protect.label": { person: string | number };
+  "people.protect.on.done": { person: string | number };
+  "people.protect.off.done": { person: string | number };
+  "people.undo.done": Record<never, never>;
+  "people.index.on.done": Record<never, never>;
+  "people.consent.title": Record<never, never>;
+  "people.consent.lead": Record<never, never>;
+  "people.consent.stores.title": Record<never, never>;
+  "people.consent.stores.body": Record<never, never>;
+  "people.consent.local.title": Record<never, never>;
+  "people.consent.local.body": Record<never, never>;
+  "people.consent.originals.title": Record<never, never>;
+  "people.consent.originals.body": Record<never, never>;
+  "people.consent.off.title": Record<never, never>;
+  "people.consent.off.body": Record<never, never>;
+  "people.consent.confirm": Record<never, never>;
+  "settings.faces.description": Record<never, never>;
+  "settings.faces.on.note": Record<never, never>;
+  "settings.faces.state.on": Record<never, never>;
+  "settings.faces.state.off": Record<never, never>;
+  "settings.faces.wipe.title": Record<never, never>;
+  "settings.faces.wipe.desc": Record<never, never>;
+  "settings.faces.wipe.irreversible": Record<never, never>;
+  "settings.faces.wipe.loses": Record<never, never>;
+  "settings.faces.wipe.done": { count: number };
 }
 
 export type MessageKey = keyof MessageParams;
@@ -568,4 +618,21 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "protect.toggle.on",
   "protect.toggle.off",
   "rules.name.unnamed",
+  "people.enable.button",
+  "people.unnamed",
+  "people.list.label",
+  "people.name.button",
+  "people.name.change",
+  "people.name.label",
+  "people.name.save",
+  "people.merge.other",
+  "people.merge.keep",
+  "people.undo.done",
+  "people.consent.stores.title",
+  "people.consent.local.title",
+  "people.consent.originals.title",
+  "people.consent.off.title",
+  "people.consent.confirm",
+  "settings.faces.state.on",
+  "settings.faces.state.off",
 ]);
