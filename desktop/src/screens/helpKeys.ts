@@ -40,10 +40,15 @@ export const SCREEN_KEYS: Readonly<Record<HelpScreen, readonly HelpRow[]>> = {
   ],
   trash: [{ keys: "Space", action: "help.action.toggle" }],
   settings: [],
-  // V1-skjermene fyller egne rader når de er bygget (se docs/v1/SKJERMER.md).
+  // Personer og Regler har ingen egne taster (Esc avbryter navnefeltet; alt annet er knapper).
   people: [],
   rules: [],
-  series: [],
+  // Serie: tastene gjelder bare når bildeområdet har fokus; hver har en knapp (Gjør dette til beste, zoomknappene).
+  series: [
+    { keys: "1–9", action: "help.action.best" },
+    { keys: "+ / −", action: "help.action.zoom" },
+    { keys: "0", action: "help.action.zoom_reset" },
+  ],
 };
 
 export function helpScreenOf(r: Route): HelpScreen {

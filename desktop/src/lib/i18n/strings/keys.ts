@@ -33,6 +33,8 @@ export interface MessageParams {
   "common.shortcuts": Record<never, never>;
   "common.dismiss": Record<never, never>;
   "common.count.photos": { count: number };
+  "common.count.people": { count: number };
+  "common.count.rules": { count: number };
   "onb.welcome.title": Record<never, never>;
   "onb.welcome.body": Record<never, never>;
   "onb.folders.title": Record<never, never>;
@@ -252,6 +254,8 @@ export interface MessageParams {
   "help.action.best": Record<never, never>;
   "help.action.tab": Record<never, never>;
   "help.action.activate": Record<never, never>;
+  "help.action.zoom": Record<never, never>;
+  "help.action.zoom_reset": Record<never, never>;
   "a11y.photo.label": { date: string | number; n: string | number; size: string | number; total: string | number };
   "a11y.photo.best": Record<never, never>;
   "a11y.photo.reason": { reason: string | number };
@@ -419,7 +423,6 @@ export interface MessageParams {
   "nav.people": Record<never, never>;
   "nav.rules": Record<never, never>;
   "help.screen.series": Record<never, never>;
-  "placeholder.todo": Record<never, never>;
   "card.explain.title": Record<never, never>;
   "settings.faces.title": Record<never, never>;
   "settings.sensitivity.title": Record<never, never>;

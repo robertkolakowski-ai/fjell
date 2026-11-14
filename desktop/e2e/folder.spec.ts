@@ -66,7 +66,7 @@ test("uten mappevalg (nettleser): Bla er deaktivert med forklaring, manuell innt
   await expect(page.getByRole("dialog").getByText("Mappevalg er ikke tilgjengelig her. Skriv inn stien.")).toBeVisible();
   await page.getByRole("textbox", { name: "Mappens sti" }).fill("D:\\Manuelt");
   await page.getByRole("button", { name: "Legg til", exact: true }).click();
-  await expect(page.getByText("D:\\Manuelt")).toBeVisible();
+  await expect(page.getByText("Mappe: D:\\Manuelt", { exact: true })).toBeVisible();
 });
 
 test("tastaturflyt: Tab til Bla, Enter, fokus i feltet, Enter bekrefter; Esc lukker uten endring", async ({ page }) => {

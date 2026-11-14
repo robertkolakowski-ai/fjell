@@ -1,6 +1,6 @@
 # V1-skjermer: kontrakt
 
-Status: kontraktfasen er lagt. Bridgen (`CoreBridge`, `TauriBridge`, `MockBridge`), ruter, navigasjon, forslagstypene serier og regler, monteringspunkter og `ProtectToggle` finnes. Selve skjermene bygges i egne faser (en gren og en PR hver) på toppen av dette. Kjernen og kommandoflaten er beskrevet i `docs/v1/V1-PLAN.md`; komponent-API og tokens i `docs/design/LOFT.md`.
+Status: kontrakten og skjermene er lagt og integrert (del 7). Bridgen (`CoreBridge`, `TauriBridge`, `MockBridge`), ruter, navigasjon, forslagstypene serier og regler, monteringspunkter og `ProtectToggle` finnes, og skjermene er bygget på toppen av dette (grenene `ui/dashboard`, `ui/series`, `ui/people`, `ui/rules`). Kjernen og kommandoflaten er beskrevet i `docs/v1/V1-PLAN.md`; komponent-API og tokens i `docs/design/LOFT.md`.
 
 Bindende regler (`CLAUDE.md`): ingen hard sletting, alt som slettes kan angres, appen foreslår og dømmer ikke, ingen automatisk sletting, on-device og ingen nettverkskall, handlinger under 100 ms (p95), WCAG AA (Narrator og NVDA, skalering 100 til 200 %, høykontrast), alle hurtigtaster og gester har knappealternativ, nb og en (test med pseudo), kjernen sender koder og aldri tekst.
 
@@ -19,7 +19,7 @@ Bindende regler (`CLAUDE.md`): ingen hard sletting, alt som slettes kan angres, 
 | `#/settings` | Innstillinger | `screens/Settings.svelte` + `SettingsSensitivity`, `SettingsFaces`, `SettingsProtections` | Innstillinger | Tre nye seksjoner montert. |
 | `#/onboarding` | Kom i gang | `screens/Onboarding.svelte` | (ingen) | Uendret. |
 
-Rekkefølge i navigasjonen: Hjem, Gjennomgang, Personer, Regler, Papirkurv, Innstillinger (`NAV_ROUTES` i `router.ts`). `navFor(series)` er `review`. Ugyldig `series/:id` gir Hjem, som alle andre ruter. F1-hjelp har rader for `people`, `rules` og `series` (tomme til skjermene har egne taster).
+Rekkefølge i navigasjonen: Hjem, Gjennomgang, Personer, Regler, Papirkurv, Innstillinger (`NAV_ROUTES` i `router.ts`). `navFor(series)` er `review`. Ugyldig `series/:id` gir Hjem, som alle andre ruter. F1-hjelp har rader for `series` (1–9, + / −, 0); `people` og `rules` har ingen egne taster (bare «Overalt»).
 
 ## 2. Forslagstyper
 
@@ -92,3 +92,19 @@ Nye filer i egen skjermmappe er fritt fram (state, flyt, test etter mønsteret `
 9. **Navn er brukerens egne** (personer og regler, maks 100 og 80 tegn). Vis aldri navnene i miniatyrenes `alt`/tooltips i feilmeldinger som kan logges; navn forlater aldri enheten.
 10. **200 % skalering og pseudo.** `nav` har nå seks valg; under 900 px bryter toppmenyen over flere linjer. Verifiser ved 200 % og med pseudo (nb +30 %) når skjermene er på plass; ingen horisontal sideskroll.
 11. **Home og seks kategorikort.** `auto-fit` gir 3×2 på bred skjerm. Skal serier og regler vises under en egen overskrift («Nytt i V1») eller blandes inn? Foreslått: blandes inn.
+
+## 7. Status etter integrasjon
+
+Alle skjermene i del 1 er bygget; `placeholder.todo` er fjernet. Navigasjonen viser teller for Gjennomgang (alle seks typer), Personer (når ansiktsindeksen er på), Regler (aktive) og Papirkurv; tellerne for Personer og Regler hentes fra `getDashboard` ved start og rutebytte. Hjem viser oversikten (`DashboardPanel`) med små tellere som lenker til serier, personer og regler.
+
+| Område | Dekning |
+|---|---|
+| Enhetstester | `dashboard.test.ts`, `series.test.ts`, `people.test.ts`, `rules.test.ts`, `help.test.ts` (rader for Serie) |
+| e2e | `dashboard`, `series`, `people`, `rules`, `v1-skjermer`; felles omvisning `tour.ts` har Serie (to), Regler (+ ny regel), Personer (av, samtykke, på), Kortmodus for serie og regel, Gjennomgang for serier og regler |
+| axe | `a11y.spec.ts`: alle V1-ruter og dialoger, lys/mørk × bred/smal |
+| Herding | `herding.spec.ts` (skalering 100–200 %, minstevindu, pseudo, høykontrast, redusert bevegelse) går gjennom omvisningen |
+| Skjermbilder | `docs/screens/v1/` (nb, lys/mørk, bred 1280 og smal 480), laget med `SHOTS=1 npx playwright test e2e/skjermbilder-v1.spec.ts` |
+
+Funn under integrasjon: `MockBridge.getUpdateDownloadUrl` returnerte en `http://`-adresse som havnet i produksjonsbygget og feilet `nonet.test.ts` så snart `dist/` fantes; den er nå en sti uten skjema.
+
+Åpne UX-spørsmål 1–11 i del 6 er ikke besluttet og står som anbefalt der (Personer synlig i navigasjonen, beskyttelsesbryter i detaljvisning, serier som grupperader, «Tømt» og ikke «frigjort»). Verifisering med Narrator og NVDA på Windows med ekte kjerne gjenstår (som M9 for MVP).

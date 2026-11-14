@@ -36,10 +36,16 @@
   let helpOpen = $state(false);
   let counts = $state<AppState | null>(null);
   let version = $state("");
+  let people = $state(0);
+  let rulesActive = $state(0);
 
   // Tellere og versjon i sidemenyen. Hentes ved start, ved rutebytte og hvert 3. sekund mens vinduet er synlig (billig lesing).
   async function refreshCounts(): Promise<void> {
     try { counts = await bridge.getState(); } catch { /* tellere vises bare når de er kjent */ }
+  }
+  // Personer og aktive regler hentes ved start og rutebytte (ikke i 3-sekundersløkken; oversikten er dyrere enn getState).
+  async function refreshV1Counts(): Promise<void> {
+    try { const d = await bridge.getDashboard(); people = d.peopleCount; rulesActive = d.rulesActive; } catch { /* ingen teller */ }
   }
   onMount(() => {
     void refreshCounts();
@@ -49,8 +55,9 @@
   });
   const pending = $derived(counts ? counts.perKind.reduce((n, k) => n + k.count, 0) : 0);
   const countOf = (n: NavRoute): { count: string | null; label?: string } => {
-    const v = n === "review" ? pending : n === "trash" ? (counts?.trashCount ?? 0) : 0;
-    return v > 0 ? { count: fmt.number(v), label: $tr("common.count.photos", { count: v }) } : { count: null };
+    const v = n === "review" ? pending : n === "trash" ? (counts?.trashCount ?? 0) : n === "people" ? people : n === "rules" ? rulesActive : 0;
+    const label = n === "people" ? $tr("common.count.people", { count: v }) : n === "rules" ? $tr("common.count.rules", { count: v }) : $tr("common.count.photos", { count: v });
+    return v > 0 ? { count: fmt.number(v), label } : { count: null };
   };
   const iconOf = {
     home: "home", review: "review", people: "people", rules: "rules", trash: "trash", settings: "settings",
@@ -80,6 +87,7 @@
   $effect(() => {
     void $route;
     void refreshCounts();
+    void refreshV1Counts();
   });
   $effect(() => {
     document.title = `${$tr(label[navFor($route) ?? "home"])} · ${$tr("app.name")}`;

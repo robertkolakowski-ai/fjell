@@ -41,11 +41,27 @@ for (const scheme of ["light", "dark"] as const) {
         ["#/review", "gjennomgang kategorier"], ["#/review/blurry", "gjennomgang uskarpe"],
         ["#/review/screenshot", "gjennomgang skjermbilder"], ["#/review/exact_dup", "gjennomgang eksakte"],
         ["#/review/visual_dup", "gjennomgang like"], ["#/group/1", "gruppe"], ["#/cards", "kortmodus"], ["#/settings", "innstillinger"],
+        // V1-skjermer
+        ["#/review/series", "gjennomgang serier"], ["#/review/rule", "gjennomgang regler"], ["#/series/41", "serie"], ["#/series/42", "serie med lukkede øyne"],
+        ["#/cards/series", "kortmodus serie"], ["#/cards/rule", "kortmodus regel"], ["#/rules", "regler"], ["#/people", "personer (indeks av)"],
       ] as const) {
         await go(page, hash);
         await page.waitForTimeout(100);
         await axe(page, name);
       }
+      // V1-dialoger: regelredigering, samtykke til ansiktsindeks og Personer med indeksen på
+      await go(page, "#/rules");
+      await page.getByRole("button", { name: "Ny regel" }).first().click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await axe(page, "regler ny regel");
+      await page.keyboard.press("Escape");
+      await go(page, "#/people");
+      await page.getByRole("button", { name: "Slå på ansiktsindeks" }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await axe(page, "personer samtykke");
+      await page.getByRole("dialog").getByRole("button", { name: "Slå på", exact: true }).click();
+      await expect(page.getByRole("heading", { level: 2, name: "Kari" })).toBeVisible();
+      await axe(page, "personer med indeks");
       // Dialoger
       await go(page, "#/cards");
       await page.getByRole("button", { name: "Hurtigtaster" }).click();
