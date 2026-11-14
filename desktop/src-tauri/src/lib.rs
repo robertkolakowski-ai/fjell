@@ -5,7 +5,11 @@
 //! `cancel_scan`, `list_cards`, `decide_cards`, `set_keeper`, `undo`, `trash_summary`,
 //! `empty_trash`, `set_library`, `get_library`, `list_library_roots`, `add_library_root`, `remove_library_root`, `pause_scan`, `resume_scan`, `list_trashed`,
 //! `restore_trashed`, `restore_all_trashed`, `get_thumbnail`, `get_settings`, `set_trash_days`, `get_first_run`,
-//! `complete_onboarding`, `get_auto_update`, `set_auto_update`, `get_update_download_url`, `get_language`, `set_language`. Plugins: `dialog` (mappevalg),
+//! `complete_onboarding`, `get_auto_update`, `set_auto_update`, `get_update_download_url`, `get_language`, `set_language`.
+//! V1 (ingen skjermer bruker dem ennå): `protect`, `list_protections`, `list_rules`, `save_rule`, `preview_rule`,
+//! `toggle_rule`, `delete_rule`, `restore_rule`, `list_people`, `name_person`, `merge_people`, `unmerge_person`,
+//! `protect_person`, `get_face_index`, `set_face_index`, `wipe_face_index`, `get_dashboard`, `compare_series`,
+//! `get_suggestion_settings`, `set_suggestion_settings`, `get_thresholds`. Plugins: `dialog` (mappevalg),
 //! `updater` (bare skrivebord) og `process` (omstart etter oppdatering); sjekk/installasjon kalles fra frontend. Ingen logikk her; ingen sletting utenom
 //! `Shell::empty` (Papirkurv som standard, beslutning 17).
 //!
@@ -18,6 +22,10 @@
 use fjell_shell::dto::{
     CardPageDto, DecisionDto, EmptyDto, ErrorDto, PermanentAckDto, RestoreDto, RootDto,
     SettingsDto, StateDto, ThumbDto, TrashSummaryDto, TrashedDto,
+};
+use fjell_shell::dto_v1::{
+    ConditionDto, DashboardDto, PersonDto, ProtectionDto, RuleDraftDto, RuleDto, RulePreviewDto,
+    ScopeDto, SeriesCompareDto, SuggestionSettingsDto, ThresholdsDto,
 };
 use fjell_shell::{default_recycle_bin, Shell};
 use std::sync::Arc;
@@ -222,6 +230,119 @@ async fn set_language(shell: State<'_, Arc<Shell>>, language: String) -> Res<Str
     shell.set_language(&language)
 }
 
+// ---- V1 (beskyttelse, forslagsregler, personer, dashboard, serier, forslagsinnstillinger). Tynne omslag. ----
+
+#[tauri::command]
+async fn protect(shell: State<'_, Arc<Shell>>, scope: ScopeDto, on: bool) -> Res<()> {
+    shell.protect(&scope, on)
+}
+
+#[tauri::command]
+async fn list_protections(shell: State<'_, Arc<Shell>>) -> Res<Vec<ProtectionDto>> {
+    shell.protections()
+}
+
+#[tauri::command]
+async fn list_rules(shell: State<'_, Arc<Shell>>) -> Res<Vec<RuleDto>> {
+    shell.rules()
+}
+
+#[tauri::command]
+async fn save_rule(shell: State<'_, Arc<Shell>>, draft: RuleDraftDto) -> Res<u64> {
+    shell.save_rule(&draft)
+}
+
+#[tauri::command]
+async fn preview_rule(
+    shell: State<'_, Arc<Shell>>,
+    conditions: Vec<ConditionDto>,
+) -> Res<RulePreviewDto> {
+    shell.preview_rule(&conditions)
+}
+
+#[tauri::command]
+async fn toggle_rule(shell: State<'_, Arc<Shell>>, id: u64, enabled: bool) -> Res<()> {
+    shell.toggle_rule(id, enabled)
+}
+
+#[tauri::command]
+async fn delete_rule(shell: State<'_, Arc<Shell>>, id: u64) -> Res<()> {
+    shell.delete_rule(id)
+}
+
+#[tauri::command]
+async fn restore_rule(shell: State<'_, Arc<Shell>>, id: u64) -> Res<()> {
+    shell.restore_rule(id)
+}
+
+#[tauri::command]
+async fn list_people(shell: State<'_, Arc<Shell>>) -> Res<Vec<PersonDto>> {
+    shell.people()
+}
+
+#[tauri::command]
+async fn name_person(shell: State<'_, Arc<Shell>>, id: u64, name: Option<String>) -> Res<()> {
+    shell.name_person(id, name)
+}
+
+#[tauri::command]
+async fn merge_people(shell: State<'_, Arc<Shell>>, target: u64, absorbed: u64) -> Res<u64> {
+    shell.merge_people(target, absorbed)
+}
+
+#[tauri::command]
+async fn unmerge_person(shell: State<'_, Arc<Shell>>, absorbed: u64) -> Res<()> {
+    shell.unmerge_person(absorbed)
+}
+
+#[tauri::command]
+async fn protect_person(shell: State<'_, Arc<Shell>>, id: u64, protect: bool) -> Res<()> {
+    shell.protect_person(id, protect)
+}
+
+#[tauri::command]
+async fn get_face_index(shell: State<'_, Arc<Shell>>) -> Res<bool> {
+    shell.face_index()
+}
+
+#[tauri::command]
+async fn set_face_index(shell: State<'_, Arc<Shell>>, enabled: bool) -> Res<()> {
+    shell.set_face_index(enabled)
+}
+
+#[tauri::command]
+async fn wipe_face_index(shell: State<'_, Arc<Shell>>) -> Res<u64> {
+    shell.wipe_face_index()
+}
+
+#[tauri::command]
+async fn get_dashboard(shell: State<'_, Arc<Shell>>) -> Res<DashboardDto> {
+    shell.dashboard()
+}
+
+#[tauri::command]
+async fn compare_series(shell: State<'_, Arc<Shell>>, series: u64) -> Res<SeriesCompareDto> {
+    shell.compare_series(series)
+}
+
+#[tauri::command]
+async fn get_suggestion_settings(shell: State<'_, Arc<Shell>>) -> Res<SuggestionSettingsDto> {
+    shell.suggestion_settings()
+}
+
+#[tauri::command]
+async fn set_suggestion_settings(
+    shell: State<'_, Arc<Shell>>,
+    settings: SuggestionSettingsDto,
+) -> Res<SuggestionSettingsDto> {
+    shell.set_suggestion_settings(&settings)
+}
+
+#[tauri::command]
+async fn get_thresholds(shell: State<'_, Arc<Shell>>) -> Res<ThresholdsDto> {
+    shell.thresholds()
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -263,7 +384,28 @@ pub fn run() {
             set_auto_update,
             get_update_download_url,
             get_language,
-            set_language
+            set_language,
+            protect,
+            list_protections,
+            list_rules,
+            save_rule,
+            preview_rule,
+            toggle_rule,
+            delete_rule,
+            restore_rule,
+            list_people,
+            name_person,
+            merge_people,
+            unmerge_person,
+            protect_person,
+            get_face_index,
+            set_face_index,
+            wipe_face_index,
+            get_dashboard,
+            compare_series,
+            get_suggestion_settings,
+            set_suggestion_settings,
+            get_thresholds
         ])
         .run(tauri::generate_context!())
         .expect("kunne ikke starte Fjell");

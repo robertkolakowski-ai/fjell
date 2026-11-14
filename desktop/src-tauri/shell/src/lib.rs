@@ -7,6 +7,8 @@
 //! `decide_confirmed`, `set_keeper`, `undo`, `trash_summary`, `empty`, `language`, `set_language`,
 //! og flere mapper: `list_library_roots`, `add_library_root`, `remove_library_root`
 //! (docs/mvp/FLERE-MAPPER.md; `set_library` er fortsatt «erstatt med én rot»).
+//! V1 (`v1`, `dto_v1`): beskyttelse, forslagsregler, personer og ansiktsindeks, dashboard,
+//! seriesammenligning, forslagsinnstillinger (`suggestion_settings`) og terskler.
 //! Tauri-kommandoene i `fjell-desktop` er tynne omslag rundt disse.
 //!
 //! Sletting (beslutning 17): trash flytter til karantene med angre; «Tøm» går via Papirkurv
@@ -15,6 +17,7 @@
 mod config;
 mod core;
 pub mod dto;
+pub mod dto_v1;
 #[cfg(test)]
 mod redteam_flere_mapper;
 #[cfg(test)]
@@ -31,7 +34,10 @@ mod tests_review;
 mod tests_roots;
 #[cfg(test)]
 mod tests_thumb;
+#[cfg(test)]
+mod tests_v1;
 mod thumb;
+mod v1;
 
 use crate::core::Core;
 use dto::{
@@ -44,7 +50,7 @@ use fjell_core::api::{
 };
 use fjell_core::model::{
     AssetId, AssetSource, CardId, Clock, ConsequenceCode, GroupId, ProtectFlags, ReasonCode,
-    SuggestionKind,
+    ReasonDetail, SuggestionKind,
 };
 use fjell_core::store::Store;
 use fjell_fs::roots::PRIMARY_KEY;
@@ -619,7 +625,12 @@ impl Shell {
         if !(1..=365).contains(&days) {
             return Err(ErrorDto::bad_request("trash_days"));
         }
-        self.parts()?.0.set_settings(Settings { trash_days: days });
+        // Bare fristen endres; sensitivitet og ansiktsindeks (V1) beholdes.
+        let api = self.parts()?.0;
+        api.set_settings(Settings {
+            trash_days: days,
+            ..api.settings()
+        });
         self.settings()
     }
 
@@ -733,6 +744,7 @@ fn seed_cards() -> Vec<Card> {
         group: (kind == SuggestionKind::ExactDup).then_some(GroupId(1)),
         keeper: (kind == SuggestionKind::ExactDup).then_some(AssetId(100)),
         reason,
+        detail: ReasonDetail::None,
         confidence: 1.0,
         bytes,
         protect_flags: ProtectFlags::default(),

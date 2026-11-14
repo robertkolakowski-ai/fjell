@@ -25,14 +25,17 @@ macro_rules! mirror_enum {
     };
 }
 
-mirror_enum!(SuggestionKind <=> m::SuggestionKind { ExactDup, VisualDup, Blurry, Screenshot });
+mirror_enum!(SuggestionKind <=> m::SuggestionKind {
+    ExactDup, VisualDup, Blurry, Screenshot, Series, Rule,
+});
 mirror_enum!(ReasonCode <=> m::ReasonCode {
     ExactCopy, VisualDuplicate, Blurry, Screenshot, HigherResolution, LessCompressed, Sharper,
-    Older, ShotPlatformFlag, ShotScreenSize, ShotNoCameraExif, ShotPng,
+    Older, ShotPlatformFlag, ShotScreenSize, ShotNoCameraExif, ShotPng, SeriesMember, KeeperBestOverall,
+    KeeperEyesOpen, ClosedEyes, Rule, ProtectedPerson,
 });
 mirror_enum!(ConsequenceCode <=> m::ConsequenceCode {
     ProtectedFavorite, ProtectedSharedAlbum, ProtectedEdited, InAlbum, NotBackedUp, BackupUnknown,
-    MassDelete, FreesNoStorageYet, PlatformDialogNext, ExpiredNotice,
+    MassDelete, FreesNoStorageYet, PlatformDialogNext, ExpiredNotice, ProtectedByScope,
 });
 mirror_enum!(ScanMode <=> a::ScanMode { Quick, Full });
 mirror_enum!(ScanPhase <=> a::ScanPhase { Idle, Listing, Exact, ExactReady, Analyzing, Done });

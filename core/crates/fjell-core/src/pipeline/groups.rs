@@ -1,28 +1,40 @@
 //! Klynging og forslag (PLAN-KJERNE K7 steg 4). Del av `pipeline` (L3).
 //!
-//! Avhenger av: store, cluster, suggest, quality, screenshot, model. Grensesnitt:
+//! Avhenger av: store, cluster, suggest, quality, screenshot, series, rules, suggest_rules, model,
+//! `super::tuning`, `super::keeper`. Grensesnitt:
 //! - `compute(&[IndexRow]) -> Grouping`: ren funksjon fra lagrede fingeravtrykk til grupper og forslag
 //!   (samme modulkall som hver for seg: `exact_groups`, `visual_groups`, `group_suggestions`,
-//!   `blur_threshold`, `blurry_for`, `screenshot_suggestion_default`).
-//! - `refresh_groups(store, clock) -> GroupingStats`: leser aktive rader, regner og skriver gruppene
-//!   i én transaksjon (`Store::apply_grouping`). `api` kaller den etter trash/restore/purge, og
+//!   `blur_threshold`, `blurry_for`, `screenshot_suggestion_default`). `compute_with(rows, engine)` bruker
+//!   inkrementell visuell klynging, `compute_with_rules` legger til keeper-regler (docs/mvp/REGLER.md) og
+//!   `compute_tuned` terskler fra sensitivitet (V1); `Tuning::default()` og `RuleCtx::NONE` = MVP.
+//! - `series_specs(rows, &Grouping, eyes, &SeriesParams)`: ren funksjon fra rader til serier (V1).
+//! - `refresh_groups(store, clock) -> GroupingStats`: leser aktive rader og sensitivitet, regner og skriver
+//!   gruppene i én transaksjon (`Store::apply_grouping`), deretter serier (`Store::apply_series`) og til
+//!   slutt forslagsregler (`suggest_rules::evaluate`). `api` kaller den etter trash/restore/purge, og
 //!   skanningen kaller den etter rask fase, hver 2 000. bilde og til slutt. Bare `state = active`
 //!   deltar. Låsen på lagringen holdes under regningen, så resultatet aldri bygger på foreldet tilstand.
+//!
+//! Serier (V1, åpent spørsmål 6 i docs/v1/V1-PLAN.md): et bilde som alt er eksakt eller visuelt duplikat
+//! (alle medlemmer av visuelle grupper, og alle utenom keeperen i eksakte grupper) deltar ikke i serier.
+//! Prioritet i kort er eksakt > visuelt > serie > regel > skjermbilde > uskarpt (`store/cards.rs`), så
+//! samme bilde vises aldri i flere kort. Uten øyeanalysator (Null) rangeres seriene på skarphet alene.
 //!
 //! Avvik fra planteksten: gruppene regnes alltid ut fra alle aktive fingeravtrykk (rimelig billig,
 //! alltid riktig); bare endrede grupper skrives (`apply_grouping` gjenbruker like grupper).
 //! Visuell klynging tar én representant per eksakt gruppe (keeperen) og hopper over lavinformasjon.
 
 use super::keeper::{is_protected, pick_group, RuleCtx};
+use super::tuning::{tuning, tuning_from_store, Tuning};
 use super::{PipelineError, StoreHandle};
 use crate::cluster::{exact_groups, Params, VisualIndex};
-use crate::model::{AssetId, Clock, Hash64, Kind, ReasonCode, SuggestionKind};
+use crate::model::{AssetId, Clock, EyeReport, Hash64, Kind, ReasonCode, SuggestionKind};
 use crate::quality::LOW_CONTRAST;
-use crate::rules::{decode_rules, KeeperRule, RuleReason};
+use crate::rules::{decode_rules, protecting_prefix, KeeperRule, RuleReason};
 use crate::screenshot::ShotSignals;
+use crate::series::{build_series, SeriesItem, SeriesParams};
 use crate::store::{
     index_rows_on, plan_grouping, setting_on, source_ids_on, GroupSpec, GroupingStats, IndexRow,
-    LoneSuggestion, KEEPER_RULES_KEY,
+    LoneSuggestion, SeriesMemberSpec, SeriesSpec, Store, KEEPER_RULES_KEY,
 };
 use crate::suggest::{
     blur_threshold, blurry_for, screenshot_suggestion_default, GroupKind, GroupResult, Member,
@@ -104,6 +116,8 @@ fn max_hamming(ids: &[AssetId], h: &BTreeMap<AssetId, (Hash64, Hash64)>) -> u32 
 /// berøres, så en ny utregning etter trash/angre koster omtrent diffen, ikke hele biblioteket.
 pub struct GroupEngine {
     vis: VisualIndex,
+    /// Tersklene `vis` er bygget med (sensitivitet, V1).
+    params: Params,
     indexed: BTreeMap<AssetId, (u64, u64)>,
     rows: usize,
 }
@@ -112,6 +126,7 @@ impl Default for GroupEngine {
     fn default() -> Self {
         GroupEngine {
             vis: VisualIndex::new(Params::default()),
+            params: Params::default(),
             indexed: BTreeMap::new(),
             rows: 0,
         }
@@ -142,6 +157,22 @@ pub fn compute_with(rows: &[IndexRow], engine: &mut GroupEngine) -> Grouping {
 /// Som `compute_with`, med brukerregler for keeper-valg og beskyttede mapper. Med `RuleCtx::NONE`
 /// er resultatet byte-likt `compute_with` (K5 alene).
 pub fn compute_with_rules(rows: &[IndexRow], engine: &mut GroupEngine, ctx: &RuleCtx) -> Grouping {
+    compute_tuned(rows, engine, ctx, &Tuning::default())
+}
+
+/// Som `compute_with_rules`, med terskler fra sensitivitet (V1). `Tuning::default()` gir nøyaktig
+/// `compute_with_rules`. Endres tersklene for visuell klynging, bygges `engine` opp på nytt.
+pub fn compute_tuned(
+    rows: &[IndexRow],
+    engine: &mut GroupEngine,
+    ctx: &RuleCtx,
+    tuning: &Tuning,
+) -> Grouping {
+    if engine.params != tuning.visual {
+        engine.params = tuning.visual.clone();
+        engine.vis = VisualIndex::new(tuning.visual.clone());
+        engine.indexed.clear();
+    }
     engine.rows = rows.len();
     let by_id: BTreeMap<AssetId, &IndexRow> = rows.iter().map(|r| (r.id, r)).collect();
     let mut groups = Vec::new();
@@ -230,7 +261,7 @@ pub fn compute_with_rules(rows: &[IndexRow], engine: &mut GroupEngine, ctx: &Rul
     // Uten gruppe: uskarpt og skjermbilde.
     let mut lone = Vec::new();
     let scores: Vec<f32> = rows.iter().filter_map(|r| r.blur).collect();
-    let threshold = blur_threshold(&scores);
+    let threshold = blur_threshold(&scores) * tuning.blur_scale;
     for r in rows
         .iter()
         .filter(|r| r.algo > 0 && !is_protected(ctx, r.id))
@@ -260,6 +291,97 @@ pub fn compute_with_rules(rows: &[IndexRow], engine: &mut GroupEngine, ctx: &Rul
     Grouping { groups, lone }
 }
 
+/// Serier av bilder som ikke alt er duplikater. Se modulhodet.
+pub fn series_specs(
+    rows: &[IndexRow],
+    grouping: &Grouping,
+    eyes: &BTreeMap<AssetId, EyeReport>,
+    p: &SeriesParams,
+) -> Vec<SeriesSpec> {
+    let mut taken: BTreeSet<AssetId> = BTreeSet::new();
+    for g in &grouping.groups {
+        for (m, _) in &g.members {
+            if !g.exact || *m != g.keeper {
+                taken.insert(*m);
+            }
+        }
+    }
+    let items: Vec<SeriesItem> = rows
+        .iter()
+        .filter(|r| r.kind == Kind::Photo && !low_info(r) && !taken.contains(&r.id))
+        .filter_map(|r| {
+            Some(SeriesItem {
+                id: r.id,
+                taken_at: r.created_at,
+                dhash: Hash64(r.dhash?),
+                phash: Hash64(r.phash?),
+                blur: r.blur.unwrap_or(LOW_CONTRAST),
+                eyes: eyes.get(&r.id).copied(),
+            })
+        })
+        .collect();
+    build_series(&items, p)
+        .into_iter()
+        .map(|s| {
+            let top = s.members.first().map_or(0.0, |m| m.score);
+            SeriesSpec {
+                keeper: s.keeper,
+                members: s
+                    .members
+                    .iter()
+                    .map(|m| SeriesMemberSpec {
+                        asset: m.id,
+                        score: m.score,
+                        reason: m.reason,
+                        // Jo større avstand til keeperen, jo tryggere forslag (0,5..=1,0).
+                        confidence: (0.5 + 0.5 * (top - m.score)).clamp(0.5, 1.0),
+                    })
+                    .collect(),
+            }
+        })
+        .collect()
+}
+
+/// Serier for V1, uten bilder i en beskyttet mappe (`ProtectFolder`, docs/mvp/REGLER.md): de får aldri forslag.
+/// Ren funksjon; kan regnes utenfor skrivelåsen.
+fn open_series(
+    rows: &[IndexRow],
+    g: &Grouping,
+    eyes: &BTreeMap<AssetId, EyeReport>,
+    tuning: &Tuning,
+    ctx: &RuleCtx,
+) -> Vec<SeriesSpec> {
+    if ctx.rules.is_empty() {
+        return series_specs(rows, g, eyes, &tuning.series);
+    }
+    let open: Vec<IndexRow> = rows
+        .iter()
+        .filter(|r| !is_protected(ctx, r.id))
+        .cloned()
+        .collect();
+    series_specs(&open, g, eyes, &tuning.series)
+}
+
+/// V1-etterarbeid etter at gruppene er skrevet, under skrivelåsen: serier (`Store::apply_series`) og
+/// forslagsregler (`suggest_rules::evaluate`). Bilder i en beskyttet mappe får heller ikke regelforslag.
+fn apply_v1(
+    s: &mut Store,
+    series: &[SeriesSpec],
+    ctx: &RuleCtx,
+    now: i64,
+) -> Result<(), PipelineError> {
+    s.apply_series(series, now)?;
+    let guard = |path: &str| protecting_prefix(ctx.rules, path).is_some();
+    let guard: crate::suggest_rules::Guard = if ctx.rules.is_empty() {
+        None
+    } else {
+        Some(&guard)
+    };
+    crate::suggest_rules::evaluate(s, now, guard)
+        .map_err(|e| PipelineError::Rules(format!("{e}")))?;
+    Ok(())
+}
+
 /// Regner gruppene på nytt og skriver endringene. Se modulhodet.
 ///
 /// Med filbasert indeks skjer lesing (fingeravtrykk, dagens grupper), utregning og diff på en egen
@@ -267,6 +389,8 @@ pub fn compute_with_rules(rows: &[IndexRow], engine: &mut GroupEngine, ctx: &Rul
 /// (`Store::change_counter`) og for å skrive de endrede radene. Er noe skrevet imens, forkastes
 /// resultatet og utregningen gjentas; etter `TRIES` forsøk regnes det under låsen, så resultatet
 /// alltid er riktig. Minnedatabaser (ingen lesetilkobling) regner alltid under låsen.
+/// V1: seriene regnes også utenfor låsen (`open_series`); `apply_v1` skriver serier og evaluerer
+/// forslagsregler under låsen rett etter gruppene.
 pub fn refresh_groups<H: StoreHandle>(
     store: &H,
     clock: &dyn Clock,
@@ -288,18 +412,32 @@ pub fn refresh_groups<H: StoreHandle>(
             rules: &rules,
             paths: &paths,
         };
-        let g = compute_with_rules(
+        // Lesefeil gir normal (som `tuning_from_store`).
+        let tuning = tuning(|k| {
+            setting_on(&conn, &format!("sensitivity.{}", k.as_str()))
+                .ok()
+                .flatten()
+        });
+        let g = compute_tuned(
             &rows,
             &mut engine.lock().unwrap_or_else(|e| e.into_inner()),
             &ctx,
+            &tuning,
         );
-        let plan = plan_grouping(&conn, &g.groups, &g.lone, clock.now())?;
+        let now = clock.now();
+        let plan = plan_grouping(&conn, &g.groups, &g.lone, now)?;
         drop(conn);
-        let applied = store.with_store(|s| {
+        // Øyeanalysene leses med en kort lås; seriene regnes utenfor låsen.
+        let ids: Vec<AssetId> = rows.iter().map(|r| r.id).collect();
+        let eyes = store.with_store(|s| s.eye_results(&ids))?;
+        let series = open_series(&rows, &g, &eyes, &tuning, &ctx);
+        let applied = store.with_store(|s| -> Result<Option<GroupingStats>, PipelineError> {
             if s.change_counter() != stamp {
                 return Ok(None);
             }
-            s.apply_plan(&plan).map(Some)
+            let stats = s.apply_plan(&plan)?;
+            apply_v1(s, &series, &ctx, now)?;
+            Ok(Some(stats))
         })?;
         if let Some(stats) = applied {
             return Ok(stats);
@@ -318,11 +456,19 @@ pub fn refresh_groups<H: StoreHandle>(
             rules: &rules,
             paths: &paths,
         };
-        let g = compute_with_rules(
+        let tuning = tuning_from_store(s);
+        let g = compute_tuned(
             &rows,
             &mut engine.lock().unwrap_or_else(|e| e.into_inner()),
             &ctx,
+            &tuning,
         );
-        Ok(s.apply_grouping(&g.groups, &g.lone, clock.now())?)
+        let now = clock.now();
+        let stats = s.apply_grouping(&g.groups, &g.lone, now)?;
+        let ids: Vec<AssetId> = rows.iter().map(|r| r.id).collect();
+        let eyes = s.eye_results(&ids)?;
+        let series = open_series(&rows, &g, &eyes, &tuning, &ctx);
+        apply_v1(s, &series, &ctx, now)?;
+        Ok(stats)
     })
 }

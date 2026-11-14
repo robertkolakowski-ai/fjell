@@ -12,6 +12,8 @@
 //!   lesetilkobling, utenfor skrivelåsen) og `apply_plan(plan)` skriver den (bare endrede rader).
 //!   `apply_grouping` er begge deler i én transaksjon.
 //! - `set_group_keeper(group, keeper)`: bytter keeper og flytter det ventende forslaget.
+//! - Serier (`grp.kind = 'series'`) og forslag av typen `series` og `rule` (V1) eies av `series.rs` og
+//!   `suggest_rules.rs` og røres aldri her: en database uten dem oppfører seg nøyaktig som før.
 //! - Gruppen lagrer `keeper_reason` (begrunnelse for keeperen; `None` etter manuelt valg).
 
 use super::{Store, StoreError};
@@ -72,7 +74,8 @@ type Existing = (BTreeMap<Key, (i64, Option<i64>)>, Vec<i64>);
 fn existing_groups(tx: &Connection) -> Result<Existing, StoreError> {
     let mut st = tx.prepare_cached(
         "SELECT g.id, g.kind, g.keeper_id, m.asset_id FROM grp g LEFT JOIN grp_member m ON m.grp_id = g.id \
-         LEFT JOIN asset a ON a.id = m.asset_id WHERE a.state = 0 OR m.asset_id IS NULL ORDER BY g.id, m.asset_id",
+         LEFT JOIN asset a ON a.id = m.asset_id \
+         WHERE g.kind <> 'series' AND (a.state = 0 OR m.asset_id IS NULL) ORDER BY g.id, m.asset_id",
     )?;
     let rows = st.query_map([], |r| {
         Ok((
@@ -91,7 +94,7 @@ fn existing_groups(tx: &Connection) -> Result<Existing, StoreError> {
         e.2.extend(member.map(|m| AssetId(m as u64)));
     }
     let all_ids: Vec<i64> = {
-        let mut st = tx.prepare_cached("SELECT id FROM grp")?;
+        let mut st = tx.prepare_cached("SELECT id FROM grp WHERE kind <> 'series'")?;
         let rows = st.query_map([], |r| r.get(0))?;
         rows.collect::<Result<_, _>>()?
     };
@@ -108,7 +111,8 @@ type ExistingSugg = (i64, String, Option<i64>, String, f64);
 
 fn existing_suggestions(tx: &Connection) -> Result<BTreeMap<SuggKey, ExistingSugg>, StoreError> {
     let mut st = tx.prepare_cached(
-        "SELECT id, asset_id, kind, status, grp_id, reason_code, confidence FROM suggestion",
+        "SELECT id, asset_id, kind, status, grp_id, reason_code, confidence FROM suggestion \
+         WHERE kind NOT IN ('series', 'rule')",
     )?;
     let rows = st.query_map([], |r| {
         Ok((

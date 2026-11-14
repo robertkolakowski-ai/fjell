@@ -23,10 +23,12 @@ pub enum ConsequenceCode {
     FreesNoStorageYet,
     PlatformDialogNext,
     ExpiredNotice,
+    /// V1: bildet er beskyttet via mappe, album, person eller enkeltbilde (`protection`-tabellen).
+    ProtectedByScope,
 }
 
 impl ConsequenceCode {
-    pub const ALL: [ConsequenceCode; 10] = [
+    pub const ALL: [ConsequenceCode; 11] = [
         Self::ProtectedFavorite,
         Self::ProtectedSharedAlbum,
         Self::ProtectedEdited,
@@ -37,6 +39,7 @@ impl ConsequenceCode {
         Self::FreesNoStorageYet,
         Self::PlatformDialogNext,
         Self::ExpiredNotice,
+        Self::ProtectedByScope,
     ];
 
     /// Stabil snake_case-nøkkel (i18n-nøkkel `consequence.<key>`).
@@ -52,6 +55,7 @@ impl ConsequenceCode {
             Self::FreesNoStorageYet => "frees_no_storage_yet",
             Self::PlatformDialogNext => "platform_dialog_next",
             Self::ExpiredNotice => "expired_notice",
+            Self::ProtectedByScope => "protected_by_scope",
         }
     }
 
@@ -93,6 +97,8 @@ pub struct KindCounts {
     pub visual_dup: u64,
     pub blurry: u64,
     pub screenshot: u64,
+    pub series: u64,
+    pub rule: u64,
     pub manual: u64,
 }
 
@@ -102,6 +108,8 @@ pub struct ProtectCounts {
     pub favorite: u64,
     pub shared_album: u64,
     pub edited: u64,
+    /// V1: beskyttet via mappe, album, person eller enkeltbilde (`ProtectScope`).
+    pub scope: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

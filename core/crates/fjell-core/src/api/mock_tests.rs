@@ -1,7 +1,7 @@
 //! Enhetstester for `api`.
 
 use super::*;
-use crate::model::{FakeClock, ProtectFlags, ReasonCode};
+use crate::model::{FakeClock, ProtectFlags, ReasonCode, ReasonDetail};
 
 fn card(n: u64, kind: SuggestionKind) -> Card {
     Card {
@@ -11,6 +11,7 @@ fn card(n: u64, kind: SuggestionKind) -> Card {
         group: Some(GroupId(1)),
         keeper: Some(AssetId(100)),
         reason: ReasonCode::ExactCopy,
+        detail: ReasonDetail::None,
         confidence: 1.0,
         bytes: 10,
         protect_flags: ProtectFlags::default(),
@@ -154,6 +155,63 @@ fn summary_keeper_scan_and_settings() {
         a.set_keeper(GroupId(1), AssetId(77)),
         Err(ApiError::UnknownAsset(AssetId(77)))
     );
-    a.set_settings(Settings { trash_days: 7 });
+    a.set_settings(Settings {
+        trash_days: 7,
+        ..Settings::default()
+    });
     assert_eq!(a.settings().trash_days, 7);
+}
+
+/// V1: standardimplementasjonene gir tom verdi eller «ikke implementert», og rører ikke MVP-flaten.
+#[test]
+fn v1_defaults_are_empty_or_not_implemented() {
+    use crate::api::Thresholds;
+    use crate::model::{DashboardData, PersonId, ProtectScope, RuleId, RuleSpec, SeriesId};
+    let a = api();
+    assert_eq!(a.protections(), Ok(vec![]));
+    assert_eq!(a.rules_list(), Ok(vec![]));
+    assert_eq!(a.people_list(), Ok(vec![]));
+    assert!(!a.face_index_enabled());
+    assert_eq!(a.dashboard().unwrap(), DashboardData::default());
+    assert_eq!(a.thresholds(), Thresholds::default());
+    let ni = Err(ApiError::Internal("ikke implementert".to_string()));
+    assert_eq!(a.protect_set(ProtectScope::Album(1)), ni);
+    assert_eq!(a.unprotect(ProtectScope::Album(1)), ni);
+    assert_eq!(
+        a.rule_preview(RuleSpec::default()),
+        ni.clone().map(|_: ()| unreachable!())
+    );
+    assert_eq!(a.rule_delete(RuleId(1)), ni);
+    assert_eq!(
+        a.person_merge(PersonId(1), PersonId(2)),
+        ni.clone().map(|_: ()| unreachable!())
+    );
+    assert_eq!(a.face_index_wipe(), ni.clone().map(|_: ()| unreachable!()));
+    assert!(a.series_compare(SeriesId(1)).is_err());
+    // MVP-flaten er uendret: oversikten viser fortsatt bare de fire MVP-typene.
+    let h = a.home_summary();
+    assert_eq!(h.per_kind.len(), SuggestionKind::MVP.len());
+}
+
+#[test]
+fn v1_settings_defaults_are_backward_compatible() {
+    use crate::api::{sensitivity_key, Sensitivity};
+    let s = Settings::default();
+    assert_eq!(s.trash_days, 30);
+    assert!(!s.face_index, "ansiktsindeks er av som standard");
+    for k in SuggestionKind::ALL {
+        assert_eq!(s.sensitivity.get(k), Sensitivity::Normal);
+    }
+    let mut t = s;
+    t.sensitivity.set(SuggestionKind::Blurry, Sensitivity::High);
+    assert_eq!(t.sensitivity.get(SuggestionKind::Blurry), Sensitivity::High);
+    assert_eq!(
+        t.sensitivity.get(SuggestionKind::Series),
+        Sensitivity::Normal
+    );
+    for v in Sensitivity::ALL {
+        assert_eq!(Sensitivity::parse(v.as_str()), Some(v));
+    }
+    assert_eq!(Sensitivity::parse("extreme"), None);
+    assert_eq!(sensitivity_key(SuggestionKind::Rule), "sensitivity.rule");
 }

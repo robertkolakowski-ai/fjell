@@ -6,8 +6,8 @@
 
 use fjell_core::api::{Card, FjellApi, MemApi, ScanConfig, ScanMode};
 use fjell_core::model::{
-    AssetId, AssetSource, CardId, FakeClock, GroupId, ProtectFlags, ReasonCode, SourceError,
-    SuggestionKind,
+    AssetId, AssetSource, CardId, FakeClock, GroupId, ProtectFlags, ReasonCode, ReasonDetail,
+    SourceError, SuggestionKind,
 };
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -54,6 +54,7 @@ pub fn scan(src: &dyn AssetSource, out: &mut dyn Write) -> Result<(), SourceErro
                 group: Some(GroupId(g as u64 + 1)),
                 keeper: Some(keeper),
                 reason: ReasonCode::ExactCopy,
+                detail: ReasonDetail::None,
                 confidence: 1.0,
                 bytes: cs.changed[i].bytes,
                 protect_flags: ProtectFlags::default(),
