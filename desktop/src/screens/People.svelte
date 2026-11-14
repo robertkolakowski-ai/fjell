@@ -76,8 +76,15 @@
     });
   });
 
+  let root: HTMLElement | undefined = $state();
+
   async function enable(): Promise<void> {
-    if (await session.enable()) announce = $tr("people.index.on.done");
+    if (await session.enable()) {
+      announce = $tr("people.index.on.done");
+      // Utløseren i tom tilstand er borte: fokus til sideoverskriften (WCAG 2.4.3).
+      await tick();
+      root?.querySelector<HTMLElement>("h1")?.focus();
+    }
   }
   async function undo(): Promise<void> {
     if (await session.undo()) announce = $tr("people.undo.done");
@@ -90,7 +97,7 @@
   onDestroy(() => session.dispose());
 </script>
 
-<section class="people">
+<section class="people" bind:this={root}>
   <PageHeader title={$tr("people.title.label")} description={view.faceIndex ? $tr("people.description") : undefined} />
   <LiveRegion message={announce} />
 

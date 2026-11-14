@@ -107,6 +107,25 @@ describe("serie mot MockBridge", () => {
     expect(items.find((i) => i.asset === oldBest)).toMatchObject({ best: false, marked: true });
     expect(moveIds(s1)).toHaveLength(3);
   });
+  it("refresh beholder brukerens valg: fjernet hake kommer ikke tilbake, nylig ubeskyttet blir ikke forhåndsmerket", async () => {
+    const b = new MockBridge();
+    const s0 = await ready(b);
+    const [a, , c] = seriesItems(s0).slice(1).map((i) => i.asset);
+    const s1 = run(s0, { type: "toggleMark", asset: a });
+    const before = moveIds(s1);
+    // Endret beskyttelse på c og tilbake igjen: a skal fortsatt være umerket.
+    await b.protect({ scope: "asset", target: String(c) }, true);
+    const r1 = await loadSeries(b, 41);
+    const s2 = run(s1, { type: "start" }, { type: "refreshed", compare: r1.compare, cards: r1.cards });
+    expect(seriesItems(s2).find((i) => i.asset === a)?.marked).toBe(false);
+    expect(seriesItems(s2).find((i) => i.asset === c)).toMatchObject({ protected: true, marked: false });
+    await b.protect({ scope: "asset", target: String(c) }, false);
+    const r2 = await loadSeries(b, 41);
+    const s3 = run(s2, { type: "start" }, { type: "refreshed", compare: r2.compare, cards: r2.cards });
+    expect(seriesItems(s3).find((i) => i.asset === a)?.marked).toBe(false);
+    expect(seriesItems(s3).find((i) => i.asset === c)?.marked).toBe(false);
+    expect(moveIds(s3)).toHaveLength(before.length - 1);
+  });
   it("flytt resten er én batch som angres i ett grep", async () => {
     const b = new MockBridge();
     const s = await ready(b);

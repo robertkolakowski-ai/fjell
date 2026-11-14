@@ -85,10 +85,19 @@ export function reduceSeries(s: SeriesState, e: SeriesEvent): SeriesState {
     case "start":
       return s.phase === "ready" ? { ...s, phase: "working", error: null } : s;
     case "refreshed": {
-      // Ny behold-kandidat eller endret beskyttelse: forhåndsmerkingen regnes på nytt fra kjernens svar.
+      // Ny behold-kandidat eller endret beskyttelse: brukerens valg beholdes. Bare bilder som ikke kan merkes lenger
+      // (ny kandidat, nylig beskyttet) fjernes; den gamle kandidaten forhåndsmerkes, men et bilde som nettopp
+      // mistet beskyttelsen forhåndsmerkes ikke.
       if (s.phase !== "working") return s;
       const cardOf = cardMap(e.cards);
-      return { ...s, phase: "ready", compare: e.compare, cardOf, marked: premarked(e.compare, cardOf), askProtected: false };
+      const before = s.compare;
+      const marked = new Set<number>();
+      for (const m of e.compare.members) {
+        if (!markable(m, cardOf)) continue;
+        const prev = before?.members.find((x) => x.asset === m.asset);
+        if (s.marked.has(m.asset) || (prev?.isKeeper ?? false)) marked.add(m.asset);
+      }
+      return { ...s, phase: "ready", compare: e.compare, cardOf, marked, askProtected: false };
     }
     case "committed":
       return s.phase === "working" ? { ...s, phase: "committed", done: e.done, moved: e.moved, askProtected: false } : s;

@@ -135,7 +135,9 @@ test("beskyttelse: bryter per bilde med angre; beskyttede er aldri forhåndsmerk
   await expect(page.getByRole("button", { name: "Flytt 2 til papirkurv" })).toBeVisible();
   await page.getByRole("status").filter({ hasText: "Bilde 2 er beskyttet." }).getByRole("button", { name: "Angre" }).click();
   await expect(items(page).nth(1).getByRole("button", { name: "Beskytt bilde 2" })).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByRole("button", { name: "Flytt 3 til papirkurv" })).toBeVisible();
+  // Brukerens valg beholdes: bildet som mistet beskyttelsen er ikke forhåndsmerket igjen.
+  await expect(page.getByRole("button", { name: "Flytt 2 til papirkurv" })).toBeVisible();
+  await expect(items(page).nth(1).getByRole("checkbox")).not.toBeChecked();
 });
 
 test("Kortmodus og Gjennomgang forklarer serie- og regelforslag med tall", async ({ page }) => {

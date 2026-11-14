@@ -23,6 +23,8 @@ async function enable(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Slå på ansiktsindeks" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Slå på", exact: true }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Kari" })).toBeVisible();
+  // Fokus skal ikke gå tapt til body når utløseren fjernes (WCAG 2.4.3).
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
 }
 
 test("tom tilstand: forklarer, er on-device og slår aldri på av seg selv", async ({ page }) => {
