@@ -182,6 +182,12 @@ fn dashboard_series_settings_and_thresholds() {
     assert_eq!(d["activeCount"], 3);
     assert_eq!(d["freedBytes"], 0);
     assert_eq!(d["protectedCount"], 0);
+    // fremdrift, neste steg og «tømt» per måned er med (ingenting tømt ennå)
+    assert_eq!(d["progress"]["decided"], 0);
+    assert_eq!(d["progress"]["total"], 1);
+    assert_eq!(d["nextStep"]["kind"], "review");
+    assert_eq!(d["nextStep"]["suggestionKind"], "exact_dup");
+    assert!(d["freedByMonth"].as_array().unwrap().is_empty());
     assert!(d["perKind"]
         .as_array()
         .unwrap()
@@ -213,4 +219,35 @@ fn mock_backend_answers_v1_with_codes_not_panics() {
     assert!(!m.face_index());
     assert_eq!(m.dashboard().unwrap().active_count, 0);
     assert_eq!(m.wipe_face_index().unwrap_err().code, "core_error");
+}
+
+#[test]
+fn set_keeper_overrides_suggestion_and_rejects_unknowns_with_codes() {
+    let s = shell();
+    let card = s.cards("exact_dup", 10, None).unwrap().cards.remove(0);
+    let (group, old_keeper, other) = (card.group.unwrap(), card.keeper.unwrap(), card.asset);
+    assert_ne!(old_keeper, other);
+    s.set_keeper(group, other).unwrap();
+    let now = s.cards("exact_dup", 10, None).unwrap().cards.remove(0);
+    assert_eq!(
+        now.keeper,
+        Some(other),
+        "brukerens valg overstyrer forslaget"
+    );
+    assert_eq!(
+        now.asset, old_keeper,
+        "forslaget flyttes til den gamle keeperen"
+    );
+    // angre ved å velge tilbake; ukjent bilde og ukjent gruppe gir feilkode, ingen skriving
+    s.set_keeper(group, old_keeper).unwrap();
+    assert_eq!(
+        s.set_keeper(group, 9_999).unwrap_err().code,
+        "unknown_asset"
+    );
+    assert_eq!(
+        s.set_keeper(9_999, other).unwrap_err().code,
+        "unknown_asset"
+    );
+    let back = s.cards("exact_dup", 10, None).unwrap().cards.remove(0);
+    assert_eq!(back.keeper, Some(old_keeper));
 }

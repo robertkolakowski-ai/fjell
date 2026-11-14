@@ -4,7 +4,9 @@
 //!
 //! Grensesnitt: bare tester. Bruker korpuset fra `pipeline::tests` pluss tre bilder i én serie.
 
+use super::fjell_v1::V1_ERROR_CODES;
 use super::*;
+use crate::model::ConsequenceCode;
 use crate::model::{
     AssetSource, Embedding, FaceBox, FaceObservation, FakeClock, ProtectScope, ReasonCode,
     ReasonDetail, RuleCondition, SuggestionKind,
@@ -334,4 +336,27 @@ fn protection_added_after_trash_still_gates_purge() {
     assert!(f
         .confirm_purge_confirmed(&intent, vec![ConsequenceCode::ProtectedByScope])
         .is_ok());
+}
+
+/// Hver kode kjernen sender har tekst i nb og en (konsekvenser, V1-feilkoder, forslagstyper, neste steg).
+#[test]
+fn every_code_the_core_sends_has_i18n_key_in_nb_and_en() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../i18n");
+    let mut keys: Vec<String> = ConsequenceCode::ALL
+        .iter()
+        .map(|c| format!("consequence.{}", c.key()))
+        .collect();
+    keys.extend(V1_ERROR_CODES.iter().map(|c| format!("error.{c}")));
+    keys.extend(
+        SuggestionKind::ALL
+            .iter()
+            .map(|k| format!("suggestion.kind.{}", k.as_str())),
+    );
+    keys.extend(["review", "empty_trash", "nothing"].map(|k| format!("dashboard.next.{k}")));
+    for loc in ["nb", "en"] {
+        let text = std::fs::read_to_string(root.join(format!("{loc}.json"))).unwrap();
+        for k in &keys {
+            assert!(text.contains(&format!("\"{k}\"")), "{loc}.json mangler {k}");
+        }
+    }
 }

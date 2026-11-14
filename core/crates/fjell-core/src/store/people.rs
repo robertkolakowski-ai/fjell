@@ -352,16 +352,96 @@ impl Store {
     }
 
     /// «Slett ansiktsindeks»: fjerner alle embeddings og personer i én transaksjon. Dette er avledet data som
-    /// kan gjenskapes, og stien er ikke angrebar (eksplisitt personvernvalg, med varsel i UI). Bilder, beskyttelser
-    /// og alt annet røres ikke; beskyttelser av typen `person` blir hengende. Returnerer antall ansikter slettet.
+    /// kan gjenskapes, og stien er ikke angrebar (eksplisitt personvernvalg, med varsel i UI). Bilder og
+    /// andre beskyttelser røres ikke. Beskyttelser av typen `person` virker bare via ansiktene og ville blitt
+    /// hengende (og kunne pekt på en annen person når id-ene starter på 1 igjen); de gjøres derfor om til
+    /// beskyttelse av hvert enkelt bilde før wipe, slik at ingen bilder mister beskyttelsen.
+    /// Slettede biometriske bytes overskrives (`secure_delete`) og WAL-filen tømmes (`wal_checkpoint(TRUNCATE)`),
+    /// så de ikke ligger igjen i filen. Returnerer antall ansikter slettet.
     pub fn face_index_wipe(&mut self) -> Result<u64, StoreError> {
+        let prev: i64 = self
+            .conn
+            .query_row("PRAGMA secure_delete", [], |r| r.get(0))?;
+        self.conn.pragma_update(None, "secure_delete", true)?;
+        let res = self.face_index_wipe_tx();
+        self.conn.pragma_update(None, "secure_delete", prev)?;
+        let n = res?;
+        self.conn
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))?;
+        Ok(n)
+    }
+
+    fn face_index_wipe_tx(&mut self) -> Result<u64, StoreError> {
         let tx = self.conn.transaction()?;
+        tx.execute(
+            "WITH RECURSIVE tree(root, id) AS ( \
+                 SELECT target, CAST(target AS INTEGER) FROM protection WHERE scope = 'person' \
+                 UNION SELECT tree.root, p.id FROM person p JOIN tree ON p.merged_into = tree.id) \
+             INSERT OR IGNORE INTO protection(scope, target, created_at) \
+             SELECT DISTINCT 'asset', CAST(f.asset_id AS TEXT), pr.created_at FROM protection pr \
+                 JOIN tree ON tree.root = pr.target JOIN face_embedding f ON f.person_id = tree.id \
+             WHERE pr.scope = 'person'",
+            [],
+        )?;
+        tx.execute("DELETE FROM protection WHERE scope = 'person'", [])?;
         let n = tx.execute("DELETE FROM face_embedding", [])?;
         tx.execute("UPDATE person SET merged_into = NULL", [])?;
         tx.execute("DELETE FROM person", [])?;
         tx.commit()?;
         Ok(n as u64)
     }
+
+    /// Lagrer en klyngeplan i én transaksjon (alt eller ingenting). Nye personer opprettes én gang per
+    /// `AssignSlot::New(n)`. Returnerer (ansikter tildelt, nye personer).
+    pub fn faces_assign_batch(
+        &mut self,
+        plan: &[(u64, AssignSlot)],
+        now: i64,
+    ) -> Result<(u64, u64), StoreError> {
+        let tx = self.conn.transaction()?;
+        let mut created: HashMap<usize, i64> = HashMap::new();
+        let (mut assigned, mut new_people) = (0u64, 0u64);
+        for (face, slot) in plan {
+            let person = match slot {
+                AssignSlot::Existing(p) => {
+                    let known = tx
+                        .query_row("SELECT 1 FROM person WHERE id = ?1", [p.0 as i64], |_| {
+                            Ok(())
+                        })
+                        .optional()?
+                        .is_some();
+                    if !known {
+                        continue;
+                    }
+                    p.0 as i64
+                }
+                AssignSlot::New(n) => match created.get(n) {
+                    Some(p) => *p,
+                    None => {
+                        tx.execute("INSERT INTO person(created_at) VALUES (?1)", [now])?;
+                        let p = tx.last_insert_rowid();
+                        created.insert(*n, p);
+                        new_people += 1;
+                        p
+                    }
+                },
+            };
+            let n = tx.execute(
+                "UPDATE face_embedding SET person_id = ?2 WHERE id = ?1",
+                params![*face as i64, person],
+            )?;
+            assigned += n as u64;
+        }
+        tx.commit()?;
+        Ok((assigned, new_people))
+    }
+}
+
+/// Hvor et ansikt skal i `faces_assign_batch` (speiler `people::Target`; store kan ikke avhenge av people).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AssignSlot {
+    Existing(PersonId),
+    New(usize),
 }
 
 #[cfg(test)]

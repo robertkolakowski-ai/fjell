@@ -5,7 +5,7 @@
 //! `list_cards`, `decide_cards`, `undo`, og V1: `decide_cards_confirmed`, `protect`, `list_protections`,
 //! `list_rules`, `save_rule`, `preview_rule`, `toggle_rule`, `delete_rule`, `restore_rule`, `list_people`,
 //! `name_person`, `merge_people`, `unmerge_person`, `protect_person`, `get_face_index`, `set_face_index`,
-//! `wipe_face_index`, `get_dashboard`, `compare_series`, `get_settings`, `set_settings`, `get_thresholds`.
+//! `wipe_face_index`, `get_dashboard`, `set_keeper`, `compare_series`, `get_settings`, `set_settings`, `get_thresholds`.
 //! Ingen logikk her; ingen sletting (beslutning 17). Samme kontrakt som `desktop/src/bridge/bridge.ts`.
 
 use fjell_shell::dto::{CardPageDto, DecisionDto, ErrorDto, StateDto};
@@ -144,6 +144,11 @@ fn wipe_face_index(shell: State<'_, Shell>) -> Result<u64, ErrorDto> {
 }
 
 #[tauri::command]
+fn set_keeper(shell: State<'_, Shell>, group: u64, keeper: u64) -> Result<(), ErrorDto> {
+    shell.set_keeper(group, keeper)
+}
+
+#[tauri::command]
 fn get_dashboard(shell: State<'_, Shell>) -> Result<DashboardDto, ErrorDto> {
     shell.dashboard()
 }
@@ -195,6 +200,7 @@ pub fn run() {
             set_face_index,
             wipe_face_index,
             get_dashboard,
+            set_keeper,
             compare_series,
             get_settings,
             set_settings,

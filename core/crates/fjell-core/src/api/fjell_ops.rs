@@ -19,6 +19,7 @@ use super::{
     SeriesCompare, Settings, Thresholds, TrashSummary, UndoReport,
 };
 use crate::actions::{acks_covering, PlanRequest, Selection};
+use crate::dashboard::Dashboard;
 use crate::model::plan::ACK_CATEGORIES;
 use crate::model::{
     AssetId, BatchId, CardId, ConsequenceCode, DashboardData, DeleteOutcome, GroupId, MassAck,
@@ -396,6 +397,10 @@ impl FjellApi for Fjell {
 
     fn dashboard(&self) -> Result<DashboardData, ApiError> {
         self.v1_dashboard()
+    }
+
+    fn dashboard_full(&self) -> Result<Dashboard, ApiError> {
+        self.v1_dashboard_full()
     }
 
     fn series_compare(&self, series: SeriesId) -> Result<SeriesCompare, ApiError> {

@@ -125,8 +125,15 @@ pub fn run_analyzers<H: StoreHandle>(
                 Err(AnalyzeError::Failed(_)) => {}
             }
         }
-        let c = store
-            .with_store(|s| people::cluster_new_faces(s, &PeopleParams::default(), clock.now()))?;
+        // Les kort, regn utenfor låsen, skriv i én transaksjon: UI-handlinger blokkeres ikke under regningen.
+        let params = PeopleParams::default();
+        let c = match store.with_store(|s| people::cluster_load(s))? {
+            Some(input) => {
+                let plan = people::cluster_plan(&input, &params);
+                store.with_store(|s| people::cluster_apply(s, &plan, clock.now()))?
+            }
+            None => people::ClusterStats::default(),
+        };
         rep.faces_assigned = c.assigned;
         rep.new_people = c.new_people;
     }

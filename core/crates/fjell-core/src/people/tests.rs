@@ -250,11 +250,22 @@ fn wipe_clears_faces_and_people_but_not_images_or_protection() {
         })
         .unwrap();
     assert_eq!(kept, 3);
-    let prot: i64 = s
+    // personbeskyttelsen er gjort om til bildebeskyttelse (ingen hengende rad, ingen bilder mister den)
+    let prot: Vec<(String, String)> = s
         .conn()
-        .query_row("SELECT count(*) FROM protection", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(prot, 1);
+        .prepare("SELECT scope, target FROM protection ORDER BY target")
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    let expect: Vec<(String, String)> = ["1", "2", "3"]
+        .iter()
+        .map(|t| ("asset".to_string(), t.to_string()))
+        .collect();
+    assert_eq!(prot, expect);
+    let ids = [AssetId(1), AssetId(2), AssetId(3)];
+    assert_eq!(s.protected_by_scope(&ids).unwrap().len(), 3);
     // indeksen kan bygges opp igjen
     let an = corpus();
     index_asset(&mut s, &an, AssetId(1), &thumb(1), 1).unwrap();
@@ -274,4 +285,119 @@ fn clustering_500_faces_is_fast() {
     cluster_new_faces(&mut s, &PeopleParams { threshold: 0.995 }, 1).unwrap();
     assert!(t.elapsed().as_millis() < 1000, "{:?}", t.elapsed());
     assert!(!list(&s).unwrap().is_empty());
+}
+
+#[test]
+fn wipe_keeps_images_protected_when_person_protection_was_via_merge() {
+    let mut s = indexed();
+    cluster_new_faces(&mut s, &PeopleParams::default(), 10).unwrap();
+    let ps = list(&s).unwrap();
+    let (a, b) = (ps[0].id, ps[1].id);
+    merge(&mut s, a, b).unwrap();
+    s.protection_add(&crate::model::ProtectScope::Person(a), 5)
+        .unwrap();
+    let ids = [AssetId(1), AssetId(2), AssetId(3)];
+    assert_eq!(s.protected_by_scope(&ids).unwrap().len(), 3);
+    wipe(&mut s).unwrap();
+    assert_eq!(s.protected_by_scope(&ids).unwrap().len(), 3);
+    // ny person med samme id som en gammel skal ikke arve noe
+    let p = s.person_new(9).unwrap();
+    assert_eq!(p, PersonId(1), "id-er starter på 1 igjen etter wipe");
+    let n: i64 = s
+        .conn()
+        .query_row(
+            "SELECT count(*) FROM protection WHERE scope = 'person'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(n, 0);
+}
+
+fn contains(hay: &[u8], needle: &[u8]) -> bool {
+    hay.windows(needle.len()).any(|w| w == needle)
+}
+
+#[test]
+fn wipe_leaves_no_embedding_bytes_in_db_or_wal_files() {
+    let dir = std::env::temp_dir().join(format!("fjell-wipe-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("fjell.db");
+    let mut s = Store::open(&path).unwrap();
+    for i in 1..=3i64 {
+        s.conn()
+            .execute(
+                "INSERT INTO asset(id, source_id, kind, created_at, mod_token, width, height, bytes, mime) \
+                 VALUES (?1, ?2, 'photo', 1, 'm', 4, 4, 3, 'image/jpeg')",
+                rusqlite::params![i, format!("s{i}")],
+            )
+            .unwrap();
+    }
+    s.set_face_index_enabled(true).unwrap();
+    // kjent, gjenkjennelig bytesekvens (ikke-triviell flyttallsmønster)
+    let v: Vec<f32> = (0..128)
+        .map(|i| 0.123_456_7 + i as f32 * 1.000_37)
+        .collect();
+    let marker = Embedding(v.clone()).to_le_bytes();
+    let needle = &marker[..64];
+    for i in 1..=3u64 {
+        s.put_faces(AssetId(i), &[obs(&v, 0.5)], 1).unwrap();
+    }
+    let wal = dir.join("fjell.db-wal");
+    let before = std::fs::read(&path).unwrap_or_default();
+    let before_wal = std::fs::read(&wal).unwrap_or_default();
+    assert!(
+        contains(&before, needle) || contains(&before_wal, needle),
+        "forutsetning: bytene finnes i filene før wipe"
+    );
+    assert_eq!(wipe(&mut s).unwrap(), 3);
+    let after = std::fs::read(&path).unwrap();
+    let after_wal = std::fs::read(&wal).unwrap_or_default();
+    assert!(!contains(&after, needle), "embedding i .db etter wipe");
+    assert!(!contains(&after_wal, needle), "embedding i -wal etter wipe");
+    drop(s);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn clustering_steps_match_combined_call_and_batch_is_atomic() {
+    let mut a = indexed();
+    let mut b = indexed();
+    let p = PeopleParams::default();
+    let input = cluster_load(&a).unwrap().unwrap();
+    assert_eq!(input.pending(), 4);
+    let plan = cluster_plan(&input, &p);
+    let st = cluster_apply(&mut a, &plan, 10).unwrap();
+    assert_eq!(st, cluster_new_faces(&mut b, &p, 10).unwrap());
+    assert!(cluster_load(&a).unwrap().is_none(), "ingenting venter");
+}
+
+#[test]
+fn clustering_5k_faces_p95_under_100ms_per_locked_step() {
+    let n = 5_000u64;
+    let mut s = store(n);
+    s.set_face_index_enabled(true).unwrap();
+    for i in 1..=n {
+        let k = (i % 50) as f32;
+        let v = [k.cos(), k.sin(), (k * 0.5).cos(), (k * 0.25).sin()];
+        s.put_faces(AssetId(i), &[obs(&v, 0.5)], 1).unwrap();
+    }
+    let p = PeopleParams { threshold: 0.995 };
+    let t = std::time::Instant::now();
+    let input = cluster_load(&s).unwrap().unwrap();
+    let load = t.elapsed();
+    let plan = cluster_plan(&input, &p);
+    let t = std::time::Instant::now();
+    cluster_apply(&mut s, &plan, 1).unwrap();
+    let apply = t.elapsed();
+    let t = std::time::Instant::now();
+    let rows = s.people_rows().unwrap();
+    let rows_t = t.elapsed();
+    assert!(!rows.is_empty());
+    // bare trinnene som holder låsen teller; regningen (plan) går utenfor
+    let f = if cfg!(debug_assertions) { 10 } else { 1 };
+    for (name, d) in [("load", load), ("apply", apply), ("people_rows", rows_t)] {
+        assert!(d.as_millis() < 100 * f, "{name} {d:?}");
+    }
 }

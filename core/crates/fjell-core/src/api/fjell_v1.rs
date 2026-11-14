@@ -19,7 +19,7 @@ use super::{
     ApiError, PersonView, ProtectionEntry, RuleDraft, RulePreview, RuleView, Sensitivities,
     Sensitivity, SeriesCompare, SeriesMemberView, Settings, Thresholds, FACE_INDEX_KEY,
 };
-use crate::dashboard;
+use crate::dashboard::{self, Dashboard};
 use crate::model::{
     AssetId, DashboardData, EyeReport, Hash64, Kind, PersonId, ProtectScope, ReasonCode,
     ReasonDetail, RuleId, RuleSpec, SeriesId, SuggestionKind,
@@ -32,7 +32,22 @@ use crate::rules::{self, RuleError};
 use crate::series::{rank_series, SeriesItem};
 use crate::store::{CardRow, Store, StoreError};
 
+/// V1-feilkoder som `ApiError::Internal` bærer. UI oversetter via i18n-nøkkelen `error.<kode>`.
+pub const V1_ERROR_CODES: [&str; 10] = [
+    "empty_folder",
+    "unknown_target",
+    "empty_rule",
+    "empty_name",
+    "name_too_long",
+    "invalid_condition",
+    "rule_not_found",
+    "unknown_person",
+    "not_merged",
+    "unknown_series",
+];
+
 fn code(c: &str) -> ApiError {
+    debug_assert!(V1_ERROR_CODES.contains(&c), "ukjent feilkode {c}");
     ApiError::Internal(c.to_string())
 }
 
@@ -215,6 +230,10 @@ impl Fjell {
     /// Sletter embeddings og personer (aldri bilder). Beskyttelser av typen person blir stående som hvilende rader.
     pub(super) fn v1_face_index_wipe(&self) -> Result<u64, ApiError> {
         people::wipe(self.actions().store_mut()).map_err(internal)
+    }
+
+    pub(super) fn v1_dashboard_full(&self) -> Result<Dashboard, ApiError> {
+        dashboard::read(self.actions().store()).map_err(internal)
     }
 
     pub(super) fn v1_dashboard(&self) -> Result<DashboardData, ApiError> {

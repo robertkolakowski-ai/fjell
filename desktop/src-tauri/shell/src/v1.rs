@@ -17,7 +17,7 @@ use crate::dto_v1::{
 };
 use crate::Shell;
 use fjell_core::api::Decision;
-use fjell_core::model::{CardId, ConsequenceCode, RuleId, SeriesId};
+use fjell_core::model::{AssetId, CardId, ConsequenceCode, GroupId, RuleId, SeriesId};
 
 fn scope(s: &ScopeDto) -> Result<fjell_core::model::ProtectScope, ErrorDto> {
     s.to_core()
@@ -150,7 +150,15 @@ impl Shell {
     }
 
     pub fn dashboard(&self) -> Result<DashboardDto, ErrorDto> {
-        Ok(DashboardDto::from(&self.api.dashboard()?))
+        Ok(DashboardDto::from(&self.api.dashboard_full()?))
+    }
+
+    /// Bytter hvilket bilde som beholdes i gruppen (knappealternativet til valget i side-ved-side-visningen).
+    /// Appen foreslår; dette er brukerens overstyring, og ingenting slettes.
+    pub fn set_keeper(&self, group: u64, keeper: u64) -> Result<(), ErrorDto> {
+        self.api
+            .set_keeper(GroupId(group), AssetId(keeper))
+            .map_err(Into::into)
     }
 
     pub fn compare_series(&self, series: u64) -> Result<SeriesCompareDto, ErrorDto> {

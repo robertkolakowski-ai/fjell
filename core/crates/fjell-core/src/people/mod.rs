@@ -5,6 +5,8 @@
 //! - `index_asset(store, analyzer, asset, thumb, algo)`: kjører `FaceAnalyzer` og lagrer ansikter. Bare når
 //!   `face_index` er på (ellers `PeopleError::Disabled` og analysatoren kalles aldri). `Unavailable` fra
 //!   analysatoren blir aldri til «ingen ansikter».
+//! - `cluster_load`/`cluster_plan`/`cluster_apply`: samme som `cluster_new_faces`, i tre trinn (kort lås, regning
+//!   uten lås, én transaksjon) så skrive-låsen ikke holdes under regningen.
 //! - `cluster_new_faces(store, params, now)`: tildeler ansikter uten person til eksisterende eller nye personer
 //!   (`cluster::plan_assignments`). Rører aldri ansikter brukeren eller en tidligere kjøring allerede har plassert.
 //! - `list`, `set_name`, `merge`/`unmerge`, `split`: personer slik UI leser dem. Sammenslåing og splitt er
@@ -13,7 +15,7 @@
 //! - `MemFaceAnalyzer`: deterministisk analysator til tester.
 //!
 //! Beskyttelse av person (`ProtectScope::Person`, tabellen `protection`) eies av `protect`; `person_assets`
-//! gir bildene den skal dekke, og `list` viser `protected`. Beskyttelsen overlever en `wipe` som hengende rad.
+//! gir bildene den skal dekke, og `list` viser `protected`. En `wipe` gjør personbeskyttelse om til beskyttelse av hvert bilde, så ingen bilder mister den.
 //! Appen foreslår grupperinger; den dømmer ikke hvem som er hvem. Embeddings forlater aldri enheten.
 //! Eier hele mappen `src/people/` og `store/people.rs`; ingen andre grener rører dem.
 
@@ -24,7 +26,7 @@ pub use cluster::Target;
 pub use mem::MemFaceAnalyzer;
 
 use crate::model::{AnalyzeError, AssetId, FaceAnalyzer, PersonId, Thumb};
-use crate::store::{Store, StoreError};
+use crate::store::{AssignSlot, Store, StoreError};
 use std::collections::HashMap;
 
 /// Lengste tillatte personnavn i tegn.
@@ -91,15 +93,23 @@ pub fn index_asset(
     Ok(store.put_faces(asset, &faces, algo)?.len())
 }
 
-/// Tildeler alle ansikter uten person. Gjør ingenting når indeksen er av. Eksisterende personer (også
-/// sammenslåtte, løst til rot) er sentre; ansikter som allerede har en person flyttes aldri.
-pub fn cluster_new_faces(
-    store: &mut Store,
-    params: &PeopleParams,
-    now: i64,
-) -> Result<ClusterStats, StoreError> {
+/// Grunnlag for en klyngekjøring, lest under kort lås: eksisterende sentre og ansikter uten person.
+pub struct ClusterInput {
+    existing: Vec<(PersonId, crate::model::Embedding)>,
+    pending: Vec<(u64, crate::model::Embedding)>,
+}
+
+impl ClusterInput {
+    /// Antall ansikter som venter på person.
+    pub fn pending(&self) -> usize {
+        self.pending.len()
+    }
+}
+
+/// Trinn 1 (kort lås): leser ansikter og bygger sentre. `None` når indeksen er av eller ingenting venter.
+pub fn cluster_load(store: &Store) -> Result<Option<ClusterInput>, StoreError> {
     if !store.face_index_enabled()? {
-        return Ok(ClusterStats::default());
+        return Ok(None);
     }
     let faces = store.faces_all()?;
     let mut roots: HashMap<PersonId, Option<PersonId>> = HashMap::new();
@@ -136,35 +146,61 @@ pub fn cluster_new_faces(
         }
     }
     if pending.is_empty() {
-        return Ok(ClusterStats::default());
+        return Ok(None);
     }
     let mut own: Vec<(PersonId, (PersonId, Vec<f32>))> = sums.into_iter().collect();
     own.sort_by_key(|(o, _)| o.0);
-    let existing: Vec<(PersonId, crate::model::Embedding)> = own
+    let existing = own
         .into_iter()
         .map(|(_, (root, v))| (root, crate::model::Embedding(v)))
         .collect();
-    let plan = cluster::plan_assignments(&existing, &pending, params.threshold);
-    let mut created: HashMap<usize, PersonId> = HashMap::new();
-    let mut stats = ClusterStats::default();
-    for (face, target) in plan {
-        let person = match target {
-            Target::Existing(p) => p,
-            Target::New(n) => match created.get(&n) {
-                Some(p) => *p,
-                None => {
-                    let p = store.person_new(now)?;
-                    created.insert(n, p);
-                    stats.new_people += 1;
-                    p
-                }
-            },
-        };
-        if store.face_assign(face, person)? {
-            stats.assigned += 1;
-        }
-    }
-    Ok(stats)
+    Ok(Some(ClusterInput { existing, pending }))
+}
+
+/// Trinn 2 (ingen lås): regner ut planen. Ren funksjon, O(ventende x sentre).
+pub fn cluster_plan(input: &ClusterInput, params: &PeopleParams) -> Vec<(u64, Target)> {
+    cluster::plan_assignments(&input.existing, &input.pending, params.threshold)
+}
+
+/// Trinn 3 (kort lås): lagrer planen i én transaksjon. Ansikter planen ikke lenger passer (slettet i
+/// mellomtiden) hoppes over.
+pub fn cluster_apply(
+    store: &mut Store,
+    plan: &[(u64, Target)],
+    now: i64,
+) -> Result<ClusterStats, StoreError> {
+    let slots: Vec<(u64, AssignSlot)> = plan
+        .iter()
+        .map(|(f, t)| {
+            (
+                *f,
+                match t {
+                    Target::Existing(p) => AssignSlot::Existing(*p),
+                    Target::New(n) => AssignSlot::New(*n),
+                },
+            )
+        })
+        .collect();
+    let (assigned, new_people) = store.faces_assign_batch(&slots, now)?;
+    Ok(ClusterStats {
+        assigned,
+        new_people,
+    })
+}
+
+/// Tildeler alle ansikter uten person. Gjør ingenting når indeksen er av. Eksisterende personer (også
+/// sammenslåtte, løst til rot) er sentre; ansikter som allerede har en person flyttes aldri. Samlet kall for
+/// tester og enkle kallere; pipeline bruker trinnene hver for seg så skrive-låsen ikke holdes under regningen.
+pub fn cluster_new_faces(
+    store: &mut Store,
+    params: &PeopleParams,
+    now: i64,
+) -> Result<ClusterStats, StoreError> {
+    let Some(input) = cluster_load(store)? else {
+        return Ok(ClusterStats::default());
+    };
+    let plan = cluster_plan(&input, params);
+    cluster_apply(store, &plan, now)
 }
 
 /// En rot-person slik UI leser den.

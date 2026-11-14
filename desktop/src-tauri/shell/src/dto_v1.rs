@@ -10,6 +10,7 @@ use fjell_core::api::{
     PersonView, ProtectionEntry, RuleDraft, RulePreview, RuleView, Sensitivity, SeriesCompare,
     Settings, Thresholds,
 };
+use fjell_core::dashboard::{Dashboard, NextStep};
 use fjell_core::model::{
     AssetId, DashboardData, PersonId, ProtectScope, ReasonDetail, RuleCondition, RuleId, RuleSpec,
     SuggestionKind,
@@ -262,11 +263,98 @@ pub struct DashboardDto {
     pub series_count: u64,
     pub people_count: u64,
     pub rules_active: u64,
+    /// Fremdrift (`dashboard.progress.label`): avgjorte av totale forslag.
+    pub progress: ProgressDto,
+    /// Foreslått neste steg som kode med tall (`dashboard.next.*`); kjernen gjør ingenting selv.
+    pub next_step: NextStepDto,
+    /// Tømt per måned (UTC), eldst først.
+    pub freed_by_month: Vec<FreedMonthDto>,
+}
+
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgressDto {
+    pub decided: u64,
+    pub total: u64,
+    pub permille: u16,
+}
+
+/// `kind`: `review` (med `suggestionKind`, `count`, `bytes`), `empty_trash` (`count`, `bytes`) eller `nothing`.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NextStepDto {
+    pub kind: String,
+    pub suggestion_kind: Option<String>,
+    pub count: u64,
+    pub bytes: u64,
+}
+
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FreedMonthDto {
+    pub year_month: u32,
+    pub count: u64,
+    pub bytes: u64,
+}
+
+impl From<&Dashboard> for DashboardDto {
+    fn from(d: &Dashboard) -> DashboardDto {
+        let mut dto = DashboardDto::from(&d.data);
+        dto.progress = ProgressDto {
+            decided: d.insights.progress.decided,
+            total: d.insights.progress.total,
+            permille: d.insights.progress.permille,
+        };
+        dto.next_step = match d.insights.next_step {
+            NextStep::ReviewKind { kind, count, bytes } => NextStepDto {
+                kind: "review".into(),
+                suggestion_kind: Some(kind_code(kind).to_string()),
+                count,
+                bytes,
+            },
+            NextStep::EmptyTrash { count, bytes } => NextStepDto {
+                kind: "empty_trash".into(),
+                suggestion_kind: None,
+                count,
+                bytes,
+            },
+            NextStep::Nothing => NextStepDto::nothing(),
+        };
+        dto.freed_by_month = d
+            .insights
+            .freed_by_month
+            .iter()
+            .map(|m| FreedMonthDto {
+                year_month: m.year_month,
+                count: m.count,
+                bytes: m.bytes,
+            })
+            .collect();
+        dto
+    }
+}
+
+impl NextStepDto {
+    fn nothing() -> NextStepDto {
+        NextStepDto {
+            kind: "nothing".into(),
+            suggestion_kind: None,
+            count: 0,
+            bytes: 0,
+        }
+    }
 }
 
 impl From<&DashboardData> for DashboardDto {
     fn from(d: &DashboardData) -> DashboardDto {
         DashboardDto {
+            progress: ProgressDto {
+                decided: 0,
+                total: 0,
+                permille: 0,
+            },
+            next_step: NextStepDto::nothing(),
+            freed_by_month: Vec::new(),
             active_count: d.active_count,
             active_bytes: d.active_bytes,
             trashed_count: d.trashed_count,

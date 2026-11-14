@@ -30,6 +30,7 @@ pub use fjell::Fjell;
 pub use mock::MemApi;
 pub use types::*;
 
+use crate::dashboard::{Dashboard, Insights, NextStep, Progress};
 use crate::model::{
     AssetId, BatchId, CardId, ConsequenceCode, DashboardData, DeleteOutcome, GroupId, PersonId,
     ProtectScope, PurgeTicket, RuleId, RuleSpec, SeriesId, SuggestionKind,
@@ -167,6 +168,21 @@ pub trait FjellApi: Send + Sync {
 
     fn dashboard(&self) -> Result<DashboardData, ApiError> {
         Ok(DashboardData::default())
+    }
+    /// Dashboard med fremdrift, foreslått neste steg og «tømt» per måned. Standard: kontraktdata med tomme tillegg.
+    fn dashboard_full(&self) -> Result<Dashboard, ApiError> {
+        let data = self.dashboard()?;
+        Ok(Dashboard {
+            insights: Insights {
+                reclaimable_count: 0,
+                reclaimable_bytes: 0,
+                protected_count: data.protected_count,
+                progress: Progress::default(),
+                next_step: NextStep::Nothing,
+                freed_by_month: Vec::new(),
+            },
+            data,
+        })
     }
     fn series_compare(&self, series: SeriesId) -> Result<SeriesCompare, ApiError> {
         let _ = series;

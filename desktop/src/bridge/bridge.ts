@@ -137,6 +137,11 @@ export function getDashboard(): Promise<Dashboard> {
   return invoke<Dashboard>("get_dashboard");
 }
 
+/** Knappen «Behold dette i stedet» (`series.keeper.set`): brukerens valg overstyrer forslaget. Ingenting slettes. */
+export function setKeeper(group: number, keeper: number): Promise<void> {
+  return invoke<void>("set_keeper", { group, keeper });
+}
+
 export function compareSeries(series: number): Promise<SeriesCompare> {
   return invoke<SeriesCompare>("compare_series", { series });
 }

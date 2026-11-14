@@ -155,6 +155,32 @@ export interface Dashboard {
   seriesCount: number;
   peopleCount: number;
   rulesActive: number;
+  /** Avgjorte av totale forslag (`dashboard.progress.label`). */
+  progress: Progress;
+  /** Foreslått neste steg som kode med tall (`dashboard.next.*`). Appen foreslår; ingenting skjer av seg selv. */
+  nextStep: NextStep;
+  /** «Tømt» per måned (UTC), eldst først. Ikke det samme som frigjort på disken. */
+  freedByMonth: FreedMonth[];
+}
+
+export interface Progress {
+  decided: number;
+  total: number;
+  permille: number;
+}
+
+/** `review`: gå gjennom `suggestionKind`; `empty_trash`: papirkurven kan tømmes; `nothing`. */
+export interface NextStep {
+  kind: "review" | "empty_trash" | "nothing";
+  suggestionKind: string | null;
+  count: number;
+  bytes: number;
+}
+
+export interface FreedMonth {
+  yearMonth: number;
+  count: number;
+  bytes: number;
 }
 
 export interface SeriesMember {
