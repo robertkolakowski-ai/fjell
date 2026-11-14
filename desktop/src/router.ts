@@ -9,11 +9,14 @@ export type Route =
   | { name: "group"; id: number }
   | { name: "cards"; kind: KindCode | null }
   | { name: "trash" }
-  | { name: "settings" };
+  | { name: "settings" }
+  | { name: "people" }
+  | { name: "rules" }
+  | { name: "series"; id: number };
 
 export type RouteName = Route["name"];
-/** Toppnivå-valg i navigasjonen. Group/Cards/Onboarding er undersider (Gruppe hører til Gjennomgang). */
-export const NAV_ROUTES = ["home", "review", "trash", "settings"] as const satisfies readonly RouteName[];
+/** Toppnivå-valg i navigasjonen. Group/Series/Cards/Onboarding er undersider (Gruppe og Serie hører til Gjennomgang). */
+export const NAV_ROUTES = ["home", "review", "people", "rules", "trash", "settings"] as const satisfies readonly RouteName[];
 export type NavRoute = (typeof NAV_ROUTES)[number];
 
 export const HOME: Route = { name: "home" };
@@ -33,6 +36,12 @@ export function parseHash(hash: string): Route {
     }
     case "trash": return { name: "trash" };
     case "settings": return { name: "settings" };
+    case "people": return { name: "people" };
+    case "rules": return { name: "rules" };
+    case "series": {
+      const id = Number(arg);
+      return Number.isInteger(id) && id > 0 ? { name: "series", id } : HOME;
+    }
     default: return HOME;
   }
 }
@@ -41,7 +50,8 @@ export function formatHash(r: Route): string {
   switch (r.name) {
     case "review":
     case "cards": return r.kind ? `#/${r.name}/${r.kind}` : `#/${r.name}`;
-    case "group": return `#/group/${r.id}`;
+    case "group":
+    case "series": return `#/${r.name}/${r.id}`;
     default: return `#/${r.name}`;
   }
 }
@@ -52,9 +62,12 @@ export function navFor(r: Route): NavRoute | null {
     case "home": return "home";
     case "review":
     case "group":
+    case "series":
     case "cards": return "review";
     case "trash": return "trash";
     case "settings": return "settings";
+    case "people": return "people";
+    case "rules": return "rules";
     case "onboarding": return null;
   }
 }

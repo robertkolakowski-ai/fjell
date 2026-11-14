@@ -4,6 +4,9 @@ import type { CoreBridge } from "./core-bridge";
 import type {
   AppSettings, AppState, CardPage, Decision, EmptyResult, KindCode, LibraryRoot, PermanentAck, RestoreResult, ThumbDto, Thumbnail, TrashedItem, UpdateCheck,
 } from "./types";
+import type {
+  Condition, Dashboard, Person, Protection, Rule, RuleDraft, RulePreview, Scope, SeriesCompare, SuggestionSettings, Thresholds,
+} from "./types-v1";
 import { thumbFromDto, thumbError } from "./thumbs";
 
 export type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
@@ -62,8 +65,8 @@ export class TauriBridge implements CoreBridge {
   listCards(kind: KindCode, limit: number, cursor: number | null = null): Promise<CardPage> {
     return this.call<CardPage>("list_cards", { kind, limit, cursor });
   }
-  decide(ids: number[], decision: Decision): Promise<number> {
-    return this.call<number>("decide_cards", { ids, decision });
+  decide(ids: number[], decision: Decision, confirmed?: string[]): Promise<number> {
+    return this.call<number>("decide_cards", confirmed && confirmed.length > 0 ? { ids, decision, confirmed } : { ids, decision });
   }
   setKeeper(group: number, asset: number): Promise<void> {
     return this.call<void>("set_keeper", { group, keeper: asset });
@@ -209,5 +212,70 @@ export class TauriBridge implements CoreBridge {
       throw thumbError(e);
     }
     return thumbFromDto(dto);
+  }
+
+  // ---- V1: tynt lag over kommandoene i src-tauri/src/lib.rs (samme navn i camelCase). Ingen forretningslogikk. ----
+  protect(scope: Scope, on: boolean): Promise<void> {
+    return this.call<void>("protect", { scope, on });
+  }
+  listProtections(): Promise<Protection[]> {
+    return this.call<Protection[]>("list_protections");
+  }
+  listRules(): Promise<Rule[]> {
+    return this.call<Rule[]>("list_rules");
+  }
+  saveRule(draft: RuleDraft): Promise<number> {
+    return this.call<number>("save_rule", { draft });
+  }
+  previewRule(conditions: Condition[]): Promise<RulePreview> {
+    return this.call<RulePreview>("preview_rule", { conditions });
+  }
+  toggleRule(id: number, enabled: boolean): Promise<void> {
+    return this.call<void>("toggle_rule", { id, enabled });
+  }
+  deleteRule(id: number): Promise<void> {
+    return this.call<void>("delete_rule", { id });
+  }
+  restoreRule(id: number): Promise<void> {
+    return this.call<void>("restore_rule", { id });
+  }
+  listPeople(): Promise<Person[]> {
+    return this.call<Person[]>("list_people");
+  }
+  namePerson(id: number, name: string | null): Promise<void> {
+    return this.call<void>("name_person", { id, name });
+  }
+  mergePeople(target: number, absorbed: number): Promise<number> {
+    return this.call<number>("merge_people", { target, absorbed });
+  }
+  unmergePerson(absorbed: number): Promise<void> {
+    return this.call<void>("unmerge_person", { absorbed });
+  }
+  protectPerson(id: number, protect: boolean): Promise<void> {
+    return this.call<void>("protect_person", { id, protect });
+  }
+  getFaceIndex(): Promise<boolean> {
+    return this.call<boolean>("get_face_index");
+  }
+  setFaceIndex(enabled: boolean): Promise<void> {
+    return this.call<void>("set_face_index", { enabled });
+  }
+  wipeFaceIndex(): Promise<number> {
+    return this.call<number>("wipe_face_index");
+  }
+  getDashboard(): Promise<Dashboard> {
+    return this.call<Dashboard>("get_dashboard");
+  }
+  compareSeries(series: number): Promise<SeriesCompare> {
+    return this.call<SeriesCompare>("compare_series", { series });
+  }
+  getSuggestionSettings(): Promise<SuggestionSettings> {
+    return this.call<SuggestionSettings>("get_suggestion_settings");
+  }
+  setSuggestionSettings(settings: SuggestionSettings): Promise<SuggestionSettings> {
+    return this.call<SuggestionSettings>("set_suggestion_settings", { settings });
+  }
+  getThresholds(): Promise<Thresholds> {
+    return this.call<Thresholds>("get_thresholds");
   }
 }

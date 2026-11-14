@@ -411,6 +411,23 @@ export interface MessageParams {
   "suggestion.kind.screenshot": Record<never, never>;
   "suggestion.kind.series": Record<never, never>;
   "suggestion.kind.rule": Record<never, never>;
+  "home.cat.series": Record<never, never>;
+  "home.cat.rule": Record<never, never>;
+  "review.kind.series.help": Record<never, never>;
+  "review.kind.rule.help": Record<never, never>;
+  "review.series.open": Record<never, never>;
+  "nav.people": Record<never, never>;
+  "nav.rules": Record<never, never>;
+  "help.screen.series": Record<never, never>;
+  "placeholder.todo": Record<never, never>;
+  "card.explain.title": Record<never, never>;
+  "settings.faces.title": Record<never, never>;
+  "settings.sensitivity.title": Record<never, never>;
+  "settings.protections.title": Record<never, never>;
+  "protect.toggle.on": Record<never, never>;
+  "protect.toggle.off": Record<never, never>;
+  "protect.toggle.hint": { scope: string | number };
+  "rules.name.unnamed": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;
@@ -542,4 +559,13 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "reason.closed_eyes",
   "reason.rule",
   "reason.protected_person",
+  "home.cat.series",
+  "home.cat.rule",
+  "review.series.open",
+  "nav.people",
+  "nav.rules",
+  "help.screen.series",
+  "protect.toggle.on",
+  "protect.toggle.off",
+  "rules.name.unnamed",
 ]);

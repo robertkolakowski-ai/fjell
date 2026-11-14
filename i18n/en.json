@@ -408,5 +408,22 @@
   "suggestion.kind.blurry": {"t": "Blurry photos", "ctx": "Navn på forslagstype"},
   "suggestion.kind.screenshot": {"t": "Screenshots", "ctx": "Navn på forslagstype"},
   "suggestion.kind.series": {"t": "Series", "ctx": "Navn på forslagstype"},
-  "suggestion.kind.rule": {"t": "Rules", "ctx": "Navn på forslagstype"}
+  "suggestion.kind.rule": {"t": "Rules", "ctx": "Navn på forslagstype"},
+  "home.cat.series": {"t": "Series", "ctx": "Category card", "len": "short"},
+  "home.cat.rule": {"t": "Rule matches", "ctx": "Category card", "len": "short"},
+  "review.kind.series.help": {"t": "Near-identical photos taken close together. The app suggests the best one in each series; you decide.", "ctx": "Help text at the top of Review for the series suggestion type"},
+  "review.kind.rule.help": {"t": "Photos that match one of your rules. Rules only suggest; you decide.", "ctx": "Help text at the top of Review for the rule suggestion type"},
+  "review.series.open": {"t": "Compare series", "ctx": "Link on a series row in Review that opens the side-by-side view", "len": "short"},
+  "nav.people": {"t": "People", "ctx": "Navigation item", "len": "short"},
+  "nav.rules": {"t": "Rules", "ctx": "Navigation item", "len": "short"},
+  "help.screen.series": {"t": "Series", "ctx": "Screen name", "len": "short"},
+  "placeholder.todo": {"t": "This screen is not finished yet.", "ctx": "Placeholder in V1 screens built in separate phases. Removed when the screen is in place"},
+  "card.explain.title": {"t": "Why is this suggested?", "ctx": "Heading of the explanation of a suggestion (the reason badge with numbers)"},
+  "settings.faces.title": {"t": "Faces and people", "ctx": "Heading of the face index section in Settings"},
+  "settings.sensitivity.title": {"t": "How many suggestions", "ctx": "Heading of the per-suggestion-type sensitivity section in Settings"},
+  "settings.protections.title": {"t": "Protections", "ctx": "Heading of the protections section in Settings"},
+  "protect.toggle.on": {"t": "On", "ctx": "State word in the protection switch when protection is on", "len": "short"},
+  "protect.toggle.off": {"t": "Off", "ctx": "State word in the protection switch when protection is off", "len": "short"},
+  "protect.toggle.hint": {"t": "{scope}: protected photos always need your own confirmation before they are moved to the trash.", "ctx": "Screen reader description of the protection switch. {scope} = scope (Photo, Folder, Album, Person)"},
+  "rules.name.unnamed": {"t": "unnamed", "ctx": "Name in the reason badge \"Rule: …\" when the rule name is not known yet", "len": "short"}
 }

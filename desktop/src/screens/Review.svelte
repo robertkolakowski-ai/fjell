@@ -5,16 +5,17 @@
   import { onDestroy, onMount, untrack } from "svelte";
   import type { CoreBridge } from "../bridge/core-bridge";
   import { groupCards } from "../bridge/groups";
-  import { KIND_CODES, type BridgeError, type KindSummary, type Card, type KindCode } from "../bridge/types";
+  import { GROUPED_KINDS, KIND_CODES, type BridgeError, type KindSummary, type Card, type KindCode } from "../bridge/types";
   import { useBridge } from "../context";
   import { Badge, BottomBar, Banner, Button, Card as UiCard, CloudWarning, LiveRegion, PageHeader, PhotoTile, StatTile } from "../lib";
   import Thumb from "../lib/components/Thumb.svelte";
-  import { fmt, reasonLabel, tr, type TFunction } from "../lib/i18n";
+  import { fmt, tr, type TFunction } from "../lib/i18n";
   import { formatHash } from "../router";
   import { cloudFromError, loadCloud } from "./cloud";
   import {
-    initialReview, isProtected, PAGE_SIZE, reasonSnake, reduceReview, summarize, type ReviewEvent, type ReviewState,
+    initialReview, isProtected, PAGE_SIZE, reduceReview, summarize, type ReviewEvent, type ReviewState,
   } from "./reviewState";
+  import { cardReason, loadRuleNames, type RuleNames } from "./reason";
 
   interface Props {
     bridge?: CoreBridge;
@@ -26,8 +27,11 @@
 
   const catKey = {
     exact_dup: "home.cat.exact_dup", visual_dup: "home.cat.visual_dup",
-    blurry: "home.cat.blurry", screenshot: "home.cat.screenshot",
+    blurry: "home.cat.blurry", screenshot: "home.cat.screenshot", series: "home.cat.series", rule: "home.cat.rule",
   } as const satisfies Record<KindCode, string>;
+  /** Hjelpetekst per forslagstype som trenger en forklaring ut over kategorinavnet. */
+  const helpKey = { series: "review.kind.series.help", rule: "review.kind.rule.help" } as const;
+  let ruleNames: RuleNames = $state(new Map());
 
   let view: ReviewState = $state(initialReview);
   let days = $state(30);
@@ -42,7 +46,7 @@
   let gone = false;
   let observer: IntersectionObserver | undefined;
 
-  const grouped = $derived(kind === "exact_dup" || kind === "visual_dup");
+  const grouped = $derived(kind !== null && kind !== undefined && GROUPED_KINDS.includes(kind));
   const free = $derived(view.items.filter((c) => !isProtected(c)));
   const prot = $derived(view.items.filter(isProtected));
   const rows = $derived(grouped ? groupCards(free) : []);
@@ -115,6 +119,7 @@
   onMount(() => {
     b.getState().then((s) => { if (!gone) { days = s.trashDays; cloud = s.cloudSync || null; perKind = s.perKind; } }).catch(() => undefined);
     void loadPage(false);
+    void loadRuleNames(b).then((n) => { if (!gone) ruleNames = n; });
   });
   onDestroy(() => { gone = true; observer?.disconnect(); });
 
@@ -131,8 +136,7 @@
   }
 
   function badges(c: Card, _t: TFunction): { label: string; tone?: "warn" }[] {
-    const code = reasonSnake(c.reason);
-    return [{ label: reasonLabel(code, code === "blurry" ? { pct: fmt.percent(c.confidence) } : {}) }];
+    return [{ label: cardReason(c, ruleNames) }];
   }
   const statOf = (k: KindCode): KindSummary | undefined => perKind?.find((x) => x.kind === k);
   const nameOf = (c: Card, i: number, total: number, t: TFunction): string =>
@@ -169,7 +173,8 @@
     {#if view.error}<Banner tone="danger" role="alert"><p>{$tr(cloudFromError(view.error) ? "cloud.error.blocked" : "review.error.body")}</p></Banner>{/if}
     {#if keyNote}<Banner tone="warn" role="group"><p class="note">{$tr("cloud.key.blocked")}</p></Banner>{/if}
     <LiveRegion message={keyNote ? $tr("cloud.key.blocked") : ""} />
-    {#if grouped}<p class="muted lead">{$tr("group.exact.note")}</p>{/if}
+    {#if kind === "series" || kind === "rule"}<p class="muted lead">{$tr(helpKey[kind])}</p>
+    {:else if grouped}<p class="muted lead">{$tr("group.exact.note")}</p>{/if}
 
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="list" role="group" aria-label={$tr("review.title")} onkeydown={keydown} onclickcapture={(e) => (shift = e.shiftKey)}>
@@ -192,7 +197,11 @@
                 </span>
                 <span class="mark" aria-hidden="true">{on ? "✓" : ""}</span>
               </button>
-              <a class="open" href={formatHash({ name: "group", id: g.id })}>{$tr("group.title")}</a>
+              {#if kind === "series"}
+                <a class="open" href={formatHash({ name: "series", id: g.id })}>{$tr("review.series.open")}</a>
+              {:else}
+                <a class="open" href={formatHash({ name: "group", id: g.id })}>{$tr("group.title")}</a>
+              {/if}
             </li>
           {/each}
         </ul>

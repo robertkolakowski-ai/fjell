@@ -6,6 +6,7 @@
   import { provideBridge } from "./context";
   import { tr } from "./lib/i18n";
   import { Button, Icon, NavItem, Sidebar } from "./lib";
+  import type { IconName } from "./lib/components/Icon.svelte";
   import { fmt } from "./lib/i18n";
   import type { AppState } from "./bridge/types";
   import { NAV_ROUTES, navFor, navHash, navigate, route, type NavRoute } from "./router";
@@ -14,9 +15,12 @@
   import Help from "./screens/Help.svelte";
   import { helpScreenOf, isHelpKey } from "./screens/helpKeys";
   import Home from "./screens/Home.svelte";
+  import People from "./screens/People.svelte";
   import Onboarding from "./screens/Onboarding.svelte";
   import { shouldShowOnboarding } from "./screens/onboardingGate";
   import Review from "./screens/Review.svelte";
+  import Rules from "./screens/Rules.svelte";
+  import SeriesCompare from "./screens/SeriesCompare.svelte";
   import Settings from "./screens/Settings.svelte";
   import Trash from "./screens/Trash.svelte";
   import { runStartupCheck } from "./screens/updateFlow";
@@ -48,7 +52,9 @@
     const v = n === "review" ? pending : n === "trash" ? (counts?.trashCount ?? 0) : 0;
     return v > 0 ? { count: fmt.number(v), label: $tr("common.count.photos", { count: v }) } : { count: null };
   };
-  const iconOf = { home: "home", review: "review", trash: "trash", settings: "settings" } as const satisfies Record<NavRoute, "home" | "review" | "trash" | "settings">;
+  const iconOf = {
+    home: "home", review: "review", people: "people", rules: "rules", trash: "trash", settings: "settings",
+  } as const satisfies Record<NavRoute, IconName>;
 
   // Første gang: gå til onboarding fra Hjem. Senere starter (og avbrutt skann) går rett til Hjem.
   onMount(() => {
@@ -60,8 +66,8 @@
   function windowKey(e: KeyboardEvent): void {
     if (isHelpKey(e, $route)) { e.preventDefault(); helpOpen = !helpOpen; }
   }
-  const label: Record<NavRoute, "nav.home" | "nav.review" | "nav.trash" | "nav.settings"> = {
-    home: "nav.home", review: "nav.review", trash: "nav.trash", settings: "nav.settings",
+  const label: Record<NavRoute, "nav.home" | "nav.review" | "nav.people" | "nav.rules" | "nav.trash" | "nav.settings"> = {
+    home: "nav.home", review: "nav.review", people: "nav.people", rules: "nav.rules", trash: "nav.trash", settings: "nav.settings",
   };
 
   // Fokus til skjermtittel ved rutebytte (skjermleser annonserer ny skjerm); ikke ved første visning.
@@ -111,8 +117,14 @@
       <Review kind={$route.kind} />
     {:else if $route.name === "group"}
       <Group id={$route.id} />
+    {:else if $route.name === "series"}
+      <SeriesCompare id={$route.id} />
     {:else if $route.name === "cards"}
       <Cards kind={$route.kind} />
+    {:else if $route.name === "people"}
+      <People />
+    {:else if $route.name === "rules"}
+      <Rules />
     {:else if $route.name === "trash"}
       <Trash />
     {:else}

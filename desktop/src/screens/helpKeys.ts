@@ -3,7 +3,7 @@
 import type { MessageKey } from "../lib/i18n";
 import type { Route } from "../router";
 
-export type HelpScreen = "onboarding" | "home" | "review" | "group" | "cards" | "trash" | "settings";
+export type HelpScreen = "onboarding" | "home" | "review" | "group" | "cards" | "trash" | "settings" | "people" | "rules" | "series";
 
 export interface HelpRow {
   /** Tastenavn slik de vises (Ctrl+A, Delete, 1–9). Mellomrom oversettes i visningen. */
@@ -40,6 +40,10 @@ export const SCREEN_KEYS: Readonly<Record<HelpScreen, readonly HelpRow[]>> = {
   ],
   trash: [{ keys: "Space", action: "help.action.toggle" }],
   settings: [],
+  // V1-skjermene fyller egne rader når de er bygget (se docs/v1/SKJERMER.md).
+  people: [],
+  rules: [],
+  series: [],
 };
 
 export function helpScreenOf(r: Route): HelpScreen {
@@ -55,6 +59,9 @@ export const SCREEN_LABEL: Readonly<Record<HelpScreen, MessageKey>> = {
   cards: "help.screen.cards",
   trash: "nav.trash",
   settings: "nav.settings",
+  people: "nav.people",
+  rules: "nav.rules",
+  series: "help.screen.series",
 };
 
 /** F1 uten modifikatorer åpner/lukker hjelpen. Kortmodus har egen dialog og er unntatt. */

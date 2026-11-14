@@ -7,6 +7,9 @@
   import { useBridge } from "../context";
   import { Banner, Button, Card, LiveRegion, PageHeader, SegmentedControl } from "../lib";
   import { getLanguage, setLanguage, tr } from "../lib/i18n";
+  import SettingsFaces from "./SettingsFaces.svelte";
+  import SettingsProtections from "./SettingsProtections.svelte";
+  import SettingsSensitivity from "./SettingsSensitivity.svelte";
   import UpdateSection from "./UpdateSection.svelte";
   import { SettingsSession } from "./settingsFlow";
   import { initialSettings, LANGUAGE_CHOICES, trashDayOptions, type LanguageChoice, type SettingsState } from "./settingsState";
@@ -90,6 +93,9 @@
       </Card>
     {/if}
 
+    <SettingsSensitivity />
+    <SettingsFaces />
+    <div class="wide"><SettingsProtections /></div>
     <div class="wide"><UpdateSection bridge={b} /></div>
   </div>
 </section>

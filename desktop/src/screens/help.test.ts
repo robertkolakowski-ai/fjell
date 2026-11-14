@@ -8,6 +8,7 @@ const SCREENS = Object.keys(SCREEN_KEYS) as HelpScreen[];
 const ROUTES: Route[] = [
   { name: "onboarding" }, HOME, { name: "review", kind: null }, { name: "group", id: 1 },
   { name: "cards", kind: null }, { name: "trash" }, { name: "settings" },
+  { name: "people" }, { name: "rules" }, { name: "series", id: 1 },
 ];
 
 describe("F1-hjelp", () => {

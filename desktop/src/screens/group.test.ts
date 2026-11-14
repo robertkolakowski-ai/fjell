@@ -5,7 +5,7 @@ import type { Card, Group } from "../bridge/types";
 import { findGroup, groupItems, initialGroup, keeperForKey, movableCards, reduceGroup } from "./groupState";
 
 const mk = (id: number, over: Partial<Card> = {}): Card => ({
-  id, kind: "exact_dup", asset: id, group: 1, keeper: 900, reason: "ExactCopy", confidence: 1, bytes: 10, protectFlags: 0, ...over,
+  id, kind: "exact_dup", asset: id, group: 1, keeper: 900, reason: "ExactCopy", detail: { kind: "none" }, confidence: 1, bytes: 10, protectFlags: 0, ...over,
 });
 const grp = (cards: Card[]): Group => groupCards(cards)[0];
 

@@ -408,5 +408,22 @@
   "suggestion.kind.blurry": {"t": "Uskarpe bilder", "ctx": "Navn på forslagstype"},
   "suggestion.kind.screenshot": {"t": "Skjermbilder", "ctx": "Navn på forslagstype"},
   "suggestion.kind.series": {"t": "Serier", "ctx": "Navn på forslagstype"},
-  "suggestion.kind.rule": {"t": "Regler", "ctx": "Navn på forslagstype"}
+  "suggestion.kind.rule": {"t": "Regler", "ctx": "Navn på forslagstype"},
+  "home.cat.series": {"t": "Serier", "ctx": "Kategorikort", "len": "short"},
+  "home.cat.rule": {"t": "Regelforslag", "ctx": "Kategorikort", "len": "short"},
+  "review.kind.series.help": {"t": "Nesten like bilder tatt tett i tid. Appen foreslår det beste i hver serie; du bestemmer.", "ctx": "Hjelpetekst øverst i Gjennomgang for forslagstypen serier"},
+  "review.kind.rule.help": {"t": "Bilder som treffer en av reglene dine. Regler foreslår bare; du bestemmer.", "ctx": "Hjelpetekst øverst i Gjennomgang for forslagstypen regler"},
+  "review.series.open": {"t": "Sammenlign serien", "ctx": "Lenke på en serierad i Gjennomgang som åpner side-ved-side-visningen", "len": "short"},
+  "nav.people": {"t": "Personer", "ctx": "Navigasjonsvalg", "len": "short"},
+  "nav.rules": {"t": "Regler", "ctx": "Navigasjonsvalg", "len": "short"},
+  "help.screen.series": {"t": "Serie", "ctx": "Skjermnavn", "len": "short"},
+  "placeholder.todo": {"t": "Denne skjermen er ikke ferdig ennå.", "ctx": "Plassholder i V1-skjermer som bygges i egne faser. Fjernes når skjermen er på plass"},
+  "card.explain.title": {"t": "Hvorfor foreslås dette?", "ctx": "Overskrift på forklaringen av et forslag (begrunnelsesmerket med tall)"},
+  "settings.faces.title": {"t": "Ansikter og personer", "ctx": "Overskrift for seksjonen om ansiktsindeks i Innstillinger"},
+  "settings.sensitivity.title": {"t": "Hvor mange forslag", "ctx": "Overskrift for seksjonen om sensitivitet per forslagstype i Innstillinger"},
+  "settings.protections.title": {"t": "Beskyttelser", "ctx": "Overskrift for seksjonen om beskyttelser i Innstillinger"},
+  "protect.toggle.on": {"t": "På", "ctx": "Tilstandsord i beskyttelsesbryteren når beskyttelsen er på", "len": "short"},
+  "protect.toggle.off": {"t": "Av", "ctx": "Tilstandsord i beskyttelsesbryteren når beskyttelsen er av", "len": "short"},
+  "protect.toggle.hint": {"t": "{scope}: beskyttede bilder krever alltid din egen bekreftelse før de flyttes til papirkurven.", "ctx": "Skjermleserforklaring på beskyttelsesbryteren. {scope} = omfang (Bilde, Mappe, Album, Person)"},
+  "rules.name.unnamed": {"t": "uten navn", "ctx": "Navn i begrunnelsesmerket «Regel: …» når regelens navn ikke er kjent ennå", "len": "short"}
 }

@@ -4,7 +4,7 @@ import type { Card } from "../bridge/types";
 import { initialReview, MASS_ACK, reduceReview, summarize, type ReviewEvent, type ReviewState } from "./reviewState";
 
 const card = (id: number, over: Partial<Card> = {}): Card => ({
-  id, kind: "blurry", asset: id, group: null, keeper: null, reason: "Blurry", confidence: 0.9, bytes: 100 * id, protectFlags: 0, ...over,
+  id, kind: "blurry", asset: id, group: null, keeper: null, reason: "Blurry", detail: { kind: "none" }, confidence: 0.9, bytes: 100 * id, protectFlags: 0, ...over,
 });
 const run = (s: ReviewState, ...es: ReviewEvent[]) => es.reduce(reduceReview, s);
 const loaded = (cards: Card[]) => run(initialReview, { type: "loaded", cards, next: null });

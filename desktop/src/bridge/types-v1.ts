@@ -1,20 +1,9 @@
 // V1-typer som speiler fjell-shell::dto_v1 (camelCase): beskyttelse, forslagsregler, personer, dashboard, serier,
 // forslagsinnstillinger og terskler. Kjernen sender koder, aldri tekst. Rekkefølge og navn følger Rust-typene;
-// endres de, endres begge sider (og tests_v1.rs i shell). Ingen skjermer bruker disse ennå; MVP-typene som
-// skjermene bruker ligger i types.ts og er uendret.
-import type { KindCode } from "./types";
+// endres de, endres begge sider (og tests_v1.rs i shell). Metodene ligger i CoreBridge (core-bridge.ts).
+import type { Detail, KindCode } from "./types";
 
-/** Forslagstyper inkludert V1 (`series`, `rule`). MVP-skjermene bruker `KindCode`. */
-export type V1KindCode = KindCode | "series" | "rule";
-
-/** Tall/ID bak et begrunnelsesmerke. */
-export type Detail =
-  | { kind: "none" }
-  | { kind: "percent"; value: number }
-  | { kind: "count"; value: number }
-  | { kind: "position"; index: number; of: number }
-  | { kind: "rule"; id: number }
-  | { kind: "person"; id: number };
+export type { Detail };
 
 export type ScopeCode = "asset" | "folder" | "album" | "person";
 
@@ -72,7 +61,7 @@ export interface Person {
 }
 
 export interface KindStat {
-  kind: V1KindCode;
+  kind: KindCode;
   count: number;
   bytes: number;
 }
@@ -156,7 +145,7 @@ export type SensitivityCode = "low" | "normal" | "high";
 export interface SuggestionSettings {
   trashDays: number;
   /** Nøkkel = forslagstype. */
-  sensitivity: Record<V1KindCode, SensitivityCode>;
+  sensitivity: Record<KindCode, SensitivityCode>;
   /** Ansiktsindeks. Av som standard. */
   faceIndex: boolean;
 }

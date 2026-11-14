@@ -8,14 +8,15 @@
   import { useBridge } from "../context";
   import { Badge, Banner, Button, Card as UiCard, CloudWarning, LiveRegion, PageHeader } from "../lib";
   import Thumb from "../lib/components/Thumb.svelte";
-  import { fmt, reasonLabel, tr as tx } from "../lib/i18n";
+  import { fmt, tr as tx } from "../lib/i18n";
   import { formatHash } from "../router";
   import { cloudFromError, loadCloud } from "./cloud";
   import { CardsSession } from "./cardsFlow";
   import {
     ariaKeys, CARD_KEYS, cardKey, dragIntent, initialCards, type CardAction, type CardsState,
   } from "./cardsState";
-  import { reasonSnake } from "./reviewState";
+  import { cardReason, loadRuleNames, type RuleNames } from "./reason";
+  import CardExplain from "./CardExplain.svelte";
 
   interface Props {
     bridge?: CoreBridge;
@@ -29,6 +30,7 @@
 
   let view: CardsState = $state(initialCards);
   let helpOpen = $state(false);
+  let ruleNames: RuleNames = $state(new Map());
   /** Skysynket bibliotek (leverandørkode): papirkurv er sperret synlig, med forklaring. */
   let cloud: string | null = $state(null);
   /** Papirkurv-tast/knapp/dra opp er trykket i sperret tilstand: forklaring vises og annonseres. */
@@ -72,7 +74,7 @@
   // Skallet kan nekte papirkurv selv om UI ikke visste at mappen er skysynket: sperr da også her.
   $effect(() => { cloud = cloudFromError(view.error) ?? cloud; });
   const label = (c: Card): string =>
-    `${$tx("cards.photo.alt", { n: total - left + 1, total })}. ${fmt.bytes(c.bytes)}. ${reasonLabel(reasonSnake(c.reason), { pct: fmt.percent(c.confidence) })}.`;
+    `${$tx("cards.photo.alt", { n: total - left + 1, total })}. ${fmt.bytes(c.bytes)}. ${cardReason(c, ruleNames)}.`;
 
   function onKey(e: KeyboardEvent, scoped: boolean): void {
     const el = e.target as HTMLElement;
@@ -125,6 +127,7 @@
   onMount(() => {
     void session.load();
     void loadCloud(b).then((c) => { if (c) cloud = c; });
+    void loadRuleNames(b).then((n) => { ruleNames = n; });
   });
   onDestroy(() => session.dispose());
 
@@ -176,9 +179,10 @@
           <div class="card front" style:transform={drag ? `translate(${drag.dx}px, ${drag.dy}px)` : undefined}>
             <span class="ph" aria-hidden="true"><Thumb id={top.asset} fit="contain" /></span>
             <p class="meta">
-              <Badge label={reasonLabel(reasonSnake(top.reason), { pct: fmt.percent(top.confidence) })} />
+              <Badge label={cardReason(top, ruleNames)} />
               <span class="muted size">{fmt.bytes(top.bytes)}</span>
             </p>
+            {#if top.kind === "series" || top.kind === "rule"}<CardExplain reason={top.reason} detail={top.detail} />{/if}
             {#if hintAction}
               <span class="overlay" class:on={intent !== null} aria-hidden="true">
                 {hintAction === "keep" ? "✓ " + $tx("cards.overlay.keep") : hintAction === "trash" ? "✕ " + $tx("cards.overlay.trash") : "→ " + $tx("cards.overlay.skip")}
