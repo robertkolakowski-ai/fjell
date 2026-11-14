@@ -428,6 +428,20 @@ export interface MessageParams {
   "protect.toggle.off": Record<never, never>;
   "protect.toggle.hint": { scope: string | number };
   "rules.name.unnamed": Record<never, never>;
+  "dashboard.used.label": Record<never, never>;
+  "dashboard.kinds.label": Record<never, never>;
+  "dashboard.progress.title": Record<never, never>;
+  "dashboard.next.review.action": Record<never, never>;
+  "dashboard.next.empty_trash.action": Record<never, never>;
+  "dashboard.freed.note": Record<never, never>;
+  "dashboard.freedmonths.label": Record<never, never>;
+  "dashboard.col.month": Record<never, never>;
+  "dashboard.col.count": Record<never, never>;
+  "dashboard.col.size": Record<never, never>;
+  "dashboard.counters.label": Record<never, never>;
+  "dashboard.empty.title": Record<never, never>;
+  "dashboard.empty.body": Record<never, never>;
+  "dashboard.error.body": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;
@@ -568,4 +582,13 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "protect.toggle.on",
   "protect.toggle.off",
   "rules.name.unnamed",
+  "dashboard.used.label",
+  "dashboard.progress.title",
+  "dashboard.next.review.action",
+  "dashboard.next.empty_trash.action",
+  "dashboard.freedmonths.label",
+  "dashboard.col.month",
+  "dashboard.col.count",
+  "dashboard.col.size",
+  "dashboard.counters.label",
 ]);
