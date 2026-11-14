@@ -2,19 +2,24 @@
 //!
 //! Avhenger av: `fjell-core::api` (`FjellApi`, `MemApi`), `dto`.
 //! Grensesnitt: `Shell::mock()`, `Shell::new(api, backend)`, `state`, `cards`, `decide`, `undo`,
-//! `start_scan`. Tauri-kommandoene i `fjell-desktop` er tynne omslag rundt disse.
+//! `start_scan`. V1 (`v1`, `dto_v1`): `decide_confirmed`, beskyttelse, regler, personer og ansiktsindeks,
+//! dashboard, seriesammenligning og innstillinger. Tauri-kommandoene i `fjell-desktop` er tynne omslag rundt disse.
 //!
 //! Merk (beslutning 17): ingen sletting her. `begin_purge`/`confirm_purge`/`delete` og
 //! karantene kobles på i senere steg (adapter `fjell-fs`), aldri direkte fra frontend.
 
 pub mod dto;
+pub mod dto_v1;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_v1;
+mod v1;
 
 use dto::{parse_kind, CardPageDto, DecisionDto, ErrorDto, StateDto};
 use fjell_core::api::{Card, CardCursor, Decision, FjellApi, MemApi, ScanConfig, ScanMode};
 use fjell_core::model::{
-    AssetId, CardId, Clock, GroupId, ProtectFlags, ReasonCode, SuggestionKind,
+    AssetId, CardId, Clock, GroupId, ProtectFlags, ReasonCode, ReasonDetail, SuggestionKind,
 };
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -103,6 +108,7 @@ fn seed_cards() -> Vec<Card> {
         group: (kind == SuggestionKind::ExactDup).then_some(GroupId(1)),
         keeper: (kind == SuggestionKind::ExactDup).then_some(AssetId(100)),
         reason,
+        detail: ReasonDetail::None,
         confidence: 1.0,
         bytes,
         protect_flags: ProtectFlags::default(),

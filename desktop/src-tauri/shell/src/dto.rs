@@ -2,9 +2,11 @@
 //!
 //! Avhenger av: `fjell-core::api` (les-/beslutningstyper), serde.
 //! Grensesnitt: `StateDto`, `CardDto`, `CardPageDto`, `ErrorDto`, `DecisionDto`, `kind_code`.
+//! V1-typene (beskyttelse, regler, personer, dashboard, serier, innstillinger) ligger i `dto_v1`.
 //! Kjernen returnerer koder, aldri tekst (ARKITEKTUR beslutning 13): alle strenger her er
 //! stabile koder (snake_case) som UI slår opp i nøkkelkatalogen.
 
+use crate::dto_v1::DetailDto;
 use fjell_core::api::{ApiError, Card, CardPage, HomeSummary, ScanPhase, Settings};
 use fjell_core::model::SuggestionKind;
 use serde::{Deserialize, Serialize};
@@ -101,6 +103,8 @@ pub struct CardDto {
     pub keeper: Option<u64>,
     /// Begrunnelseskode (variantnavn i kjernen, f.eks. `ExactCopy`).
     pub reason: String,
+    /// Tall/ID bak begrunnelsesmerket (serieposisjon, regel, antall lukkede øyne).
+    pub detail: DetailDto,
     pub confidence: f32,
     pub bytes: u64,
     pub protect_flags: u8,
@@ -115,6 +119,7 @@ impl From<&Card> for CardDto {
             group: c.group.map(|g| g.0),
             keeper: c.keeper.map(|a| a.0),
             reason: format!("{:?}", c.reason),
+            detail: c.detail.into(),
             confidence: c.confidence,
             bytes: c.bytes,
             protect_flags: c.protect_flags.0,
@@ -174,11 +179,18 @@ impl From<ApiError> for ErrorDto {
             ApiError::PurgeStale => "purge_stale",
             ApiError::PlanStale => "plan_stale",
             ApiError::NotTrashed(_) => "not_trashed",
+            ApiError::WouldEmptyGroup(_) => "would_empty_group",
             _ => "core_error",
         };
-        ErrorDto {
-            code,
-            detail: format!("{e:?}"),
-        }
+        // `ack_required`: detaljen er konsekvenskodene (kommaskilt, snake_case) UI må få bekreftet.
+        // `core_error` med `Internal(kode)`: detaljen er kjernens stabile feilkode (f.eks. `empty_rule`).
+        let detail = match &e {
+            ApiError::AckRequired(codes) => {
+                codes.iter().map(|c| c.key()).collect::<Vec<_>>().join(",")
+            }
+            ApiError::Internal(c) => c.clone(),
+            other => format!("{other:?}"),
+        };
+        ErrorDto { code, detail }
     }
 }

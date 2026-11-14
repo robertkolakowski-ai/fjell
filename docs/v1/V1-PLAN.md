@@ -1,6 +1,6 @@
 # V1-plan: serier, beskyttelse, personer, regler og dashboard
 
-Status: kontrakten er lagt (commit «V1-kontrakt: ...»). Omfang: kjernen i `core/`. Desktop-UI og i18n-strenger utover begrunnelsesmerkene følger i egne faser.
+Status: kontrakten er lagt og de fem grenene (`protect`, `series`, `dashboard`, `people`, `rules`) er integrert (del 7). Omfang: kjernen i `core/`, CLI og Tauri-skallets kommandoflate. Skjermer følger i egne faser (UI-fundamentet M6/M7 finnes ikke ennå).
 Bindende regler: `CLAUDE.md` (ingen hard sletting, alt kan angres, appen foreslår, on-device, ingen nettverk, < 100 ms p95, nb + en, plattformnøytral kjerne).
 
 ## 1. Mål
@@ -81,3 +81,29 @@ Hver gren er ferdig når:
 - Modulhodet («Avhenger av:», «Grensesnitt:») er oppdatert.
 
 V1 er ferdig når Integrer har koblet alle grenene til `Fjell` (skanning kjører serier, ansikter bare ved `face_index`, regler og beskyttelse inn i `actions`-planen), `testdata` har golden-tester for hver forslagstype, og Sluttreview har ingen åpne funn.
+
+## 7. Integrasjon (status)
+
+Grenene er slått sammen i rekkefølgen protect, series, dashboard, people, rules uten konflikter (hver eide sine egne filer). Integrer har koblet alt til `Fjell`:
+
+- **Pipeline** (`pipeline/groups.rs`, `tuning.rs`, `analyzers.rs`): `refresh_groups` regner nå eksakte og visuelle grupper, deretter serier (`Store::apply_series`) og til slutt brukerregler (`rules::evaluate`). `run_analyzers` kjører etter skanning: øyne til serier, og ansikter og klynging bare når `face_index` er på. `Unavailable` (Null-analysatorene) avbryter steget uten å lagre noe; ingen modell er valgt eller lastet ned. `Fjell::with_analyzers` injiserer modellene.
+- **Sensitivitet**: `setting.sensitivity.<type>` leses av `pipeline::tuning_from_store`. Low/Normal/High flytter visuell `max_dist` (4/6/8), uskarphetsterskel (x0,7/x1/x1,3), serieglipp (5/10/20 s), serie-`max_dist` (8/10/12) og øyesikkerhet (0,9/0,8/0,7). Normal er identisk med MVP. Verdiene er startverdier, ikke kalibrert (åpent spørsmål 3).
+- **API** (`api/fjell_v1.rs`): alle V1-metodene på `FjellApi` er overstyrt for `Fjell`. `Card.detail` fylles (serieposisjon, antall lukkede øyne, regel). `home_summary` viser alle seks forslagstyper. Feil er koder i `ApiError::Internal` (`empty_folder`, `unknown_target`, `empty_rule`, `empty_name`, `name_too_long`, `invalid_condition`, `rule_not_found`, `unknown_person`, `not_merged`, `unknown_series`).
+- **Kortprioritet** (`store/cards.rs`): eksakt > visuelt > serie > regel > skjermbilde > uskarpt, så samme bilde vises aldri i flere kort. Svar på åpent spørsmål 6: bilder som alt er eksakt eller visuelt duplikat deltar ikke i serier (`series_specs`), så serier dekker nesten-like bilder utenfor duplikatterskelen (Hamming 7..=10) og alle serier om sensitiviteten for visuelle duplikater settes til Low.
+- **Skall og CLI**: `fjell-cli` har `protect`, `series`, `dashboard`, `people`, `rules`; Tauri-skallet har DTO-er (`dto_v1.rs`), `Shell`-metoder (`v1.rs`), Tauri-kommandoer og `desktop/src/bridge/{types,bridge}.ts` med samme kontrakt. Ingen skjermer.
+- **i18n**: 57 nye nøkler i `nb.json` og `en.json` (områdene `protect`, `series`, `dashboard`, `people`, `rules`, `settings.sensitivity`), `gen_i18n --check` grønn.
+- **Tester**: `api/fjell_v1_tests.rs` (skann syntetisk korpus, serie med beste valg, beskyttet bilde, regel, dashboard, ansiktsindeks av som standard og wipe, originalenes sjekksum uendret), `fjell-cli/tests/cli_v1.rs`, `shell/tests_v1.rs`, `pipeline/tuning.rs`.
+
+### Funn under integrasjonen
+
+- **Sikkerhetshull lukket**: `actions::commit` kjenner bare plattformflaggene (favoritt, delt album, redigert). `ConsequenceCode::ProtectedByScope` stod i planens konsekvenser, men `decide_many` krevde ingen bekreftelse for den, så en beskyttet serie- eller duplikatkandidat kunne flyttes til «Nylig slettet» uten ack. Porten ligger nå i `api/fjell_ops.rs` (`needs_ack`) og gjelder også `confirm_purge` når beskyttelsen kom etter at bildet havnet i papirkurven. Testet i `fjell_v1_tests.rs`. Bør på sikt flyttes inn i `actions::commit` med en egen ack-kategori (delt `model`-endring).
+- `protect_set`/`unprotect` evaluerer reglene på nytt, ellers ville regeltreff på beskyttede bilder stått til neste skanning.
+
+### Nye åpne spørsmål
+
+10. **Bilder uten ansikter analyseres på nytt** ved hver kjøring med `face_index` på (ingen markør i skjemaet). Trenger en delt schema-endring (f.eks. `face_scan(asset_id, algo_ver)`) før en ekte modell tas i bruk.
+11. **`fjell-ffi`** speiler ikke V1-flaten ennå (UniFFI-typene for protect, regler, personer, dashboard). Trengs før iOS/Android, ikke for Windows-MVP.
+12. **Ansiktsmodell og øyemodell** er fortsatt ikke valgt (spørsmål 3 og 8). Til da er seriene rangert på skarphet alene, og `eyes_unavailable`-merket i UI bør forklare det (`series.eyes.unavailable`).
+13. **`face_index_wipe` og hengende personbeskyttelser** (spørsmål 2): kjernen beholder radene; UI bør varsle (`people.index.wipe.dormant`). Kjernen gir ennå ingen teller for hengende beskyttelser.
+14. **Skall mot `MemApi`**: `Shell::mock()` svarer på V1-kommandoene med tomme lister og feilkoden `core_error`. Skallet kobles til `Fjell` når UI-fundamentet (M6/M7) og lagring av indeksfil i appdata er på plass.
+15. **`just` er ikke installert i kjøremiljøet**; oppskriftene i `justfile` ble kjørt som enkeltkommandoer. `fjell-desktop` (Tauri-limet med de nye kommandoene) kan ikke kompileres uten webkit2gtk og er bare gjennomgått, ikke bygget; `desktop-check` kjører det på `windows-latest`.

@@ -7,6 +7,23 @@
 | V2 (6–12 mnd) | Culling for fotografer, RAW, sammenligning, iPhone og Android (SwiftUI/PhotoKit, Kotlin/MediaStore; UniFFI), Lightroom-eksport |
 | V3 (12+ mnd) | Naturlig språk-søk, hendelsesforslag, familiedeling, valgfri sky-analyse, NAS |
 
+## V1-status (kjerne og skall, 2026-11-14)
+Detaljer og åpne spørsmål: `v1/V1-PLAN.md`.
+
+| Del | Status |
+|---|---|
+| Kontrakt (typer, migrering 002, API-metoder) | Ferdig |
+| Beskyttelse per bilde, mappe, album og person | Kjerne ferdig og koblet til `Fjell`; krever alltid egen bekreftelse (`decide_many` og `confirm_purge`) |
+| Serier med beste valg | Kjerne ferdig og koblet til skanning; rangering på skarphet, øyesignal først når en øyemodell er valgt |
+| Regelmotor | Kjerne ferdig og koblet (evalueres etter hver gruppering og ved endret beskyttelse); foreslår bare |
+| Personer og ansiktsindeks | Kjerne ferdig og koblet; indeksen er av som standard; ingen ansiktsmodell valgt ennå |
+| Dashboard | Kjerne ferdig og koblet |
+| Innstillinger og terskler (sensitivitet per forslagstype) | Lagres og styrer serier, visuelle duplikater og uskarphet; verdiene er ikke kalibrert mot golden-korpus |
+| CLI (`protect`, `series`, `dashboard`, `people`, `rules`) | Ferdig, ingen sletting av bilder |
+| Tauri-skall (DTO-er, kommandoer, `bridge.ts`) | Ferdig; ingen skjermer (UI-fundamentet M6/M7 finnes ikke ennå) |
+| Ende-til-ende-test (`api/fjell_v1_tests.rs`, `fjell-cli/tests/cli_v1.rs`) | Ferdig |
+| Gjenstår | Øyemodell og ansiktsmodell (lisens, ≤ 30 MB, ONNX), kalibrering av terskler, V1-skjermer, UniFFI-speil av V1-flaten i `fjell-ffi`, golden-tester per forslagstype i `testdata`, sluttreview |
+
 ## Forretningsmodell
 - **Gratis:** skann, eksakte duplikater, manuell kortsortering, månedlig grense
 - **Pro:** ubegrenset opprydding, AI-culling, serier, regler, RAW, Lightroom-eksport
