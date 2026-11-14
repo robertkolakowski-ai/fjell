@@ -252,7 +252,7 @@ impl FjellApi for MemApi {
     fn home_summary(&self) -> HomeSummary {
         let (per_kind, reclaimable, scanning) = {
             let g = self.lock();
-            let per_kind: Vec<KindSummary> = SuggestionKind::ALL
+            let per_kind: Vec<KindSummary> = SuggestionKind::MVP
                 .iter()
                 .map(|k| {
                     let mut s = KindSummary {

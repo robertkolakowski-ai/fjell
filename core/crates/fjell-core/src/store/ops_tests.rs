@@ -113,7 +113,7 @@ fn i13_reconcile_only_touches_removed_sources() {
     );
 }
 
-/// I16: bare kjente kolonner, og BLOB bare for `content_hash`. Ingen bilde- eller fritekstkolonner.
+/// I16: bare kjente kolonner, og BLOB bare for `content_hash` (V1: og `face_embedding.embedding`). Ingen bilde- eller fritekstkolonner.
 #[test]
 fn i16_schema_has_no_image_data_or_free_text() {
     let s = Store::open_in_memory().unwrap();
@@ -141,6 +141,14 @@ fn i16_schema_has_no_image_data_or_free_text() {
         "setting.key",
         "setting.value",
         "album.name",
+        // V1 (migrering 2): kategorier og id-koding.
+        "protection.scope",
+        "protection.target",
+        // V1: brukerens egne etiketter (person- og regelnavn) og regelkoding. Eneste fritekst, bevisst utvidelse
+        // av I16 (docs/v1/V1-PLAN.md); aldri bildedata.
+        "person.name",
+        "rule.name",
+        "rule.spec",
     ];
     for t in tables {
         let mut st = s
@@ -157,7 +165,12 @@ fn i16_schema_has_no_image_data_or_free_text() {
         for (c, ty) in cols {
             let key = format!("{t}.{c}");
             match ty.as_str() {
-                "BLOB" => assert_eq!(key, "fingerprint.content_hash"),
+                // V1: ansiktsembedding er tall (ikke bildedata) og bare lokal; bare med `face_index`.
+                "BLOB" => assert!(
+                    ["fingerprint.content_hash", "face_embedding.embedding"]
+                        .contains(&key.as_str()),
+                    "uventet BLOB-kolonne {key}"
+                ),
                 "TEXT" => assert!(
                     text_ok.contains(&key.as_str()),
                     "uventet tekstkolonne {key}"

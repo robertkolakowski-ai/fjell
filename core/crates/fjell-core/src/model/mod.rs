@@ -8,11 +8,26 @@
 //! - Aggregat: `AssetMeta`, `Asset`, `Album`, `ChangeSet`, `Confirmed`, `PurgeTicket`.
 //! - Trygghet (undermodul `plan`): `Plan`, `ConsequenceSummary`, `ConsequenceCode`, `Acks`, `PurgeOffer`.
 //!
+//! V1-tillegg (kontraktfasen, docs/v1/V1-PLAN.md): undermodulene `v1` (`SeriesId`, `PersonId`, `RuleId`,
+//! `ProtectScope`, `ReasonDetail`, `RuleSpec`, `DashboardData`) og `analyze` (`EyeAnalyzer`, `FaceAnalyzer`
+//! med Null-implementasjoner). `SuggestionKind` har `Series` og `Rule`; `ReasonCode` har flere koder.
+//!
 //! Kjernen returnerer koder, aldri tekst (beslutning 13).
 
+pub mod analyze;
 pub mod mem;
 pub mod plan;
 pub mod traits;
+pub mod v1;
+
+pub use analyze::{
+    AnalyzeError, Embedding, EyeAnalyzer, EyeReport, FaceAnalyzer, FaceBox, FaceObservation,
+    NullEyeAnalyzer, NullFaceAnalyzer,
+};
+pub use v1::{
+    DashboardData, FolderStat, KindStat, MonthStat, PersonId, ProtectScope, ReasonDetail,
+    RuleCondition, RuleId, RuleSpec, SeriesId,
+};
 
 pub use mem::{FakeClock, MemSource};
 pub use plan::{
@@ -114,10 +129,24 @@ pub enum SuggestionKind {
     VisualDup,
     Blurry,
     Screenshot,
+    /// V1: bilde i en serie som ikke er behold-kandidat.
+    Series,
+    /// V1: bilde som treffer en brukerdefinert regel.
+    Rule,
 }
 
 impl SuggestionKind {
-    pub const ALL: [SuggestionKind; 4] = [
+    pub const ALL: [SuggestionKind; 6] = [
+        Self::ExactDup,
+        Self::VisualDup,
+        Self::Blurry,
+        Self::Screenshot,
+        Self::Series,
+        Self::Rule,
+    ];
+    /// Forslagstypene som finnes i MVP-flaten (oversikten `home_summary`). Integrasjonsfasen bytter til `ALL`
+    /// når UI viser serier og regler.
+    pub const MVP: [SuggestionKind; 4] = [
         Self::ExactDup,
         Self::VisualDup,
         Self::Blurry,
@@ -129,6 +158,8 @@ impl SuggestionKind {
             Self::VisualDup => "visual_dup",
             Self::Blurry => "blurry",
             Self::Screenshot => "screenshot",
+            Self::Series => "series",
+            Self::Rule => "rule",
         }
     }
 }
@@ -148,10 +179,22 @@ pub enum ReasonCode {
     ShotScreenSize,
     ShotNoCameraExif,
     ShotPng,
+    /// V1: bildet er med i en serie (se `ReasonDetail::Position`).
+    SeriesMember,
+    /// V1 keeper-forklaring: best samlet av seriens bilder.
+    KeeperBestOverall,
+    /// V1 keeper-forklaring: øynene er åpne i dette bildet.
+    KeeperEyesOpen,
+    /// V1: noen har lukkede øyne (`ReasonDetail::Count` = antall ansikter).
+    ClosedEyes,
+    /// V1: treffer en regel (`ReasonDetail::Rule`).
+    Rule,
+    /// V1: bildet viser en beskyttet person (`ReasonDetail::Person`); gjelder som beskyttelsesmerke.
+    ProtectedPerson,
 }
 
 impl ReasonCode {
-    pub const ALL: [ReasonCode; 12] = [
+    pub const ALL: [ReasonCode; 18] = [
         Self::ExactCopy,
         Self::VisualDuplicate,
         Self::Blurry,
@@ -164,6 +207,12 @@ impl ReasonCode {
         Self::ShotScreenSize,
         Self::ShotNoCameraExif,
         Self::ShotPng,
+        Self::SeriesMember,
+        Self::KeeperBestOverall,
+        Self::KeeperEyesOpen,
+        Self::ClosedEyes,
+        Self::Rule,
+        Self::ProtectedPerson,
     ];
     /// Stabil snake_case-nøkkel (kodenavn i i18n-nøkkelen `reason.<key>`).
     pub fn key(self) -> &'static str {
@@ -180,6 +229,12 @@ impl ReasonCode {
             Self::ShotScreenSize => "shot_screen_size",
             Self::ShotNoCameraExif => "shot_no_camera_exif",
             Self::ShotPng => "shot_png",
+            Self::SeriesMember => "series_member",
+            Self::KeeperBestOverall => "keeper_best_overall",
+            Self::KeeperEyesOpen => "keeper_eyes_open",
+            Self::ClosedEyes => "closed_eyes",
+            Self::Rule => "rule",
+            Self::ProtectedPerson => "protected_person",
         }
     }
 }

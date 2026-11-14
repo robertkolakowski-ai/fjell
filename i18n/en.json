@@ -14,6 +14,12 @@
   "reason.shot_screen_size": { "t": "Screen-sized image", "ctx": "Reason chip", "len": "short" },
   "reason.shot_no_camera_exif": { "t": "No camera info", "ctx": "Reason chip", "len": "short" },
   "reason.shot_png": { "t": "PNG format", "ctx": "Reason chip", "len": "short" },
+  "reason.series_member": { "t": "Photo {index} of {of} in the series", "ctx": "Reason chip. {index} = position in the series, {of} = number of photos in the series", "len": "short" },
+  "reason.keeper_best_overall": { "t": "Best in series", "ctx": "Reason chip on the keeper of a series", "len": "short" },
+  "reason.keeper_eyes_open": { "t": "Eyes open", "ctx": "Reason chip on the keeper of a series", "len": "short" },
+  "reason.closed_eyes": { "t": "Closed eyes", "ctx": "Reason chip on a photo where someone has closed eyes", "len": "short" },
+  "reason.rule": { "t": "Rule: {name}", "ctx": "Reason chip. {name} = the user's name for the rule", "len": "short" },
+  "reason.protected_person": { "t": "Shows a protected person", "ctx": "Reason chip for protection", "len": "short" },
   "reason.blurry": { "t": "Blurry ({pct})", "ctx": "Reason chip. {pct} = formatted percentage", "len": "short" },
   "trash.freed.note": { "t": "Space is freed only when you empty the trash.", "ctx": "Info in Trash" }
 }

@@ -205,8 +205,10 @@ impl Fjell {
     }
 
     pub fn set_settings(&self, settings: Settings) {
+        // Behold V1-innstillingene (sensitivitet, ansiktsindeks); FFI-recorden har bare `trash_days` ennå.
         self.inner.set_settings(api::Settings {
             trash_days: settings.trash_days,
+            ..self.inner.settings()
         })
     }
 }

@@ -10,10 +10,13 @@
 //! Status (M1): skjema og migrering 1 med triggere.
 //! Status (M4, undermoduler `index`, `groups`, `cards`): K6-delene indekseringen trenger (`upsert_assets`,
 //! `work_set`, `put_fingerprints`, `index_rows`), utskifting av grupper/forslag og kortspørringer.
+//! Status (V1-kontrakt): migrering 2 (`002_v1.sql`) og skjelettmodulene `protection`, `series`, `people`, `rules`,
+//! `dashboard` (én eier hver, docs/v1/V1-PLAN.md). `migrate_to` slår av `foreign_keys` rundt tabellomskriving.
 //! Status (M3, undermodul `ops`): trygg sletting. `apply_batch` (én transaksjon per batch), `undo_top`,
 //! `reconcile_removed`, lesespørringer for plan/utløp/oppsummering.
 
 mod cards;
+mod dashboard;
 mod groups;
 mod index;
 #[cfg(test)]
@@ -25,7 +28,11 @@ mod ops;
 mod ops_read;
 #[cfg(test)]
 mod ops_tests;
+mod people;
+mod protection;
 mod reconcile;
+mod rules;
+mod series;
 
 use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
@@ -48,6 +55,10 @@ pub enum StoreError {
     },
     /// Raden var ikke i forventet tilstand inne i transaksjonen (batchen er rullet tilbake).
     Conflict(crate::model::AssetId),
+    /// `foreign_key_check` fant brudd etter en migrering (migreringen er rullet tilbake).
+    ForeignKey {
+        table: String,
+    },
 }
 
 impl From<rusqlite::Error> for StoreError {
@@ -64,6 +75,9 @@ impl std::fmt::Display for StoreError {
                 write!(f, "skjemaversjon {found} er nyere enn støttet {supported}")
             }
             StoreError::Conflict(id) => write!(f, "uventet tilstand for bilde {}", id.0),
+            StoreError::ForeignKey { table } => {
+                write!(f, "fremmednøkkelbrudd i {table} etter migrering")
+            }
         }
     }
 }

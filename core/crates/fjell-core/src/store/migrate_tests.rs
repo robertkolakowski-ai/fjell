@@ -145,3 +145,150 @@ fn action_log_is_append_only() {
         .unwrap();
     assert_eq!(n, 1);
 }
+
+fn table_count(conn: &Connection, table: &str) -> i64 {
+    conn.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
+        .unwrap()
+}
+
+/// 002 skriver om `grp` og `suggestion` uten å miste rader eller utløse kaskade, selv med FK på.
+#[test]
+fn v2_rewrite_keeps_rows_triggers_and_foreign_keys() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    conn.pragma_update(None, "foreign_keys", true).unwrap();
+    migrate_to(&mut conn, 1).unwrap();
+    let a = insert_asset(&conn, 0);
+    let b = insert_asset(&conn, 0);
+    conn.execute(
+        "INSERT INTO grp(id, kind, keeper_id, created_at) VALUES (7, 'visual', ?1, 5)",
+        [a],
+    )
+    .unwrap();
+    for (asset, rank) in [(a, 0), (b, 1)] {
+        conn.execute(
+            "INSERT INTO grp_member(grp_id, asset_id, rank, score) VALUES (7, ?1, ?2, 0.5)",
+            [asset, rank],
+        )
+        .unwrap();
+    }
+    conn.execute(
+        "INSERT INTO suggestion(id, asset_id, kind, grp_id, reason_code, confidence, status) \
+         VALUES (3, ?1, 'visual_dup', 7, 'visual_duplicate', 0.9, 'rejected')",
+        [b],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO action_log(batch_id, ts, op, asset_id, prev_state, cause) VALUES (1, 0, 'keep', ?1, 0, 'user')",
+        [a],
+    )
+    .unwrap();
+
+    migrate_to(&mut conn, 2).unwrap();
+
+    assert_eq!(table_count(&conn, "grp"), 1);
+    assert_eq!(
+        table_count(&conn, "grp_member"),
+        2,
+        "ingen kaskade ved DROP"
+    );
+    let (kind, grp_id, status): (String, i64, String) = conn
+        .query_row(
+            "SELECT kind, grp_id, status FROM suggestion WHERE id = 3",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        (kind.as_str(), grp_id, status.as_str()),
+        ("visual_dup", 7, "rejected")
+    );
+    let fk: bool = conn
+        .pragma_query_value(None, "foreign_keys", |r| r.get(0))
+        .unwrap();
+    assert!(fk, "foreign_keys gjenopprettes etter migrering");
+
+    // Nye forslags- og gruppetyper er tillatt; ukjente er det fortsatt ikke.
+    conn.execute("INSERT INTO grp(kind, created_at) VALUES ('series', 1)", [])
+        .unwrap();
+    assert!(conn
+        .execute("INSERT INTO grp(kind, created_at) VALUES ('nope', 1)", [])
+        .is_err());
+    for kind in ["series", "rule"] {
+        conn.execute(
+            "INSERT INTO suggestion(asset_id, kind, reason_code, confidence) VALUES (?1, ?2, 'x', 0.5)",
+            rusqlite::params![a, kind],
+        )
+        .unwrap();
+    }
+    assert!(conn
+        .execute(
+            "INSERT INTO suggestion(asset_id, kind, reason_code, confidence) VALUES (?1, 'bogus', 'x', 0.5)",
+            [a],
+        )
+        .is_err());
+    // Triggere fra 001 lever videre (I2, I14).
+    assert!(set_state(&conn, a, 2).is_err());
+    assert!(conn.execute("DELETE FROM action_log", []).is_err());
+}
+
+/// V1-tabellene finnes, beskyttelse er unik per (scope, target), regler slettes aldri hardt, ansiktsindeks er av.
+#[test]
+fn v2_tables_defaults_and_guards() {
+    let store = Store::open_in_memory().unwrap();
+    let c = store.conn();
+    for t in [
+        "protection",
+        "eye_result",
+        "person",
+        "face_embedding",
+        "rule",
+        "rule_hit",
+    ] {
+        assert_eq!(table_count(c, t), 0, "{t}");
+    }
+    let v: String = c
+        .query_row(
+            "SELECT value FROM setting WHERE key = 'face_index_enabled'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(v, "0");
+    c.execute(
+        "INSERT INTO protection(scope, target, created_at) VALUES ('folder', 'C:/Foto', 1)",
+        [],
+    )
+    .unwrap();
+    assert!(c
+        .execute(
+            "INSERT INTO protection(scope, target, created_at) VALUES ('folder', 'C:/Foto', 2)",
+            [],
+        )
+        .is_err());
+    assert!(c
+        .execute(
+            "INSERT INTO protection(scope, target, created_at) VALUES ('tag', 'x', 2)",
+            [],
+        )
+        .is_err());
+    c.execute(
+        "INSERT INTO rule(name, spec, created_at) VALUES ('r', 's', 1)",
+        [],
+    )
+    .unwrap();
+    assert!(c.execute("DELETE FROM rule", []).is_err());
+    assert!(
+        c.execute("UPDATE person SET merged_into = id", []).is_ok(),
+        "ingen rader ennå"
+    );
+    c.execute("INSERT INTO person(id, created_at) VALUES (1, 1)", [])
+        .unwrap();
+    assert!(c
+        .execute("UPDATE person SET merged_into = 1 WHERE id = 1", [])
+        .is_err());
+    assert_eq!(store.protection_count().unwrap(), 1);
+    assert_eq!(store.rule_count().unwrap(), 1);
+    assert_eq!(store.eye_result_count().unwrap(), 0);
+    assert_eq!(store.face_count().unwrap(), 0);
+    assert_eq!(store.active_asset_count().unwrap(), 0);
+}

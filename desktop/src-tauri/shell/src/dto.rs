@@ -16,6 +16,8 @@ pub fn kind_code(k: SuggestionKind) -> &'static str {
         SuggestionKind::VisualDup => "visual_dup",
         SuggestionKind::Blurry => "blurry",
         SuggestionKind::Screenshot => "screenshot",
+        SuggestionKind::Series => "series",
+        SuggestionKind::Rule => "rule",
     }
 }
 

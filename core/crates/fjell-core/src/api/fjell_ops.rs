@@ -18,7 +18,7 @@ use crate::actions::{acks_covering, PlanRequest, Selection};
 use crate::model::plan::ACK_CATEGORIES;
 use crate::model::{
     AssetId, BatchId, CardId, ConsequenceCode, DeleteOutcome, GroupId, MassAck, PurgeOffer,
-    PurgeTicket, ReasonCode, SuggestionKind,
+    PurgeTicket, ReasonCode, ReasonDetail, SuggestionKind,
 };
 use crate::store::CardRow;
 use std::collections::BTreeSet;
@@ -37,6 +37,8 @@ fn default_reason(kind: SuggestionKind) -> ReasonCode {
         SuggestionKind::VisualDup => ReasonCode::VisualDuplicate,
         SuggestionKind::Blurry => ReasonCode::Blurry,
         SuggestionKind::Screenshot => ReasonCode::Screenshot,
+        SuggestionKind::Series => ReasonCode::SeriesMember,
+        SuggestionKind::Rule => ReasonCode::Rule,
     }
 }
 
@@ -51,6 +53,8 @@ fn card(kind: SuggestionKind, r: CardRow) -> Card {
             .into_iter()
             .find(|c| c.key() == r.reason_code)
             .unwrap_or_else(|| default_reason(kind)),
+        // Fylles av integrasjonsfasen (serie-posisjon, regel, person).
+        detail: ReasonDetail::None,
         confidence: r.confidence,
         bytes: r.bytes,
         protect_flags: r.protect,
@@ -254,7 +258,7 @@ impl FjellApi for Fjell {
 
     fn home_summary(&self) -> HomeSummary {
         let totals = self.actions().store().kind_totals().unwrap_or_default();
-        let per_kind: Vec<KindSummary> = SuggestionKind::ALL
+        let per_kind: Vec<KindSummary> = SuggestionKind::MVP
             .iter()
             .map(|k| {
                 let (count, bytes) = totals
@@ -291,6 +295,8 @@ impl FjellApi for Fjell {
     fn settings(&self) -> Settings {
         Settings {
             trash_days: self.actions().trash_days().unwrap_or(30),
+            // Sensitivitet og ansiktsindeks leses/lagres i integrasjonsfasen (standardverdier til da).
+            ..Settings::default()
         }
     }
 

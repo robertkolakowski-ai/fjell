@@ -14,6 +14,12 @@
   "reason.shot_screen_size": { "t": "Skjermstørrelse", "ctx": "Begrunnelsesmerke", "len": "short" },
   "reason.shot_no_camera_exif": { "t": "Ingen kamerainfo", "ctx": "Begrunnelsesmerke", "len": "short" },
   "reason.shot_png": { "t": "PNG-format", "ctx": "Begrunnelsesmerke", "len": "short" },
+  "reason.series_member": { "t": "Bilde {index} av {of} i serien", "ctx": "Begrunnelsesmerke. {index} = plass i serien, {of} = antall bilder i serien", "len": "short" },
+  "reason.keeper_best_overall": { "t": "Best i serien", "ctx": "Begrunnelsesmerke på behold-kandidaten i en serie", "len": "short" },
+  "reason.keeper_eyes_open": { "t": "Åpne øyne", "ctx": "Begrunnelsesmerke på behold-kandidaten i en serie", "len": "short" },
+  "reason.closed_eyes": { "t": "Lukkede øyne", "ctx": "Begrunnelsesmerke på bilde der noen har lukkede øyne", "len": "short" },
+  "reason.rule": { "t": "Regel: {name}", "ctx": "Begrunnelsesmerke. {name} = brukerens navn på regelen", "len": "short" },
+  "reason.protected_person": { "t": "Viser en beskyttet person", "ctx": "Begrunnelsesmerke for beskyttelse", "len": "short" },
   "reason.blurry": { "t": "Uskarpt ({pct})", "ctx": "Begrunnelsesmerke. {pct} = formatert prosent", "len": "short" },
   "trash.freed.note": { "t": "Plassen frigjøres først når du tømmer papirkurven.", "ctx": "Info i Papirkurv" }
 }

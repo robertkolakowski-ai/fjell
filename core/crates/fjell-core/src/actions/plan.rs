@@ -136,6 +136,8 @@ impl Actions {
                 Some(SuggestionKind::VisualDup) => by_kind.visual_dup += 1,
                 Some(SuggestionKind::Blurry) => by_kind.blurry += 1,
                 Some(SuggestionKind::Screenshot) => by_kind.screenshot += 1,
+                Some(SuggestionKind::Series) => by_kind.series += 1,
+                Some(SuggestionKind::Rule) => by_kind.rule += 1,
                 None => by_kind.manual += 1,
             }
             prot.favorite += it.protect.has(ProtectFlags::FAVORITE) as u64;
