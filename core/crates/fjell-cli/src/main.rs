@@ -1,14 +1,16 @@
 //! `fjell-cli`: testsele. Bruk: `fjell-cli <skann|liste> <mappe>` (mock) og
 //! `fjell-cli <index|trash|undo|purge> <mappe> --db <fil> [--yes] [--fs-temp] [id...]` (ekte kjerne).
+//! `fjell-cli <protect|series|dashboard|people|rules> <mappe> --db <fil> <underkommando>` (V1, se `v1`).
 //! Originalfiler endres aldri; purge sletter bare i en midlertidig kopi (`--fs-temp`).
 //! Logikken ligger i biblioteket (`cmd`, `flow`, `fsource`).
 
 use fjell_cli::flow::{self, FlowError};
+use fjell_cli::v1;
 use fjell_cli::{cmd, fsource::FsSource};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "bruk: fjell-cli <skann|liste> <mappe>\n      fjell-cli <index|trash|undo|purge> <mappe> --db <fil> [--yes] [--fs-temp] [id...]";
+const USAGE: &str = "bruk: fjell-cli <skann|liste> <mappe>\n      fjell-cli <index|trash|undo|purge> <mappe> --db <fil> [--yes] [--fs-temp] [id...]\n      fjell-cli <protect|series|dashboard|people|rules> <mappe> --db <fil> [--yes] <underkommando>  (se `v1`)";
 
 fn flow_cmd(c: &str, args: &[String]) -> Result<(), FlowError> {
     let (mut db, mut yes, mut tmp) = (None, false, false);
@@ -44,8 +46,14 @@ fn main() -> ExitCode {
         eprintln!("fjell-cli {}\n{USAGE}", fjell_core::VERSION);
         return ExitCode::from(2);
     };
-    if matches!(c.as_str(), "index" | "trash" | "undo" | "purge") {
-        return match flow_cmd(c, &args[1..]) {
+    let is_v1 = v1::COMMANDS.contains(&c.as_str());
+    if is_v1 || matches!(c.as_str(), "index" | "trash" | "undo" | "purge") {
+        let r = if is_v1 {
+            v1::run(c, &args[1..], &mut std::io::stdout().lock())
+        } else {
+            flow_cmd(c, &args[1..])
+        };
+        return match r {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("feil: {e}");

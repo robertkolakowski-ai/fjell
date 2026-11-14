@@ -5,7 +5,9 @@
 //! - `fsource::FsSource`: omslag rundt `fjell_fs::FsSource` uten bildedekoding (som før M5).
 //! - `cmd::{scan, list}`: kommandoene, skriver til en `Write`.
 //! - `flow::{index, trash, undo, purge}`: fullflyt mot ekte kjerne (`Fjell`), purge bare i temp-kopi.
+//! - `v1::run`: `protect`, `series`, `dashboard`, `people`, `rules` (V1; ingen sletting av bilder).
 
 pub mod cmd;
 pub mod flow;
 pub mod fsource;
+pub mod v1;
