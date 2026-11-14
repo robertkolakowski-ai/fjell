@@ -3,7 +3,8 @@
 //! Avhenger av: pipeline, actions, store, model.
 //! Grensesnitt: trait `FjellApi` (synkron, ingen async). Undermoduler: `types` (lesemodeller,
 //! feil), `mock` (`MemApi`, mock for UI) og `fjell`/`fjell_ops` (`Fjell`: ekte implementasjon som
-//! kobler store, actions, pipeline og algoritmene; skanning kjører i egen tråd, `Fjell::wait_scan`).
+//! kobler store, actions, pipeline og algoritmene; skanning kjører i egen tråd, `Fjell::wait_scan`; V1-flaten
+//! ligger i `fjell_v1`).
 //! - `start_scan`, `cancel`, `cards`, `decide_many` (én batch), `set_keeper`,
 //!   `begin_purge` → `confirm_purge` → `finish_purge`, `undo`, `home_summary`, `trash_summary`, `settings`.
 //!
@@ -11,7 +12,7 @@
 //! `rule_toggle`/`rule_delete`/`rule_restore`, `people_list`/`person_name`/`person_merge`/`person_unmerge`/
 //! `person_protect`, `face_index_enabled`/`face_index_set`/`face_index_wipe`, `dashboard`, `series_compare`,
 //! `thresholds`. Alle har standardimplementasjon (tom verdi eller `ApiError::Internal("ikke implementert")`)
-//! slik at `MemApi` og eldre implementasjoner ikke brekker; `Fjell` kobles i integrasjonsfasen.
+//! slik at `MemApi` og eldre implementasjoner ikke brekker; `Fjell` overstyrer alle (integrasjonsfasen, `fjell_v1`).
 //!
 //! `Confirmed`/`PurgeTicket` lages bare her (`pub(crate)`-konstruktører i `model`).
 
@@ -19,6 +20,9 @@ mod fjell;
 mod fjell_ops;
 #[cfg(test)]
 mod fjell_tests;
+mod fjell_v1;
+#[cfg(test)]
+mod fjell_v1_tests;
 pub mod mock;
 pub mod types;
 

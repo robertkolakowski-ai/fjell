@@ -5,20 +5,25 @@
 //! - `decide_many`: alle valg i én batch (ett angre). Beskyttede bilder og massesletting gir
 //!   `AckRequired(koder)` uten at noe skrives; `decide_many_confirmed` med kodene gir bekreftelsen.
 //!   Acks lages bare her (`acks_covering`), og bare for kodene brukeren faktisk har bekreftet.
+//! - V1: beskyttelse via `protection` (`ProtectedByScope`) krever bekreftelse ved både `decide_many` og
+//!   `confirm_purge` (også om beskyttelsen kom etter at bildet havnet i «Nylig slettet»).
 //! - Purge: `begin_purge` → `confirm_purge` (`Confirmed`/`PurgeTicket` lages bare i actions) →
 //!   plattformens `delete` (utenfor kjernen) → `finish_purge`. Ingen annen vei til `purged`.
 //! - Samme bilde vises aldri i flere kort (prioritet exact_dup > visual_dup > screenshot > blurry).
 
 use super::fjell::{act_err, internal, Fjell};
+use super::fjell_v1::RuleOp;
 use super::{
-    ApiError, Card, CardCursor, CardPage, Decision, FjellApi, HomeSummary, KindSummary,
-    PurgeIntent, PurgeReport, ScanConfig, Settings, TrashSummary, UndoReport,
+    ApiError, Card, CardCursor, CardPage, Decision, FjellApi, HomeSummary, KindSummary, PersonView,
+    ProtectionEntry, PurgeIntent, PurgeReport, RuleDraft, RulePreview, RuleView, ScanConfig,
+    SeriesCompare, Settings, Thresholds, TrashSummary, UndoReport,
 };
 use crate::actions::{acks_covering, PlanRequest, Selection};
 use crate::model::plan::ACK_CATEGORIES;
 use crate::model::{
-    AssetId, BatchId, CardId, ConsequenceCode, DeleteOutcome, GroupId, MassAck, PurgeOffer,
-    PurgeTicket, ReasonCode, ReasonDetail, SuggestionKind,
+    AssetId, BatchId, CardId, ConsequenceCode, DashboardData, DeleteOutcome, GroupId, MassAck,
+    PersonId, ProtectScope, PurgeOffer, PurgeTicket, ReasonCode, RuleId, RuleSpec, SeriesId,
+    SuggestionKind,
 };
 use crate::store::CardRow;
 use std::collections::BTreeSet;
@@ -42,28 +47,20 @@ fn default_reason(kind: SuggestionKind) -> ReasonCode {
     }
 }
 
-fn card(kind: SuggestionKind, r: CardRow) -> Card {
-    Card {
-        id: CardId(r.id),
-        kind,
-        asset: r.asset,
-        group: r.group,
-        keeper: r.keeper,
-        reason: ReasonCode::ALL
-            .into_iter()
-            .find(|c| c.key() == r.reason_code)
-            .unwrap_or_else(|| default_reason(kind)),
-        // Fylles av integrasjonsfasen (serie-posisjon, regel, person).
-        detail: ReasonDetail::None,
-        confidence: r.confidence,
-        bytes: r.bytes,
-        protect_flags: r.protect,
-    }
+fn reason_of(kind: SuggestionKind, r: &CardRow) -> ReasonCode {
+    ReasonCode::ALL
+        .into_iter()
+        .find(|c| c.key() == r.reason_code)
+        .unwrap_or_else(|| default_reason(kind))
 }
 
 /// Kodene som krever brukerens bekreftelse før `commit`/`confirm_purge`.
 fn needs_ack(c: ConsequenceCode) -> bool {
-    c == ConsequenceCode::MassDelete || ACK_CATEGORIES.iter().any(|(_, code)| *code == c)
+    // V1: beskyttelse per bilde, mappe, album eller person krever alltid egen bekreftelse. `actions::commit`
+    // kjenner bare plattformflaggene, så porten for `ProtectedByScope` ligger her (eneste vei til commit).
+    c == ConsequenceCode::MassDelete
+        || c == ConsequenceCode::ProtectedByScope
+        || ACK_CATEGORIES.iter().any(|(_, code)| *code == c)
 }
 
 impl Fjell {
@@ -134,6 +131,19 @@ impl Fjell {
         intent: &PurgeIntent,
         confirmed: &[ConsequenceCode],
     ) -> Result<PurgeTicket, ApiError> {
+        // Et bilde kan ha blitt beskyttet etter at det ble flyttet til «Nylig slettet»: da trengs egen bekreftelse.
+        if !confirmed.contains(&ConsequenceCode::ProtectedByScope)
+            && !self
+                .actions()
+                .store()
+                .protected_by_scope(&intent.ids)
+                .map_err(internal)?
+                .is_empty()
+        {
+            return Err(ApiError::AckRequired(vec![
+                ConsequenceCode::ProtectedByScope,
+            ]));
+        }
         let offer = PurgeOffer {
             ids: intent.ids.clone(),
             bytes: intent.bytes,
@@ -179,10 +189,26 @@ impl FjellApi for Fjell {
         let next = more
             .then(|| rows.last().map(|r| encode(r.confidence, r.id)))
             .flatten();
-        Ok(CardPage {
-            cards: rows.into_iter().map(|r| card(kind, r)).collect(),
-            next,
-        })
+        let a = self.actions();
+        let cards = rows
+            .into_iter()
+            .map(|r| {
+                let reason = reason_of(kind, &r);
+                Card {
+                    id: CardId(r.id),
+                    kind,
+                    asset: r.asset,
+                    group: r.group,
+                    keeper: r.keeper,
+                    reason,
+                    detail: self.v1_card_detail(a.store(), kind, reason, &r),
+                    confidence: r.confidence,
+                    bytes: r.bytes,
+                    protect_flags: r.protect,
+                }
+            })
+            .collect();
+        Ok(CardPage { cards, next })
     }
 
     fn decide_many(&self, decisions: Vec<(CardId, Decision)>) -> Result<BatchId, ApiError> {
@@ -258,7 +284,7 @@ impl FjellApi for Fjell {
 
     fn home_summary(&self) -> HomeSummary {
         let totals = self.actions().store().kind_totals().unwrap_or_default();
-        let per_kind: Vec<KindSummary> = SuggestionKind::MVP
+        let per_kind: Vec<KindSummary> = SuggestionKind::ALL
             .iter()
             .map(|k| {
                 let (count, bytes) = totals
@@ -293,15 +319,90 @@ impl FjellApi for Fjell {
     }
 
     fn settings(&self) -> Settings {
-        Settings {
-            trash_days: self.actions().trash_days().unwrap_or(30),
-            // Sensitivitet og ansiktsindeks leses/lagres i integrasjonsfasen (standardverdier til da).
-            ..Settings::default()
-        }
+        self.v1_settings()
     }
 
     fn set_settings(&self, settings: Settings) {
-        // Feil her gir uendret innstilling; `settings()` viser det som gjelder.
-        let _ = self.actions().set_trash_days(settings.trash_days);
+        self.v1_set_settings(settings);
+    }
+
+    fn protect_set(&self, scope: ProtectScope) -> Result<(), ApiError> {
+        self.v1_protect(scope, true)
+    }
+
+    fn unprotect(&self, scope: ProtectScope) -> Result<(), ApiError> {
+        self.v1_protect(scope, false)
+    }
+
+    fn protections(&self) -> Result<Vec<ProtectionEntry>, ApiError> {
+        self.v1_protections()
+    }
+
+    fn rules_list(&self) -> Result<Vec<RuleView>, ApiError> {
+        self.v1_rules_list()
+    }
+
+    fn rule_save(&self, draft: RuleDraft) -> Result<RuleId, ApiError> {
+        self.v1_rule_save(draft)
+    }
+
+    fn rule_preview(&self, spec: RuleSpec) -> Result<RulePreview, ApiError> {
+        self.v1_rule_preview(spec)
+    }
+
+    fn rule_toggle(&self, id: RuleId, enabled: bool) -> Result<(), ApiError> {
+        self.v1_rule_change(id, RuleOp::Enabled(enabled))
+    }
+
+    fn rule_delete(&self, id: RuleId) -> Result<(), ApiError> {
+        self.v1_rule_change(id, RuleOp::Delete)
+    }
+
+    fn rule_restore(&self, id: RuleId) -> Result<(), ApiError> {
+        self.v1_rule_change(id, RuleOp::Restore)
+    }
+
+    fn people_list(&self) -> Result<Vec<PersonView>, ApiError> {
+        self.v1_people_list()
+    }
+
+    fn person_name(&self, id: PersonId, name: Option<String>) -> Result<(), ApiError> {
+        self.v1_person_name(id, name)
+    }
+
+    fn person_merge(&self, target: PersonId, absorbed: PersonId) -> Result<PersonId, ApiError> {
+        self.v1_person_merge(target, absorbed)
+    }
+
+    fn person_unmerge(&self, absorbed: PersonId) -> Result<(), ApiError> {
+        self.v1_person_unmerge(absorbed)
+    }
+
+    fn person_protect(&self, id: PersonId, protect: bool) -> Result<(), ApiError> {
+        self.v1_protect(ProtectScope::Person(id), protect)
+    }
+
+    fn face_index_enabled(&self) -> bool {
+        self.v1_face_index_enabled()
+    }
+
+    fn face_index_set(&self, enabled: bool) -> Result<(), ApiError> {
+        self.v1_face_index_set(enabled)
+    }
+
+    fn face_index_wipe(&self) -> Result<u64, ApiError> {
+        self.v1_face_index_wipe()
+    }
+
+    fn dashboard(&self) -> Result<DashboardData, ApiError> {
+        self.v1_dashboard()
+    }
+
+    fn series_compare(&self, series: SeriesId) -> Result<SeriesCompare, ApiError> {
+        self.v1_series_compare(series)
+    }
+
+    fn thresholds(&self) -> Thresholds {
+        self.v1_thresholds()
     }
 }

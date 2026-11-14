@@ -43,6 +43,9 @@ pub use index::{FingerprintRow, HashRow, IndexRow, UpsertStats, WorkItem, MAX_FA
 pub use migrate::{migrate_to, MIGRATIONS};
 pub use ops::{BatchSpec, Cause, RowOp, UndoResult};
 pub use ops_read::{AssetRow, PendingSuggestion};
+pub use people::{FaceRow, PersonRow};
+pub use rules::RuleRow;
+pub use series::{SeriesMemberRow, SeriesMemberSpec, SeriesSpec, SeriesStats};
 
 /// Feil fra lagringslaget.
 #[derive(Debug)]

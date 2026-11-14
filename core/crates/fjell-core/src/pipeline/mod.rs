@@ -8,6 +8,8 @@
 //!   rayon, `thumbnail` → dHash/pHash/blur/signaler, én skrivetråd via `sync_channel`), 4 klynging
 //!   (etter rask fase, hver 2 000. bilde og til slutt), 5 lagre `scan_cursor` og returner rapport.
 //! - `ScanConfig { mode: Quick|Full, priority: Foreground|Background, deadline }`, `ScanReport`.
+//! - `run_analyzers(...)`: øyne (serier) og, bare med `face_index`, ansikter (personer) etter skanning (V1).
+//! - `Tuning`/`tuning(...)`: terskler fra sensitivitet (V1).
 //! - `refresh_groups(store, clock)`: kalles av `api` etter trash/restore/purge (actions kan ikke kalle
 //!   pipeline, lag L2 mot L3). `compute` er den rene delen.
 //! - `StoreHandle`: hvordan pipeline får `&mut Store` uten å eie den (`Mutex<Store>`, eller `api`s
@@ -18,15 +20,19 @@
 //! `AssetSource` har ingen skrivemetoder (beslutning 17). Skanning endrer aldri `state` på trashed
 //! bortsett fra avstemming av fjernede kilder (I13).
 
+mod analyzers;
 mod fast;
 mod full;
 mod groups;
 mod progress;
 #[cfg(test)]
 pub(crate) mod tests;
+mod tuning;
 
-pub use groups::{compute, refresh_groups, Grouping, LOW_INFO_BIT};
+pub use analyzers::{run_analyzers, AnalyzerReport, EYE_ALGO, FACE_ALGO};
+pub use groups::{compute, compute_with, refresh_groups, series_specs, Grouping, LOW_INFO_BIT};
 pub use progress::{Phase, Progress, Snapshot, DEFAULT_INTERVAL};
+pub use tuning::{tuning, tuning_from_store, Tuning};
 
 use crate::model::{AssetId, AssetSource, ChangeToken, Clock, SourceError, ALGO_VER};
 use crate::store::{Store, StoreError};
@@ -120,6 +126,8 @@ pub enum PipelineError {
     Source(SourceError),
     Store(StoreError),
     Pool(String),
+    /// Brukerregler kunne ikke evalueres (V1).
+    Rules(String),
 }
 
 impl From<StoreError> for PipelineError {
