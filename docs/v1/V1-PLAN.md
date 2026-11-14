@@ -64,6 +64,8 @@ Lagdeling (`tools/check-layers`): de fem modulene er L2, kan bruke `model` og `s
 5. **Mappebeskyttelse og flytting**: `Folder(prefiks)` matcher `source_id`-prefiks. Flytting utenfor Fjell ses som «borte + ny» (beslutning 21), så beskyttelsen følger ikke med. Akseptabelt i V1?
 6. **Serier vs. visuelle duplikater**: samme bilde kan være medlem i både en `visual`- og en `series`-gruppe, og dermed ha to forslag (`UNIQUE(asset_id, kind)` tillater det). Integrer må avgjøre kortrekkefølge og «samme asset vises aldri i flere kort samtidig»-regelen.
 7. **Endring i delt fil midt i en gren** (f.eks. flere `ReasonCode`): sendes til Integrer, som samler dem i én PR mot kontrakten.
+8. **Ekte ansiktsmodell (people)**: `people` er ferdig mot `FaceAnalyzer`-trekket med `MemFaceAnalyzer` (tester) og `NullFaceAnalyzer` (`Unavailable`, standard). Modell for deteksjon og embedding er ikke valgt (lisens, ≤ 30 MB, ONNX, ARKITEKTUR beslutning 3), og ingen modell er lastet ned. Klyngeterskelen (`PeopleParams.threshold`, cosinus 0,6) er en plassholder som må kalibreres mot golden-korpus når modellen er valgt; embeddingdimensjonen følger modellen. Integrer må i tillegg: (a) kjøre `index_asset` og `cluster_new_faces` i pipeline bare når `face_index` er på, (b) koble `person_protect` til `protect` (`ProtectScope::Person`; `people::person_assets` gir bildene), og (c) la `face_index_wipe` varsle om hengende personbeskyttelser (jf. spørsmål 2).
+9. **Person-typer i `store`** (`PersonRow`, `FaceRow`) ligger i `store/people.rs`, men `store/mod.rs` (delt, låst) eksporterer dem ikke. `people` speiler det UI trenger (`PersonSummary`, `MergeOutcome`). Integrer kan legge til `pub use people::{FaceRow, PersonRow};` hvis `fjell-ffi` trenger dem direkte.
 
 ## 6. Definisjon av ferdig
 
