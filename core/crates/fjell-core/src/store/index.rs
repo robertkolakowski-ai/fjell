@@ -80,6 +80,25 @@ pub struct IndexRow {
     pub algo: u32,
 }
 
+fn map_index_row(r: &rusqlite::Row) -> rusqlite::Result<IndexRow> {
+    let hash: Option<Vec<u8>> = r.get(7)?;
+    Ok(IndexRow {
+        id: AssetId(r.get::<_, i64>(0)? as u64),
+        kind: kind_of(&r.get::<_, String>(1)?),
+        width: r.get::<_, i64>(2)? as u32,
+        height: r.get::<_, i64>(3)? as u32,
+        bytes: r.get::<_, i64>(4)? as u64,
+        created_at: r.get(5)?,
+        protect: ProtectFlags(r.get::<_, i64>(6)? as u8),
+        content_hash: hash.and_then(|h| <[u8; 32]>::try_from(h.as_slice()).ok()),
+        dhash: u64_of(r.get(8)?),
+        phash: u64_of(r.get(9)?),
+        blur: r.get::<_, Option<f64>>(10)?.map(|v| v as f32),
+        signals: r.get::<_, Option<i64>>(11)?.map(|v| v as u8),
+        algo: r.get::<_, i64>(12)? as u32,
+    })
+}
+
 fn kind_of(s: &str) -> Kind {
     match s {
         "screenshot_hint" => Kind::ScreenshotHint,
@@ -440,6 +459,23 @@ impl Store {
     pub fn index_rows(&self) -> Result<Vec<IndexRow>, StoreError> {
         index_rows_on(&self.conn)
     }
+
+    /// Som `index_rows`, men bare for `ids` (aktive bilder med fingeravtrykk), sortert på id.
+    pub fn index_rows_for(&self, ids: &[AssetId]) -> Result<Vec<IndexRow>, StoreError> {
+        let mut st = self.conn.prepare_cached(
+            "SELECT a.id, a.kind, a.width, a.height, a.bytes, a.created_at, a.protect_flags, \
+             f.content_hash, f.dhash, f.phash, f.blur_score, f.shot_signals, f.algo_ver \
+             FROM asset a JOIN fingerprint f ON f.asset_id = a.id WHERE a.state = 0 AND a.id = ?1",
+        )?;
+        let mut out = Vec::new();
+        for id in ids {
+            if let Some(r) = st.query_row([id.0 as i64], map_index_row).optional()? {
+                out.push(r);
+            }
+        }
+        out.sort_by_key(|r| r.id);
+        Ok(out)
+    }
 }
 
 pub(super) fn active_source_ids_on(
@@ -462,24 +498,7 @@ pub fn index_rows_on(conn: &rusqlite::Connection) -> Result<Vec<IndexRow>, Store
              f.content_hash, f.dhash, f.phash, f.blur_score, f.shot_signals, f.algo_ver \
              FROM asset a JOIN fingerprint f ON f.asset_id = a.id WHERE a.state = 0 ORDER BY a.id",
         )?;
-        let rows = st.query_map([], |r| {
-            let hash: Option<Vec<u8>> = r.get(7)?;
-            Ok(IndexRow {
-                id: AssetId(r.get::<_, i64>(0)? as u64),
-                kind: kind_of(&r.get::<_, String>(1)?),
-                width: r.get::<_, i64>(2)? as u32,
-                height: r.get::<_, i64>(3)? as u32,
-                bytes: r.get::<_, i64>(4)? as u64,
-                created_at: r.get(5)?,
-                protect: ProtectFlags(r.get::<_, i64>(6)? as u8),
-                content_hash: hash.and_then(|h| <[u8; 32]>::try_from(h.as_slice()).ok()),
-                dhash: u64_of(r.get(8)?),
-                phash: u64_of(r.get(9)?),
-                blur: r.get::<_, Option<f64>>(10)?.map(|v| v as f32),
-                signals: r.get::<_, Option<i64>>(11)?.map(|v| v as u8),
-                algo: r.get::<_, i64>(12)? as u32,
-            })
-        })?;
+        let rows = st.query_map([], map_index_row)?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 }

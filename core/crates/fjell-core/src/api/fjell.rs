@@ -2,11 +2,16 @@
 //! algoritmene. Se docs/mvp/ARKITEKTUR.md del 2 og PLAN-KJERNE del 8.
 //!
 //! Avhenger av: pipeline, actions, storage, store, model, `super` (typer). Grensesnitt:
-//! - `Fjell::new(store, source, clock)`: eier indeksen (`Mutex<Actions>`), én skrivetilkobling.
+//! - `Fjell::new(store, source, clock)`: eier indeksen (`Mutex<Actions>`), én skrivetilkobling. Uten
+//!   analysatorer (Null: `Unavailable`). `Fjell::with_analyzers(store, source, clock, eye, face)` injiserer
+//!   øye- og ansiktsmodeller (V1); etter hver skanning kjører `pipeline::run_analyzers`, og ansikter bare når
+//!   `face_index` er på.
 //! - `FjellApi::start_scan` starter pipeline i en egen tråd og returnerer straks; `Fjell::wait_scan()`
 //!   venter og gir `ScanReport` (CLI og tester), `last_report()` leser siste. `cancel()` setter flagget.
 //! - `Fjell::storage_summary()` / `largest_files(n)`: lagringsoversikt (lesing, egen tilkobling).
-//! - Resten av `FjellApi` ligger i `fjell_ops` (kort, beslutninger, angre, purge).
+//! - Resten av `FjellApi` ligger i `fjell_ops` (kort, beslutninger, angre, purge) og `fjell_v1` (V1: beskyttelse,
+//!   forslagsregler, personer, ansiktsindeks, dashboard, seriesammenligning, innstillinger). Keeper-reglene
+//!   ligger i `fjell_rules`.
 //!
 //! Etter trash/restore/purge kaller `Fjell` `pipeline::refresh_groups` (actions kan ikke kalle pipeline), i
 //! bakgrunnen og sammenslått (`Fjell::sync_groups` venter). Utregningen skjer utenfor indekslåsen.
@@ -14,7 +19,9 @@
 
 use super::{ApiError, ScanConfig, ScanMode, ScanPhase, ScanProgress};
 use crate::actions::{ActionError, Actions};
-use crate::model::{AssetSource, Clock};
+use crate::model::{
+    AssetSource, Clock, EyeAnalyzer, FaceAnalyzer, NullEyeAnalyzer, NullFaceAnalyzer,
+};
 use crate::pipeline::{self, GroupEngine, Phase, PipelineError, Progress, ScanReport, StoreHandle};
 use crate::store::Store;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -29,6 +36,8 @@ pub(super) struct Shared {
     pub actions: Mutex<Actions>,
     pub src: Arc<dyn AssetSource>,
     pub clock: Arc<dyn Clock>,
+    pub eye: Arc<dyn EyeAnalyzer>,
+    pub face: Arc<dyn FaceAnalyzer>,
     pub cancel: AtomicBool,
     pub progress: Progress,
     pub report: Mutex<Option<Result<ScanReport, String>>>,
@@ -84,11 +93,30 @@ pub(super) fn internal(e: impl std::fmt::Display) -> ApiError {
 
 impl Fjell {
     pub fn new(store: Store, src: Arc<dyn AssetSource>, clock: Arc<dyn Clock>) -> Fjell {
+        Fjell::with_analyzers(
+            store,
+            src,
+            clock,
+            Arc::new(NullEyeAnalyzer),
+            Arc::new(NullFaceAnalyzer),
+        )
+    }
+
+    /// Som `new`, men med øye- og ansiktsanalysatorer (modellene ligger utenfor kjernen og injiseres).
+    pub fn with_analyzers(
+        store: Store,
+        src: Arc<dyn AssetSource>,
+        clock: Arc<dyn Clock>,
+        eye: Arc<dyn EyeAnalyzer>,
+        face: Arc<dyn FaceAnalyzer>,
+    ) -> Fjell {
         Fjell {
             sh: Arc::new(Shared {
                 actions: Mutex::new(Actions::new(store, clock.clone())),
                 src,
                 clock,
+                eye,
+                face,
                 cancel: AtomicBool::new(false),
                 progress: Progress::new(),
                 report: Mutex::new(None),
@@ -284,6 +312,20 @@ impl Fjell {
                 &sh.progress,
                 &sh.cancel,
             );
+            // Øyne og ansikter etter selve skanningen; avbrutt skanning hopper over steget.
+            let r = r.and_then(|rep| {
+                if !rep.cancelled && !rep.deadline_hit {
+                    pipeline::run_analyzers(
+                        sh.src.as_ref(),
+                        &Handle(&sh),
+                        sh.eye.as_ref(),
+                        sh.face.as_ref(),
+                        sh.clock.as_ref(),
+                        &sh.cancel,
+                    )?;
+                }
+                Ok(rep)
+            });
             let r = r.map_err(|e: PipelineError| e.to_string());
             *sh.report.lock().unwrap_or_else(|e| e.into_inner()) = Some(r);
         }));

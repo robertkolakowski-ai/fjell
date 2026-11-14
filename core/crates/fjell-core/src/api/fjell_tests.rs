@@ -269,7 +269,10 @@ fn trashed_images_stay_trashed_through_a_rescan_and_settings_roundtrip() {
     .unwrap();
     f.wait_scan().unwrap().unwrap();
     assert_eq!(state(&f, c.asset), State::Trashed);
-    f.set_settings(Settings { trash_days: 7 });
+    f.set_settings(Settings {
+        trash_days: 7,
+        ..Settings::default()
+    });
     assert_eq!(f.settings().trash_days, 7);
 }
 

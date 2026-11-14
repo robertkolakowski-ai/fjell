@@ -146,6 +146,175 @@ fn action_log_is_append_only() {
     assert_eq!(n, 1);
 }
 
+fn table_count(conn: &Connection, table: &str) -> i64 {
+    conn.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
+        .unwrap()
+}
+
+/// 005 skriver om `grp` og `suggestion` uten å miste rader eller utløse kaskade, selv med FK på.
+/// Utgangspunktet er versjon 4 (main): kolonnene `keeper_reason`/`keeper_rule` og indeksene fra 002 og 003 består.
+#[test]
+fn v5_rewrite_keeps_rows_triggers_and_foreign_keys() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    conn.pragma_update(None, "foreign_keys", true).unwrap();
+    migrate_to(&mut conn, 4).unwrap();
+    let a = insert_asset(&conn, 0);
+    let b = insert_asset(&conn, 0);
+    conn.execute(
+        "INSERT INTO grp(id, kind, keeper_id, created_at, keeper_reason, keeper_rule) \
+         VALUES (7, 'visual', ?1, 5, NULL, 'prefer_folder:C%3A/Foto')",
+        [a],
+    )
+    .unwrap();
+    for (asset, rank) in [(a, 0), (b, 1)] {
+        conn.execute(
+            "INSERT INTO grp_member(grp_id, asset_id, rank, score) VALUES (7, ?1, ?2, 0.5)",
+            [asset, rank],
+        )
+        .unwrap();
+    }
+    conn.execute(
+        "INSERT INTO suggestion(id, asset_id, kind, grp_id, reason_code, confidence, status) \
+         VALUES (3, ?1, 'visual_dup', 7, 'visual_duplicate', 0.9, 'rejected')",
+        [b],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO action_log(batch_id, ts, op, asset_id, prev_state, cause) VALUES (1, 0, 'keep', ?1, 0, 'user')",
+        [a],
+    )
+    .unwrap();
+
+    migrate_to(&mut conn, 5).unwrap();
+
+    assert_eq!(table_count(&conn, "grp"), 1);
+    let (keeper, reason, rule): (i64, Option<String>, Option<String>) = conn
+        .query_row(
+            "SELECT keeper_id, keeper_reason, keeper_rule FROM grp WHERE id = 7",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        (keeper, reason, rule.as_deref()),
+        (a, None, Some("prefer_folder:C%3A/Foto"))
+    );
+    let dump = dump_of(&conn);
+    for index in [
+        "index|idx_suggestion_cards|",
+        "index|idx_suggestion_asset|",
+        "index|idx_suggestion_grp|",
+        "index|idx_grp_member_asset|",
+    ] {
+        assert!(dump.contains(index), "{index} mangler etter 005");
+    }
+    assert_eq!(
+        table_count(&conn, "grp_member"),
+        2,
+        "ingen kaskade ved DROP"
+    );
+    let (kind, grp_id, status): (String, i64, String) = conn
+        .query_row(
+            "SELECT kind, grp_id, status FROM suggestion WHERE id = 3",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        (kind.as_str(), grp_id, status.as_str()),
+        ("visual_dup", 7, "rejected")
+    );
+    let fk: bool = conn
+        .pragma_query_value(None, "foreign_keys", |r| r.get(0))
+        .unwrap();
+    assert!(fk, "foreign_keys gjenopprettes etter migrering");
+
+    // Nye forslags- og gruppetyper er tillatt; ukjente er det fortsatt ikke.
+    conn.execute("INSERT INTO grp(kind, created_at) VALUES ('series', 1)", [])
+        .unwrap();
+    assert!(conn
+        .execute("INSERT INTO grp(kind, created_at) VALUES ('nope', 1)", [])
+        .is_err());
+    for kind in ["series", "rule"] {
+        conn.execute(
+            "INSERT INTO suggestion(asset_id, kind, reason_code, confidence) VALUES (?1, ?2, 'x', 0.5)",
+            rusqlite::params![a, kind],
+        )
+        .unwrap();
+    }
+    assert!(conn
+        .execute(
+            "INSERT INTO suggestion(asset_id, kind, reason_code, confidence) VALUES (?1, 'bogus', 'x', 0.5)",
+            [a],
+        )
+        .is_err());
+    // Triggere fra 001 lever videre (I2, I14).
+    assert!(set_state(&conn, a, 2).is_err());
+    assert!(conn.execute("DELETE FROM action_log", []).is_err());
+}
+
+/// V1-tabellene finnes, beskyttelse er unik per (scope, target), regler slettes aldri hardt, ansiktsindeks er av.
+#[test]
+fn v5_tables_defaults_and_guards() {
+    let store = Store::open_in_memory().unwrap();
+    let c = store.conn();
+    for t in [
+        "protection",
+        "eye_result",
+        "person",
+        "face_embedding",
+        "rule",
+        "rule_hit",
+    ] {
+        assert_eq!(table_count(c, t), 0, "{t}");
+    }
+    let v: String = c
+        .query_row(
+            "SELECT value FROM setting WHERE key = 'face_index_enabled'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(v, "0");
+    c.execute(
+        "INSERT INTO protection(scope, target, created_at) VALUES ('folder', 'C:/Foto', 1)",
+        [],
+    )
+    .unwrap();
+    assert!(c
+        .execute(
+            "INSERT INTO protection(scope, target, created_at) VALUES ('folder', 'C:/Foto', 2)",
+            [],
+        )
+        .is_err());
+    assert!(c
+        .execute(
+            "INSERT INTO protection(scope, target, created_at) VALUES ('tag', 'x', 2)",
+            [],
+        )
+        .is_err());
+    c.execute(
+        "INSERT INTO rule(name, spec, created_at) VALUES ('r', 's', 1)",
+        [],
+    )
+    .unwrap();
+    assert!(c.execute("DELETE FROM rule", []).is_err());
+    assert!(
+        c.execute("UPDATE person SET merged_into = id", []).is_ok(),
+        "ingen rader ennå"
+    );
+    c.execute("INSERT INTO person(id, created_at) VALUES (1, 1)", [])
+        .unwrap();
+    assert!(c
+        .execute("UPDATE person SET merged_into = 1 WHERE id = 1", [])
+        .is_err());
+    assert_eq!(store.protection_count().unwrap(), 1);
+    assert_eq!(store.rule_count().unwrap(), 1);
+    assert_eq!(store.eye_result_count().unwrap(), 0);
+    assert_eq!(store.face_count().unwrap(), 0);
+    assert_eq!(store.active_asset_count().unwrap(), 0);
+}
+
 /// Stort bibliotek: `DELETE FROM grp` setter `suggestion.grp_id` til NULL (FK `ON DELETE SET NULL`); uten indeks på
 /// kolonnen skanner SQLite hele forslagstabellen per slettet gruppe. Spørringsplanen skal bruke indeksen.
 #[test]
@@ -189,4 +358,182 @@ fn v3_database_upgrades_to_keeper_rule_without_losing_index_or_data() {
         .query_row("SELECT value FROM setting WHERE key='k'", [], |r| r.get(0))
         .unwrap();
     assert_eq!(v, "v");
+}
+
+/// En eksisterende database fra main (versjon 4, med keeper-regler, grupper, forslag, papirkurv og logg) åpnes
+/// av denne kjernen og oppgraderes til siste versjon uten tap: hver rad i hver tabell fra versjon 4 er uendret,
+/// keeper-reglene (`setting.keeper_rules`, `grp.keeper_reason`, `grp.keeper_rule`) leses som før, og skjemaet er
+/// likt en fersk database.
+#[test]
+fn main_v4_database_upgrades_to_latest_without_loss() {
+    use rusqlite::OptionalExtension;
+    use std::collections::BTreeMap;
+    const TABLES: [(&str, &str); 7] = [
+        ("asset", "id"),
+        ("fingerprint", "asset_id"),
+        ("grp", "id"),
+        ("grp_member", "grp_id, asset_id"),
+        ("suggestion", "id"),
+        ("action_log", "id"),
+        ("setting", "key"),
+    ];
+    // Alle kolonner som fantes i versjon 4, rad for rad, som tekst.
+    fn rows(conn: &Connection, cols: &BTreeMap<&str, Vec<String>>) -> Vec<String> {
+        let mut out = Vec::new();
+        for (table, order) in TABLES {
+            let list = cols[table].join(", ");
+            let quoted = cols[table]
+                .iter()
+                .map(|c| format!("quote({c})"))
+                .collect::<Vec<_>>()
+                .join(" || '|' || ");
+            let mut st = conn
+                .prepare(&format!(
+                    "SELECT {quoted} FROM (SELECT {list} FROM {table} ORDER BY {order})"
+                ))
+                .unwrap();
+            let got: Vec<String> = st
+                .query_map([], |r| r.get(0))
+                .unwrap()
+                .collect::<Result<_, _>>()
+                .unwrap();
+            out.extend(got.into_iter().map(|r| format!("{table}|{r}")));
+        }
+        out
+    }
+    let path = tmp_db("v4-upgrade");
+    let keeper_rules = "prefer_folder\tC%3A/Foto\t5\nprotect_folder\tC%3A/Arkiv\nprefer_newest\n";
+    let (before, cols) = {
+        let mut conn = Connection::open(&path).unwrap();
+        conn.pragma_update(None, "foreign_keys", true).unwrap();
+        migrate_to(&mut conn, 4).unwrap();
+        let a = insert_asset(&conn, 0);
+        let b = insert_asset(&conn, 0);
+        let c = insert_asset(&conn, 0);
+        let d = insert_asset(&conn, 0);
+        for id in [a, b, c] {
+            conn.execute(
+                "INSERT INTO fingerprint(asset_id, content_hash, dhash, phash, blur_score, shot_signals, algo_ver) \
+                 VALUES (?1, zeroblob(32), 1, 2, 0.5, 0, 1)",
+                [id],
+            )
+            .unwrap();
+        }
+        // Gruppe valgt av en keeper-regel, og en valgt av K5.
+        conn.execute(
+            "INSERT INTO grp(id, kind, keeper_id, created_at, keeper_reason, keeper_rule) \
+             VALUES (7, 'exact', ?1, 5, NULL, 'prefer_folder:C%3A/Foto')",
+            [a],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO grp(id, kind, keeper_id, created_at, keeper_reason, keeper_rule) \
+             VALUES (8, 'visual', ?1, 6, 'sharper', NULL)",
+            [c],
+        )
+        .unwrap();
+        for (grp, asset, rank) in [(7, a, 0), (7, b, 1), (8, c, 0), (8, d, 1)] {
+            conn.execute(
+                "INSERT INTO grp_member(grp_id, asset_id, rank, score) VALUES (?1, ?2, ?3, 0.5)",
+                [grp, asset, rank],
+            )
+            .unwrap();
+        }
+        conn.execute(
+            "INSERT INTO suggestion(id, asset_id, kind, grp_id, reason_code, confidence, status) \
+             VALUES (3, ?1, 'exact_dup', 7, 'exact_copy', 1.0, 'accepted')",
+            [b],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO suggestion(id, asset_id, kind, grp_id, reason_code, confidence, status) \
+             VALUES (4, ?1, 'visual_dup', 8, 'visual_duplicate', 0.9, 'pending')",
+            [d],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO suggestion(id, asset_id, kind, grp_id, reason_code, confidence, status) \
+             VALUES (5, ?1, 'blurry', NULL, 'blurry', 0.7, 'rejected')",
+            [c],
+        )
+        .unwrap();
+        // b ligger i papirkurven (angrebar), med logg.
+        conn.execute(
+            "INSERT INTO action_log(batch_id, ts, op, asset_id, prev_state, cause, suggestion_id) \
+             VALUES (1, 10, 'trash', ?1, 0, 'user', 3)",
+            [b],
+        )
+        .unwrap();
+        set_state(&conn, b, 1).unwrap();
+        conn.execute(
+            "INSERT INTO setting(key, value) VALUES ('keeper_rules', ?1)",
+            [keeper_rules],
+        )
+        .unwrap();
+        let mut cols = BTreeMap::new();
+        for (table, _) in TABLES {
+            let names: Vec<String> = conn
+                .prepare(&format!("SELECT name FROM pragma_table_info('{table}')"))
+                .unwrap()
+                .query_map([], |r| r.get(0))
+                .unwrap()
+                .collect::<Result<_, _>>()
+                .unwrap();
+            assert!(!names.is_empty(), "{table}");
+            cols.insert(table, names);
+        }
+        (rows(&conn, &cols), cols)
+    };
+    assert!(before.len() >= 16, "testdata mangler: {before:?}");
+
+    let store = Store::open(&path).unwrap();
+    assert_eq!(store.user_version().unwrap(), MIGRATIONS.len() as u32);
+    assert_eq!(
+        store.schema_dump().unwrap(),
+        Store::open_in_memory().unwrap().schema_dump().unwrap(),
+        "oppgradert skjema er likt et ferskt"
+    );
+    let mut after = rows(store.conn(), &cols);
+    // Eneste nye rad i tabellene fra versjon 4: standardverdien for ansiktsindeks (av).
+    let added: Vec<String> = after
+        .iter()
+        .filter(|r| !before.contains(r))
+        .cloned()
+        .collect();
+    assert_eq!(added, vec!["setting|'face_index_enabled'|'0'".to_string()]);
+    after.retain(|r| before.contains(r));
+    assert_eq!(after, before, "ingen rad endret eller tapt");
+    // Keeper-reglene fra main leses uendret gjennom lagringsgrensesnittet.
+    assert_eq!(
+        store.setting(KEEPER_RULES_KEY).unwrap().as_deref(),
+        Some(keeper_rules)
+    );
+    let groups = store.rule_groups().unwrap();
+    assert_eq!(groups.len(), 1, "bare gruppe 8 har alle medlemmer aktive");
+    assert_eq!(groups[0].id.0, 8);
+    let broken: Option<String> = store
+        .conn()
+        .query_row("PRAGMA foreign_key_check", [], |r| r.get(0))
+        .optional()
+        .unwrap();
+    assert_eq!(broken, None);
+    // Papirkurven er urørt og fortsatt angrebar (tilstand 1 -> 0 er lov).
+    let trashed: i64 = store
+        .conn()
+        .query_row("SELECT count(*) FROM asset WHERE state = 1", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(trashed, 1);
+    // V1-tabellene er tomme: ingen forslagsregler, ingen beskyttelse, ingen ansikter.
+    for t in [
+        "protection",
+        "eye_result",
+        "person",
+        "face_embedding",
+        "rule",
+        "rule_hit",
+    ] {
+        assert_eq!(table_count(store.conn(), t), 0, "{t}");
+    }
 }

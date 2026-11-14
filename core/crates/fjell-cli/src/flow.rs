@@ -37,11 +37,11 @@ impl std::fmt::Display for FlowError {
     }
 }
 
-fn fail(e: impl std::fmt::Debug) -> FlowError {
+pub fn fail(e: impl std::fmt::Debug) -> FlowError {
     FlowError::Failed(format!("{e:?}"))
 }
 
-fn w(out: &mut dyn Write, s: String) -> Result<(), FlowError> {
+pub fn w(out: &mut dyn Write, s: String) -> Result<(), FlowError> {
     writeln!(out, "{s}").map_err(fail)
 }
 
@@ -54,7 +54,7 @@ impl Clock for SysClock {
     }
 }
 
-fn open(dir: &Path, db: &Path) -> Result<Fjell, FlowError> {
+pub fn open(dir: &Path, db: &Path) -> Result<Fjell, FlowError> {
     // Kanoniser (`..`, symlenker). Finnes ikke db ennå, kanoniser foreldermappen.
     let canon = |p: &Path| {
         fs::canonicalize(p).unwrap_or_else(|_| match (p.parent(), p.file_name()) {

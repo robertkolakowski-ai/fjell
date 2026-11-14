@@ -4,7 +4,8 @@
 //! Grensesnitt:
 //! - `pending_cards(kind, limit, after)`: ventende forslag på aktive bilder, mest sikre først
 //!   (`confidence DESC, id`), med nøkkelsidering (`after` = konfidens og forslags-id fra forrige side).
-//!   Samme bilde vises aldri i flere kort: prioritet exact_dup > visual_dup > screenshot > blurry.
+//!   Samme bilde vises aldri i flere kort: prioritet exact_dup > visual_dup > series > rule > screenshot > blurry
+//!   (V1: serier og regler plasseres etter duplikattypene de overlapper med, jf. V1-PLAN åpent spørsmål 6).
 //! - `suggestion_rows(ids)`: forslag per kort-id (kort-id = `suggestion.id`).
 //! - `kind_totals()`: antall og byte per forslagstype med samme synlighetsregel som `pending_cards`.
 
@@ -15,7 +16,8 @@ use rusqlite::params;
 /// Prioritet (lavest tall vinner) som SQL-uttrykk for kolonnen `col`.
 fn prio(col: &str) -> String {
     format!(
-        "(CASE {col} WHEN 'exact_dup' THEN 0 WHEN 'visual_dup' THEN 1 WHEN 'screenshot' THEN 2 ELSE 3 END)"
+        "(CASE {col} WHEN 'exact_dup' THEN 0 WHEN 'visual_dup' THEN 1 WHEN 'series' THEN 2 WHEN 'rule' THEN 3 \
+         WHEN 'screenshot' THEN 4 ELSE 5 END)"
     )
 }
 

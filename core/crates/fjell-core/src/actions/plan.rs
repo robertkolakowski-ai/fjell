@@ -2,6 +2,8 @@
 //!
 //! Grensesnitt: `Actions::plan(&PlanRequest) -> Plan`, `Actions::plan_pending() -> Plan`,
 //! `acks_covering(&Plan) -> Acks` (crate-internt: det `api` lager etter brukerens bekreftelse).
+//! V1 (`protect`): bilder beskyttet via `protection` (bilde, mappe, album, person) telles i `ProtectCounts.scope`,
+//! gir `ConsequenceCode::ProtectedByScope` og holdes utenfor `plan_pending` (appen foreslår dem aldri).
 //! `plan` tar `&self` og skriver aldri (I6). Vakt: ingen gruppe mister alle aktive medlemmer (I8).
 
 use super::digest::{digest_rows, Snapshot};
@@ -66,7 +68,13 @@ impl Actions {
             bytes: rows.iter().map(|r| r.bytes).sum(),
             rows,
         };
-        let summary = self.summarize(&items, &snap)?;
+        let scoped: HashSet<AssetId> = self
+            .store
+            .protected_by_scope(&ids)?
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        let summary = self.summarize(&items, &snap, &scoped)?;
         Ok(Plan {
             items,
             summary,
@@ -81,10 +89,16 @@ impl Actions {
         let pending = self.store.pending_suggestions()?;
         let asset_ids: Vec<AssetId> = pending.iter().map(|p| p.asset_id).collect();
         let rows = self.store.asset_rows(&asset_ids)?;
+        let scoped: HashSet<AssetId> = self
+            .store
+            .protected_by_scope(&asset_ids)?
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
         let mut picks: Vec<Selection> = Vec::new();
         let mut groups: Vec<crate::model::GroupId> = Vec::new();
         for (p, row) in pending.iter().zip(rows) {
-            if row.is_some_and(|r| r.protect.is_protected()) {
+            if row.is_some_and(|r| r.protect.is_protected()) || scoped.contains(&p.asset_id) {
                 continue;
             }
             groups.extend(p.group);
@@ -127,7 +141,12 @@ impl Actions {
         Ok(())
     }
 
-    fn summarize(&self, items: &[PlannedItem], snap: &Snapshot) -> Result<ConsequenceSummary> {
+    fn summarize(
+        &self,
+        items: &[PlannedItem],
+        snap: &Snapshot,
+        scoped: &HashSet<AssetId>,
+    ) -> Result<ConsequenceSummary> {
         let (mut by_kind, mut prot) = (KindCounts::default(), ProtectCounts::default());
         let mut albums: BTreeMap<u64, (String, u64)> = BTreeMap::new();
         for it in items {
@@ -136,11 +155,14 @@ impl Actions {
                 Some(SuggestionKind::VisualDup) => by_kind.visual_dup += 1,
                 Some(SuggestionKind::Blurry) => by_kind.blurry += 1,
                 Some(SuggestionKind::Screenshot) => by_kind.screenshot += 1,
+                Some(SuggestionKind::Series) => by_kind.series += 1,
+                Some(SuggestionKind::Rule) => by_kind.rule += 1,
                 None => by_kind.manual += 1,
             }
             prot.favorite += it.protect.has(ProtectFlags::FAVORITE) as u64;
             prot.shared_album += it.protect.has(ProtectFlags::SHARED_ALBUM) as u64;
             prot.edited += it.protect.has(ProtectFlags::EDITED) as u64;
+            prot.scope += scoped.contains(&it.id) as u64;
         }
         let ids: Vec<AssetId> = items.iter().map(|i| i.id).collect();
         for (_, id, name) in self.store.albums_for(&ids)? {
@@ -169,6 +191,9 @@ impl Actions {
             if items.iter().any(|i| i.protect.has(flag)) {
                 codes.push(code);
             }
+        }
+        if prot.scope > 0 {
+            codes.push(ConsequenceCode::ProtectedByScope);
         }
         if !albums.is_empty() {
             codes.push(ConsequenceCode::InAlbum);
@@ -223,3 +248,6 @@ pub(crate) fn acks_covering(plan: &Plan) -> Acks {
         mass: Some(MassAck::new(plan.digest)),
     }
 }
+
+#[cfg(test)]
+mod scope_tests;

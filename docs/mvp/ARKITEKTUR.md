@@ -38,14 +38,14 @@ Lagdelt og asyklisk. En modul kan bare avhenge av moduler i lavere lag. Regelen 
 ```
 L4  api
 L3  pipeline
-L2  cluster   suggest   actions   rules   storage
+L2  cluster   suggest   actions   rules   storage   series   people   suggest_rules   protect   dashboard   (de fem siste: V1)
 L1  store   hash   quality   screenshot
 L0  model   (inkl. traits for AssetSource og Clock)
 ```
 
 | Modul | Lag | Ansvar | Avhenger av | Grensesnitt (hovedpunkter) |
 |---|---|---|---|---|
-| `model` | L0 | Typer: `AssetId`, `Asset`, `Kind`, `State`, `ReasonCode`, `Hash64`. Traits `AssetSource`, `Clock`. Ingen I/O. | (ingen) | `trait AssetSource { list_changes(since) -> ChangeSet { changed: Vec<AssetMeta>, removed: Vec<SourceId>, next_token }; thumbnail(id) -> Thumb; read_bytes(id) -> Reader }` |
+| `model` | L0 | Typer: `AssetId`, `Asset`, `Kind`, `State`, `ReasonCode`, `Hash64`. Traits `AssetSource`, `Clock` (V1: `EyeAnalyzer`, `FaceAnalyzer`, `SeriesId`, `PersonId`, `RuleId`, `ProtectScope`, `RuleSpec`, `DashboardData`). Ingen I/O. | (ingen) | `trait AssetSource { list_changes(since) -> ChangeSet { changed: Vec<AssetMeta>, removed: Vec<SourceId>, next_token }; thumbnail(id) -> Thumb; read_bytes(id) -> Reader }` |
 | `store` | L1 | SQLite: skjema, migrering, spørringer, transaksjoner. | model | `Store::open`, `upsert_assets`, `put_fingerprints`, `set_state(batch)`, `next_cards(limit)`, `log_batch`, `pop_batch` |
 | `hash` | L1 | BLAKE3 over bytes, dHash og pHash fra miniatyr. Ren funksjon. | model | `content_hash(Reader) -> [u8;32]`, `perceptual(Thumb) -> (Hash64, Hash64)` |
 | `quality` | L1 | Uskarphetsscore fra miniatyr. Ren funksjon. | model | `blur_score(Thumb) -> f32` |
@@ -55,6 +55,11 @@ L0  model   (inkl. traits for AssetSource og Clock)
 | `rules` | L2 | Brukerstyrte keeper-regler («foreslå»-regler med typet begrunnelse). Velger bare keeper; flytter eller sletter aldri. Ren funksjon. | model | `decide(rules, kandidater) -> Decision`, `protecting_prefix(rules, sti)`, `encode_rules`/`decode_rules` (se `docs/mvp/REGLER.md`) |
 | `storage` | L2 | Lagringsoversikt: ren leseside over indeksen (størrelse per type, mappe, største filer, plass bak forslag, papirkurv). Ingen dekoding. | store, model | `summarize(&Store, &StorageOptions) -> StorageSummary` (se `docs/mvp/LAGRING.md`) |
 | `actions` | L2 | Papirkurv, gjenopprett, behold, tøm, angre, utløp. Alt som batch. | store, model | `plan(req)`, `commit(plan, acks)`, `restore(ids)`, `keep(ids)`, `set_keeper`, `undo()`, `expire_due()`, `finish_purge(ticket, results)` (detaljer: PLAN-TRYGGHET). `purge` betyr «oppdater indeks etter plattformens svar», ikke selve slettingen |
+| `series` (V1) | L2 | Serier: rekker av nesten like bilder tatt tett i tid; beste bilde (inkl. lukkede øyne via `EyeAnalyzer`). | model, store | Se docs/v1/V1-PLAN.md. Lagres som `grp.kind = 'series'`. |
+| `people` (V1) | L2 | Personer fra ansiktsindeks (`FaceAnalyzer`), navn, sammenslåing. Av som standard; embeddings bare lokalt. | model, store | Se V1-PLAN. `person`, `face_embedding`. |
+| `suggest_rules` (V1) | L2 | Forslagsregler (`RuleSpec`): evaluering, forhåndsvisning. Foreslår bare, sletter aldri. Egen funksjon ved siden av keeper-reglene i `rules`; keeper-reglenes beskyttede mapper (`ProtectFolder`) sperrer forslag via `Guard`, som `pipeline`/`api` bygger. | model, store | Se V1-PLAN. `rule`, `rule_hit`. `evaluate(store, now, guard)`, `preview`, `save`/`toggle`/`delete`/`restore`. |
+| `protect` (V1) | L2 | Beskyttelse per bilde, mappe, album og person (`ProtectScope`). | model, store | Se V1-PLAN. `protection`. |
+| `dashboard` (V1) | L2 | Lesemodell (`DashboardData`) fra indeksen. | model, store | Se V1-PLAN. Bare lesing. |
 | `pipeline` | L3 | Skanning, inkrementell oppdatering, parallell analyse, fremdrift, avbrudd. | store, hash, quality, screenshot, cluster, suggest, model | `scan(&dyn AssetSource, Progress) -> ScanReport`, `cancel()` |
 | `api` | L4 | Eneste offentlige flate. I MVP kalles den direkte fra Tauri-kommandoer (Rust); UniFFI-grensen kommer med mobilfasen. Samler pipeline, actions og lesemodeller. | pipeline, actions, store, model | `Fjell::open`, `start_scan(ScanConfig{mode: Quick|Full, priority, deadline})`, `cards(kind, limit, cursor)`, `decide_many(Vec<(CardId, Decision)>)` (internt plan + commit, én batch), `set_keeper`, `begin_purge`/`confirm_purge`/`finish_purge`, `undo`, `home_summary`, `trash_summary`, `settings` |
 
@@ -80,6 +85,8 @@ Alle nøkler er `INTEGER PRIMARY KEY` hvis ikke annet er oppgitt. Tider er Unix-
 | `setting` | `key TEXT` | `value` | Papirkurvfrist (30 dager), terskler, språkvalg, `scan_cursor`. |
 | `album` | `id` | `name`, `shared` | Fra adapter. |
 | `asset_album` | `(asset_id, album_id)` | - | `idx(asset_id)`. Brukes av konsekvensforhåndsvisning. |
+
+V1-utvidelse (migrering 5, `005_v1.sql`; `001`–`004` er uendret, og kolonnene `grp.keeper_reason`/`grp.keeper_rule` og indeksene fra 002 og 003 følger med gjennom omskrivingen): `grp.kind` får `series`, `suggestion.kind` får `series` og `rule` (tabellomskriving med `foreign_keys` av og `foreign_key_check`), og nye tabeller `protection(scope, target, created_at)`, `eye_result`, `person` (`merged_into` for angrebar sammenslåing), `face_embedding` (BLOB, kun lokal), `rule` (forslagsregler, `deleted_at`, aldri hard sletting) og `rule_hit`. Keeper-reglene fra migrering 4 (`setting.keeper_rules`, docs/mvp/REGLER.md) er urørt. `setting.face_index_enabled` er `0` som standard. Detaljer og eierskap: `docs/v1/V1-PLAN.md`.
 
 Regler:
 - Skjemaversjon i `PRAGMA user_version`. Hver migrering er én SQL-fil med test.

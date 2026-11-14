@@ -328,6 +328,89 @@ export interface MessageParams {
   "thumb.error.corrupt": Record<never, never>;
   "thumb.error.not_found": Record<never, never>;
   "thumb.error.no_library": Record<never, never>;
+  "reason.series_member": { index: string | number; of: string | number };
+  "reason.keeper_best_overall": Record<never, never>;
+  "reason.keeper_eyes_open": Record<never, never>;
+  "reason.closed_eyes": Record<never, never>;
+  "reason.rule": { name: string | number };
+  "reason.protected_person": Record<never, never>;
+  "protect.title.label": Record<never, never>;
+  "protect.add.button": Record<never, never>;
+  "protect.remove.button": Record<never, never>;
+  "protect.scope.asset": Record<never, never>;
+  "protect.scope.folder": Record<never, never>;
+  "protect.scope.album": Record<never, never>;
+  "protect.scope.person": Record<never, never>;
+  "protect.confirm.body": { count: number };
+  "protect.empty.note": Record<never, never>;
+  "protect.undo.note": Record<never, never>;
+  "series.title.label": Record<never, never>;
+  "series.compare.title": Record<never, never>;
+  "series.keeper.badge": Record<never, never>;
+  "series.keeper.set": Record<never, never>;
+  "series.count.label": { count: number };
+  "series.eyes.unavailable": Record<never, never>;
+  "dashboard.title.label": Record<never, never>;
+  "dashboard.cleanable.label": Record<never, never>;
+  "dashboard.trash.label": Record<never, never>;
+  "dashboard.freed.label": Record<never, never>;
+  "dashboard.freed.empty": Record<never, never>;
+  "dashboard.progress.label": { done: string | number; total: string | number };
+  "dashboard.next.label": Record<never, never>;
+  "dashboard.folders.label": Record<never, never>;
+  "dashboard.months.label": Record<never, never>;
+  "people.title.label": Record<never, never>;
+  "people.index.toggle": Record<never, never>;
+  "people.index.note": Record<never, never>;
+  "people.index.wipe": Record<never, never>;
+  "people.index.wipe.confirm": Record<never, never>;
+  "people.index.wipe.dormant": Record<never, never>;
+  "people.name.hint": Record<never, never>;
+  "people.merge.button": Record<never, never>;
+  "people.unmerge.button": Record<never, never>;
+  "people.empty.note": Record<never, never>;
+  "rules.title.label": Record<never, never>;
+  "rules.add.button": Record<never, never>;
+  "rules.name.hint": Record<never, never>;
+  "rules.preview.label": { count: number; size: string | number };
+  "rules.note.suggest": Record<never, never>;
+  "rules.toggle.label": Record<never, never>;
+  "rules.delete.button": Record<never, never>;
+  "rules.restore.button": Record<never, never>;
+  "rules.empty.note": Record<never, never>;
+  "rules.cond.screenshot": Record<never, never>;
+  "rules.cond.blurry": Record<never, never>;
+  "rules.cond.exact_duplicate": Record<never, never>;
+  "rules.cond.older_than": { days: number };
+  "rules.cond.larger_than": { size: string | number };
+  "rules.cond.smaller_than": { size: string | number };
+  "rules.cond.in_album": { name: string | number };
+  "rules.cond.in_folder": { name: string | number };
+  "rules.cond.mime": { type: string | number };
+  "rules.error.empty": Record<never, never>;
+  "settings.sensitivity.low": Record<never, never>;
+  "settings.sensitivity.normal": Record<never, never>;
+  "settings.sensitivity.high": Record<never, never>;
+  "consequence.protected_by_scope": Record<never, never>;
+  "error.empty_folder": Record<never, never>;
+  "error.unknown_target": Record<never, never>;
+  "error.empty_rule": Record<never, never>;
+  "error.empty_name": Record<never, never>;
+  "error.name_too_long": Record<never, never>;
+  "error.invalid_condition": Record<never, never>;
+  "error.rule_not_found": Record<never, never>;
+  "error.unknown_person": Record<never, never>;
+  "error.not_merged": Record<never, never>;
+  "error.unknown_series": Record<never, never>;
+  "dashboard.next.review": { count: number; kind: string | number; size: string | number };
+  "dashboard.next.empty_trash": { count: number; size: string | number };
+  "dashboard.next.nothing": Record<never, never>;
+  "suggestion.kind.exact_dup": Record<never, never>;
+  "suggestion.kind.visual_dup": Record<never, never>;
+  "suggestion.kind.blurry": Record<never, never>;
+  "suggestion.kind.screenshot": Record<never, never>;
+  "suggestion.kind.series": Record<never, never>;
+  "suggestion.kind.rule": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;
@@ -453,4 +536,10 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "update.manual.title",
   "update.manual.copy",
   "update.auto.label",
+  "reason.series_member",
+  "reason.keeper_best_overall",
+  "reason.keeper_eyes_open",
+  "reason.closed_eyes",
+  "reason.rule",
+  "reason.protected_person",
 ]);

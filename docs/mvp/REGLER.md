@@ -38,9 +38,9 @@ Et bilde under en `ProtectFolder` får aldri forslag om papirkurv (heller ikke u
 `key()` gir `prefer_folder` osv.; UI oversetter `rule.<key>` og setter inn mappen. Lagres i `grp.keeper_rule`
 som `nøkkel[:param]`; `keeper_reason` er da NULL. Ingen ferdig tekst i kjernen.
 
-## Lagring (migrasjon 3)
-Regellisten ligger i `setting` (`keeper_rules`, én regel per linje, tab-separert, escapet). Migrasjon 3 legger til
-`grp.keeper_rule`. En indeks uten regler migreres uten endring i oppførsel.
+## Lagring (migrering 4)
+Regellisten ligger i `setting` (`keeper_rules`, én regel per linje, tab-separert, escapet). Migrering 4
+(`004_keeper_rule.sql`) legger til `grp.keeper_rule`. En indeks uten regler migreres uten endring i oppførsel.
 
 ## API (`Fjell`)
 - `set_keeper_rules(regler)` / `keeper_rules()`: lagrer/leser listen. Lagring regner om grupper, men eksisterende
@@ -50,6 +50,15 @@ Regellisten ligger i `setting` (`keeper_rules`, én regel per linje, tab-separer
 - `apply_keeper_rules()`: «bruk regler på gjenstående grupper». Berører bare grupper der alle medlemmer er
   aktive, alle forslag er ventende og keeper ikke er valgt manuelt. Avviste/godtatte forslag, manuelle valg og
   papirkurv røres aldri. Tomme regler tilbakestiller til K5. `rule = None` i en endring betyr K5.
+
+## Forholdet til V1 (serier og forslagsregler)
+V1 legger forslagsregler (`suggest_rules`, tabellene `rule`/`rule_hit`, docs/v1/V1-PLAN.md) og serier oppå. Keeper-reglene
+her er uendret i oppførsel og API, og de gjelder foran:
+- Et bilde under en `ProtectFolder` får heller ikke serie- eller regelforslag, og telles ikke i forhåndsvisningen av en
+  forslagsregel. `pipeline` og `api` gir beskyttelsen videre som en sperre (`suggest_rules::Guard`).
+- Forslagsreglene endrer aldri keeper, og `apply_keeper_rules` rører aldri serier (`grp.kind = 'series'`).
+- Migrering 5 (`005_v1.sql`) skriver om `grp` og `suggestion`; `keeper_reason`, `keeper_rule` og `setting.keeper_rules`
+  følger med uendret (testet i `store/migrate_tests.rs`).
 
 ## Kjente begrensninger
 - «Manuelt valgt» kjennes på `keeper_reason` og `keeper_rule` begge NULL.
