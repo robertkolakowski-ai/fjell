@@ -21,6 +21,7 @@ Fjell gjør tusenvis av ukurerte bilder om til et bibliotek du faktisk vil åpne
 | [docs/VEIKART.md](docs/VEIKART.md) | Faser, forretningsmodell, suksessmål, risikoer |
 | [docs/mvp/ARKITEKTUR.md](docs/mvp/ARKITEKTUR.md) | Beslutninger, modulgraf, datamodell, teststrategi, CI |
 | [docs/mvp/MVP-PLAN.md](docs/mvp/MVP-PLAN.md) | Milepæler, faktisk status per milepæl, åpne spørsmål |
+| [docs/v1/V1-PLAN.md](docs/v1/V1-PLAN.md) | V1: serier, beskyttelse, personer, forslagsregler, dashboard |
 | [docs/BETA.md](docs/BETA.md) | Manuell testing: Narrator/NVDA, skalering, høykontrast, installasjon, brukbarhetstest |
 | [docs/RELEASE.md](docs/RELEASE.md) | NSIS mot MSIX, WebView2, kodesignering, versjonering |
 | [docs/RELEASE-PROSESS.md](docs/RELEASE-PROSESS.md) | Slik lages en utgivelse |
@@ -35,8 +36,8 @@ Fjell gjør tusenvis av ukurerte bilder om til et bibliotek du faktisk vil åpne
 | [THIRD_PARTY.md](THIRD_PARTY.md) | Lisenser for tredjepartskomponenter (generert) |
 
 ## Struktur
-- `core/` – Rust-kjernen (delt logikk): `fjell-core` (indeksering, hashing, gruppering, forslag, papirkurv og angre), `fjell-fs` (filsystem- og Windows-adapter, karantene), `fjell-cli` (testsele og ytelsesmåler)
-- `desktop/` – MVP: Windows-PC-app (Tauri 2, Svelte 5 + TypeScript) for filbaserte biblioteker, eksterne disker og nettverksstasjoner
+- `core/` – Rust-kjernen (delt logikk): `fjell-core` (indeksering, hashing, gruppering, forslag, papirkurv og angre, pluss V1: serier, beskyttelse, personer, forslagsregler, dashboard), `fjell-fs` (filsystem- og Windows-adapter, karantene), `fjell-cli` (testsele og ytelsesmåler)
+- `desktop/` – Windows-PC-app (Tauri 2, Svelte 5 + TypeScript) for filbaserte biblioteker, eksterne disker og nettverksstasjoner
 - `i18n/` – tekstkilder (`nb.json`, `en.json`)
 - `tools/` – generatorer og kontroller (i18n, lagregler, lisenser, versjon)
 - `experiments/` – utforskning utenfor produktet (ML-spike for ansikts- og kvalitetsdeteksjon)
@@ -47,6 +48,8 @@ Fjell gjør tusenvis av ukurerte bilder om til et bibliotek du faktisk vil åpne
 MVP under bygging (Windows-PC; beslutning 2026-11-11, iPhone og Android kommer etter MVP). Milepælene M0–M8 er slått sammen. Arbeidet nå er M9, «Windows-verifisering og ekte data» ([docs/mvp/PLAN-M9.md](docs/mvp/PLAN-M9.md)); MVP er ferdig først etter M9.
 
 På `main` finnes i tillegg: mappevelger, miniatyrer, flere mapper og formater, regelmotor (foreslå-regler), lagringsoversikt, nytt visuelt design (V2) og innebygd oppdatering fra beta-kanalen.
+
+V1 er påbegynt: serier med beste valg, beskyttelse, personer, forslagsregler og dashboard finnes i kjernen, kommandolinjen og Tauri-skallet, men har ingen skjermer ennå. Øye- og ansiktsmodell er ikke valgt, og ansiktsindeksen er av som standard. Status per del står i [docs/VEIKART.md](docs/VEIKART.md).
 
 Det meste er utviklet og målt på Linux. Windows- og Tauri-delene kan bare kjøres på Windows (CI: `windows-latest`). Hva som er verifisert og ikke, står i [docs/mvp/MVP-PLAN.md](docs/mvp/MVP-PLAN.md) del 4b, [docs/BETA.md](docs/BETA.md) og PR-beskrivelsene. Installasjonsprogrammet er ikke kodesignert, så Windows SmartScreen viser en advarsel.
 

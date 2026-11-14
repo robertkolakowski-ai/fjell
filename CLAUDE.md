@@ -34,7 +34,7 @@ Fjell er en bildeoppryddingsapp for Windows-PC (Tauri 2 + Rust-kjerne). Den finn
 
 | Sti | Innhold |
 |---|---|
-| `core/crates/fjell-core/` | All logikk. Lagdelt: `api` (L4) → `pipeline` → `cluster`, `suggest`, `actions`, `rules`, `storage` → `store`, `hash`, `quality`, `screenshot` → `model` (L0). En modul bruker bare strengt lavere lag (`just layers`). |
+| `core/crates/fjell-core/` | All logikk. Lagdelt: `api` (L4) → `pipeline` → `cluster`, `suggest`, `actions`, `rules`, `storage`, `series`, `people`, `suggest_rules`, `protect`, `dashboard` → `store`, `hash`, `quality`, `screenshot` → `model` (L0). En modul bruker bare strengt lavere lag (`just layers`). |
 | `core/crates/fjell-fs/` | Plattformadapter: `AssetSource`, karantene, sletting, `windows/` bak `cfg(windows)`. |
 | `core/crates/fjell-cli/` | Testsele og ytelsesmåler. |
 | `desktop/src-tauri/` | Tauri-skall. `shell/` (`fjell-shell`) er testbart på Linux; `fjell-desktop` kompilerer bare med WebView2/webkit2gtk. |
@@ -74,7 +74,7 @@ Kjør det som dekker endringen før du sier deg ferdig: `just check` for `core/`
 | Oppgave | Dokument |
 |---|---|
 | Arkitektur, beslutninger, datamodell, CI | `docs/mvp/ARKITEKTUR.md` |
-| Rekkefølge og status | `docs/VEIKART.md`, `docs/mvp/MVP-PLAN.md`, `docs/mvp/PLAN-M9.md` |
+| Rekkefølge og status | `docs/VEIKART.md`, `docs/mvp/MVP-PLAN.md`, `docs/mvp/PLAN-M9.md`, `docs/v1/V1-PLAN.md` |
 | Sletting, karantene, «Tøm», angre | `docs/TRYGGHET.md`, `docs/mvp/PLAN-TRYGGHET.md`, `docs/redteam/BESLUTNINGER.md` |
 | UI, tekst og i18n | `docs/mvp/PLAN-UX-I18N.md`, `docs/design/V2.md`, `desktop/src/lib/i18n/README.md` |
 | Ytelse | `docs/mvp/YTELSE.md`, `docs/mvp/YTELSE-STORT.md` |
