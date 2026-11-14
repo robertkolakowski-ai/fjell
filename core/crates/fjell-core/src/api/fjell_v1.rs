@@ -1,7 +1,7 @@
-//! V1-flaten for `Fjell` (L4): beskyttelse, regler, personer, ansiktsindeks, dashboard, seriesammenligning,
+//! V1-flaten for `Fjell` (L4): beskyttelse, forslagsregler, personer, ansiktsindeks, dashboard, seriesammenligning,
 //! innstillinger og terskler. Del av `api`; `impl FjellApi for Fjell` (i `fjell_ops`) delegerer hit.
 //!
-//! Avhenger av: `super::fjell` (`Fjell`, feilmapping), protect, rules, people, dashboard, series, pipeline
+//! Avhenger av: `super::fjell` (`Fjell`, feilmapping), protect, suggest_rules, rules (bare `ProtectFolder` som sperre), people, dashboard, series, pipeline
 //! (`tuning`, `series_specs`-typene), store, model. Grensesnitt: kun `pub(super)` metoder på `Fjell`.
 //!
 //! Regler (CLAUDE.md og docs/v1/V1-PLAN.md):
@@ -28,9 +28,10 @@ use crate::people;
 use crate::pipeline::{tuning, Tuning};
 use crate::protect::{self, ProtectError};
 use crate::quality::{BLUR_ABS_MAX, LOW_CONTRAST};
-use crate::rules::{self, RuleError};
+use crate::rules::{decode_rules, protecting_prefix, KeeperRule};
 use crate::series::{rank_series, SeriesItem};
-use crate::store::{CardRow, Store, StoreError};
+use crate::store::{CardRow, Store, StoreError, KEEPER_RULES_KEY};
+use crate::suggest_rules::{self, Guard, RuleError};
 
 /// V1-feilkoder som `ApiError::Internal` bærer. UI oversetter via i18n-nøkkelen `error.<kode>`.
 pub const V1_ERROR_CODES: [&str; 10] = [
@@ -45,6 +46,21 @@ pub const V1_ERROR_CODES: [&str; 10] = [
     "not_merged",
     "unknown_series",
 ];
+
+/// Keeper-reglene (docs/mvp/REGLER.md). Beskyttede mapper (`ProtectFolder`) sperrer forslagsreglene.
+fn keeper_rules_of(store: &Store) -> Result<Vec<KeeperRule>, ApiError> {
+    let text = store.setting(KEEPER_RULES_KEY).map_err(internal)?;
+    Ok(decode_rules(&text.unwrap_or_default()))
+}
+
+/// Kjører `f` med sperren keeper-reglene gir (`None` uten beskyttede mapper).
+fn with_guard<R>(rules: &[KeeperRule], f: impl FnOnce(Guard) -> R) -> R {
+    let hit = |path: &str| protecting_prefix(rules, path).is_some();
+    let any = rules
+        .iter()
+        .any(|r| matches!(r, KeeperRule::ProtectFolder { .. }));
+    f(if any { Some(&hit) } else { None })
+}
 
 fn code(c: &str) -> ApiError {
     debug_assert!(V1_ERROR_CODES.contains(&c), "ukjent feilkode {c}");
@@ -112,7 +128,8 @@ impl Fjell {
             protect::unset(s, &scope).map_err(protect_err)?;
         }
         // Regler gir aldri treff på beskyttede bilder: tell treffene på nytt med en gang.
-        rules::evaluate(s, now).map_err(rule_err)?;
+        let kr = keeper_rules_of(s)?;
+        with_guard(&kr, |g| suggest_rules::evaluate(s, now, g)).map_err(rule_err)?;
         Ok(())
     }
 
@@ -125,7 +142,7 @@ impl Fjell {
     }
 
     pub(super) fn v1_rules_list(&self) -> Result<Vec<RuleView>, ApiError> {
-        let items = rules::list(self.actions().store()).map_err(rule_err)?;
+        let items = suggest_rules::list(self.actions().store()).map_err(rule_err)?;
         Ok(items
             .into_iter()
             .map(|r| RuleView {
@@ -140,14 +157,21 @@ impl Fjell {
 
     pub(super) fn v1_rule_save(&self, d: RuleDraft) -> Result<RuleId, ApiError> {
         let now = self.sh.clock.now();
-        let id = rules::save(self.actions().store_mut(), d.id, &d.name, &d.spec, now)
-            .map_err(rule_err)?;
-        Ok(id)
+        let mut a = self.actions();
+        let s = a.store_mut();
+        let kr = keeper_rules_of(s)?;
+        with_guard(&kr, |g| {
+            suggest_rules::save(s, d.id, &d.name, &d.spec, now, g)
+        })
+        .map_err(rule_err)
     }
 
     pub(super) fn v1_rule_preview(&self, spec: RuleSpec) -> Result<RulePreview, ApiError> {
         let now = self.sh.clock.now();
-        let p = rules::preview(self.actions().store(), &spec, now).map_err(rule_err)?;
+        let a = self.actions();
+        let s = a.store();
+        let kr = keeper_rules_of(s)?;
+        let p = with_guard(&kr, |g| suggest_rules::preview(s, &spec, now, g)).map_err(rule_err)?;
         Ok(RulePreview {
             hits: p.hits,
             bytes: p.bytes,
@@ -159,11 +183,12 @@ impl Fjell {
         let now = self.sh.clock.now();
         let mut a = self.actions();
         let s = a.store_mut();
-        match op {
-            RuleOp::Enabled(on) => rules::toggle(s, id, on, now),
-            RuleOp::Delete => rules::delete(s, id, now),
-            RuleOp::Restore => rules::restore(s, id, now),
-        }
+        let kr = keeper_rules_of(s)?;
+        with_guard(&kr, |g| match op {
+            RuleOp::Enabled(on) => suggest_rules::toggle(s, id, on, now, g),
+            RuleOp::Delete => suggest_rules::delete(s, id, now, g),
+            RuleOp::Restore => suggest_rules::restore(s, id, now, g),
+        })
         .map(|_| ())
         .map_err(rule_err)
     }
@@ -281,9 +306,9 @@ impl Fjell {
     ) -> ReasonDetail {
         let r: Result<ReasonDetail, StoreError> =
             (|| match kind {
-                SuggestionKind::Rule => {
-                    Ok(rules::reason_detail(store, row.asset).unwrap_or(ReasonDetail::None))
-                }
+                SuggestionKind::Rule => Ok(
+                    suggest_rules::reason_detail(store, row.asset).unwrap_or(ReasonDetail::None)
+                ),
                 SuggestionKind::Series => {
                     let Some(g) = row.group else {
                         return Ok(ReasonDetail::None);

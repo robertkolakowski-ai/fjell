@@ -55,7 +55,16 @@ impl Clock for SysClock {
 }
 
 pub fn open(dir: &Path, db: &Path) -> Result<Fjell, FlowError> {
-    if db.starts_with(dir) {
+    // Kanoniser (`..`, symlenker). Finnes ikke db ennå, kanoniser foreldermappen.
+    let canon = |p: &Path| {
+        fs::canonicalize(p).unwrap_or_else(|_| match (p.parent(), p.file_name()) {
+            (Some(par), Some(n)) => {
+                fs::canonicalize(par).map_or_else(|_| p.to_path_buf(), |c| c.join(n))
+            }
+            _ => p.to_path_buf(),
+        })
+    };
+    if db.starts_with(dir) || canon(db).starts_with(canon(dir)) {
         return Err(FlowError::Usage(
             "indeksfilen må ligge utenfor kildemappen".into(),
         ));
@@ -63,7 +72,7 @@ pub fn open(dir: &Path, db: &Path) -> Result<Fjell, FlowError> {
     let store = Store::open(db).map_err(fail)?;
     Ok(Fjell::new(
         store,
-        Arc::new(FsSource::new(dir)),
+        Arc::new(FsSource::new(dir).with_index(db)),
         Arc::new(SysClock),
     ))
 }

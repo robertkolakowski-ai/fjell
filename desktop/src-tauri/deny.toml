@@ -1,0 +1,50 @@
+# cargo-deny for desktop-skallet (eget workspace, utenfor core/).
+# Kjøres slik: cargo deny --manifest-path desktop/src-tauri/Cargo.toml --config desktop/src-tauri/deny.toml check
+# Kjernens egen konfigurasjon ligger i deny.toml i reporoten; denne er bevisst et eget, like strengt utgangspunkt
+# med bare de unntakene Tauri-skallet trenger (MVP-PLAN 4c punkt 14).
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+    # proc-macro-error er "unmaintained" (ikke en sårbarhet). Kommer bare som byggetids-makro via GTK3-bindingene
+    # (gtk3-macros) som Tauri bruker på Linux; brukes ikke på Windows-målet. Fjernes når Tauri/wry går bort fra GTK3.
+    { id = "RUSTSEC-2024-0370", reason = "unmaintained, kun byggetids-makro via gtk3-macros (Linux), ikke i Windows-bygget" },
+]
+
+[licenses]
+version = 2
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
+    "MPL-2.0",
+    # Nytt med oppdatering (tauri-plugin-updater -> rustls-platform-verifier -> webpki-root-certs):
+    # CDLA-Permissive-2.0 dekker Mozillas CA-liste (kun data, permissiv, ingen copyleft).
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+
+# Egne crates er publish = false og har ingen lisensfelt ennå
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Tokio-forbudet gjelder bare kjernen (K7-12, se deny.toml i roten). Tauri bruker tokio som sin async-runtime,
+# så forbudet er bevisst ikke med her; kjernen (fjell-core) holdes tokio-fri av kjernens egen deny-jobb.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

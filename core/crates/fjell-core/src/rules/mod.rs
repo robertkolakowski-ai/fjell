@@ -1,273 +1,351 @@
-//! Modul `rules` (L2). V1-gren `rules`: brukerdefinerte regler som foreslår (aldri sletter): evaluering,
-//! forhåndsvisning og treff. Se docs/v1/V1-PLAN.md og docs/mvp/ARKITEKTUR.md del 2.
+//! Modul `rules` (L2): brukerstyrte keeper-regler. Se docs/mvp/REGLER.md.
 //!
-//! Avhenger av: model, store.
+//! Avhenger av: model. Rene funksjoner, ingen I/O og ingen lagring.
 //! Grensesnitt:
-//! - `eval::scan`: vilkårsevaluering i ett lesepass for alle regler.
-//! - `spec::{encode, decode}`: stabil, versjonert tekst i `rule.spec` (`v1;screenshot;older=30;...`).
-//! - `save`, `toggle`, `delete`, `restore`: endrer `rule`-tabellen og evaluerer på nytt etterpå.
-//!   `delete` er soft-sletting (`deleted_at`) og angres med `restore`; ingenting fjernes hardt.
-//! - `list`, `list_deleted`: lesemodell (`RuleItem`) for UI («Nylig slettet» for regler).
-//! - `preview(store, &RuleSpec, now)`: antall, bytes og utvalg uten å lagre eller endre noe.
-//! - `evaluate(store, now)`: kjører alle aktive regler mot indeksen, skriver `rule_hit` og legger til
-//!   ventende forslag (`SuggestionKind::Rule`, `ReasonCode::Rule`, detalj `ReasonDetail::Rule` via `reason_detail`).
-//! - `reason_detail(store, asset)`: regelen bak et forslag.
+//! - `KeeperRule`: ordnet liste av regler (`PreferFolder`, `PreferNewest`, ..., `ProtectFolder`).
+//! - `RuleReason`: typet begrunnelse (enum + parametre) som UI oversetter; aldri ferdig tekst.
+//! - `decide(rules, kandidater) -> Decision`: snevrer inn kandidatene regel for regel. Uavgjort
+//!   overlates til K5 (`suggest::rank_group`) av kalleren (`pipeline`).
+//! - `protecting_prefix(rules, sti)`: `ProtectFolder`-treff. Beskyttede bilder blir aldri foreslått
+//!   flyttet; kalleren utelater dem fra forslag.
+//! - `encode_rules`/`decode_rules` og `RuleReason::encode`/`decode`: stabil tekstform for lagring.
 //!
-//! Regler foreslår bare: ingenting her rører `asset.state` eller `action_log`, og et forslag blir aldri
-//! `accepted` uten at brukeren velger det. Beskyttede bilder, av-slåtte og slettede regler gir aldri treff,
-//! og en tom regel treffer ingenting. Kostnad: ett lesepass over indeksen uansett antall regler (mål: 10 regler,
-//! 50 000 bilder, p95 under 50 ms; testet i `tests.rs`).
-//!
-//! Eier hele mappen `src/rules/` og `store/rules.rs`; ingen andre grener rører dem.
+//! Reglene velger bare keeper. De flytter, sletter og godtar aldri noe selv.
 
-use crate::model::{AssetId, ReasonDetail, RuleCondition, RuleId, RuleSpec};
-use crate::store::{Store, StoreError};
-
-pub mod eval;
-pub mod spec;
+use crate::model::AssetId;
+use std::collections::BTreeSet;
 
 #[cfg(test)]
 mod tests;
 
-/// Høyeste antall bilder i `Preview::sample`.
-pub const SAMPLE_LIMIT: usize = 24;
-/// Lengste regelnavn (tegn).
-pub const MAX_NAME_CHARS: usize = 80;
+/// Samme terskel som K5 for «skarpere» (10 %).
+const SHARPER_FACTOR: f64 = 1.1;
 
-/// Feilkode fra regeloperasjoner (kjernen returnerer koder, aldri tekst).
-#[derive(Debug)]
-pub enum RuleError {
-    /// Tom regel avvises: den ville ikke truffet noe.
-    EmptySpec,
-    EmptyName,
-    NameTooLong,
-    /// Vilkår uten innhold (tom mappe eller MIME-type).
-    InvalidCondition,
-    /// Regelen finnes ikke (eller er slettet og kan ikke endres).
-    NotFound,
-    Store(StoreError),
-}
-
-impl From<StoreError> for RuleError {
-    fn from(e: StoreError) -> Self {
-        RuleError::Store(e)
-    }
-}
-
-impl std::fmt::Display for RuleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RuleError::Store(e) => write!(f, "lagring: {e}"),
-            other => write!(f, "{other:?}"),
-        }
-    }
-}
-
-impl std::error::Error for RuleError {}
-
-/// Regel slik UI leser den.
+/// Én brukerregel. Rekkefølgen i listen er rangeringen (første som skiller, vinner).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RuleItem {
-    pub id: RuleId,
-    pub name: String,
-    pub spec: RuleSpec,
-    pub enabled: bool,
-    /// Antall bilder regelen treffer nå (0 når den er av).
-    pub hits: u64,
-    /// Lagret spesifikasjon kunne ikke leses (ukjent versjon); regelen treffer da ingenting.
-    pub corrupt: bool,
-    /// Tidspunkt for soft-sletting; `None` for aktive regler.
-    pub deleted_at: Option<i64>,
+pub enum KeeperRule {
+    /// Behold bildet fra denne mappen. Alle `PreferFolder` vurderes samlet der den første står;
+    /// høyest prioritet vinner, lik prioritet gir listerekkefølge.
+    PreferFolder {
+        prefix: String,
+        priority: i32,
+    },
+    PreferNewest,
+    PreferOldest,
+    /// Størst filstørrelse.
+    PreferLargest,
+    PreferHighestResolution,
+    PreferSharpest,
+    PreferShortestPath,
+    PreferShortestName,
+    /// Bilder i denne mappen kan aldri foreslås flyttet til papirkurv.
+    ProtectFolder {
+        prefix: String,
+    },
 }
 
-/// Forhåndsvisning av en regel.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub struct Preview {
-    pub hits: u64,
+/// Hvilken regel som avgjorde. UI oversetter nøkkelen (`rule.<key>`) og setter inn parameteren.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RuleReason {
+    PreferFolder { prefix: String },
+    PreferNewest,
+    PreferOldest,
+    PreferLargest,
+    PreferHighestResolution,
+    PreferSharpest,
+    PreferShortestPath,
+    PreferShortestName,
+    ProtectedFolder { prefix: String },
+}
+
+impl RuleReason {
+    /// Stabil snake_case-nøkkel.
+    pub fn key(&self) -> &'static str {
+        match self {
+            Self::PreferFolder { .. } => "prefer_folder",
+            Self::PreferNewest => "prefer_newest",
+            Self::PreferOldest => "prefer_oldest",
+            Self::PreferLargest => "prefer_largest",
+            Self::PreferHighestResolution => "prefer_highest_resolution",
+            Self::PreferSharpest => "prefer_sharpest",
+            Self::PreferShortestPath => "prefer_shortest_path",
+            Self::PreferShortestName => "prefer_shortest_name",
+            Self::ProtectedFolder { .. } => "protected_folder",
+        }
+    }
+    /// Mappeparameter, hvis noen.
+    pub fn param(&self) -> Option<&str> {
+        match self {
+            Self::PreferFolder { prefix } | Self::ProtectedFolder { prefix } => Some(prefix),
+            _ => None,
+        }
+    }
+    /// Lagringsform: `nøkkel` eller `nøkkel:param` (param escapet).
+    pub fn encode(&self) -> String {
+        match self.param() {
+            Some(p) => format!("{}:{}", self.key(), esc(p)),
+            None => self.key().to_string(),
+        }
+    }
+    pub fn decode(s: &str) -> Option<RuleReason> {
+        let (key, param) = match s.split_once(':') {
+            Some((k, p)) => (k, Some(unesc(p)?)),
+            None => (s, None),
+        };
+        Some(match (key, param) {
+            ("prefer_folder", Some(prefix)) => Self::PreferFolder { prefix },
+            ("protected_folder", Some(prefix)) => Self::ProtectedFolder { prefix },
+            ("prefer_newest", None) => Self::PreferNewest,
+            ("prefer_oldest", None) => Self::PreferOldest,
+            ("prefer_largest", None) => Self::PreferLargest,
+            ("prefer_highest_resolution", None) => Self::PreferHighestResolution,
+            ("prefer_sharpest", None) => Self::PreferSharpest,
+            ("prefer_shortest_path", None) => Self::PreferShortestPath,
+            ("prefer_shortest_name", None) => Self::PreferShortestName,
+            _ => return None,
+        })
+    }
+}
+
+/// Bilde slik reglene ser det.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuleCandidate {
+    pub id: AssetId,
+    pub path: String,
+    pub created_at: i64,
     pub bytes: u64,
-    /// Høyst 24 treff til miniatyrvisning.
-    pub sample: Vec<AssetId>,
+    pub pixels: u64,
+    /// Vurderbar skarphet (`None` = ikke vurderbar).
+    pub sharpness: Option<f64>,
 }
 
-/// Resultat av en evaluering.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub struct EvalReport {
-    pub rules_evaluated: u32,
-    /// Regler som ble hoppet over fordi spesifikasjonen ikke kunne leses eller var tom.
-    pub rules_skipped: u32,
-    pub hits: u64,
-    pub suggestions_added: u64,
-    pub suggestions_removed: u64,
+/// Utfall av `decide`: gjenværende kandidater (sortert på id, aldri tom for tom input) og regelen
+/// som først snevret dem inn (`None` = reglene skilte ingenting; K5 avgjør blant alle).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Decision {
+    pub narrowed: Vec<AssetId>,
+    pub reason: Option<RuleReason>,
 }
 
-/// Sjekker en spesifikasjon: ikke tom, og ingen vilkår uten innhold.
-pub fn validate(spec: &RuleSpec) -> Result<(), RuleError> {
-    if spec.is_empty() {
-        return Err(RuleError::EmptySpec);
+/// Normaliserer sti: `\` til `/`, ingen etterfølgende `/`, små bokstaver (Windows er ufølsom).
+fn norm(p: &str) -> String {
+    p.replace('\\', "/").trim_end_matches('/').to_lowercase()
+}
+
+/// Ligger `path` i mappen `prefix` (hele komponenter, så `/a/bo` er ikke i `/a/b`)?
+pub fn in_folder(path: &str, prefix: &str) -> bool {
+    let (p, f) = (norm(path), norm(prefix));
+    if f.is_empty() {
+        return false;
     }
-    let blank = |s: &str| s.trim().is_empty();
-    for c in &spec.all_of {
-        match c {
-            RuleCondition::InFolder(s) | RuleCondition::Mime(s) if blank(s) => {
-                return Err(RuleError::InvalidCondition)
-            }
-            _ => {}
-        }
-    }
-    Ok(())
+    p == f || (p.starts_with(&f) && p.as_bytes().get(f.len()) == Some(&b'/'))
 }
 
-fn clean_name(name: &str) -> Result<String, RuleError> {
-    let n = name.trim();
-    if n.is_empty() {
-        return Err(RuleError::EmptyName);
-    }
-    if n.chars().count() > MAX_NAME_CHARS {
-        return Err(RuleError::NameTooLong);
-    }
-    Ok(n.to_string())
-}
-
-/// Oppretter (`id = None`) eller oppdaterer en regel, og evaluerer på nytt. Nye regler er aktive.
-pub fn save(
-    store: &mut Store,
-    id: Option<RuleId>,
-    name: &str,
-    spec: &RuleSpec,
-    now: i64,
-) -> Result<RuleId, RuleError> {
-    validate(spec)?;
-    let name = clean_name(name)?;
-    let text = spec::encode(spec);
-    let id = match id {
-        None => store.rule_insert(&name, &text, now)?,
-        Some(id) => {
-            if !store.rule_update(id, &name, &text)? {
-                return Err(RuleError::NotFound);
-            }
-            id
-        }
-    };
-    evaluate(store, now)?;
-    Ok(id)
-}
-
-/// Slår en regel av eller på og evaluerer på nytt. Av-slåtte regler gir ingen treff og ingen nye forslag.
-pub fn toggle(
-    store: &mut Store,
-    id: RuleId,
-    enabled: bool,
-    now: i64,
-) -> Result<EvalReport, RuleError> {
-    if !store.rule_set_enabled(id, enabled)? {
-        return Err(RuleError::NotFound);
-    }
-    evaluate(store, now)
-}
-
-/// Soft-sletter en regel (angres med `restore`) og evaluerer på nytt. Allerede slettet er ikke en feil.
-pub fn delete(store: &mut Store, id: RuleId, now: i64) -> Result<EvalReport, RuleError> {
-    if !store.rule_set_deleted(id, Some(now))? {
-        return Err(RuleError::NotFound);
-    }
-    evaluate(store, now)
-}
-
-/// Henter en slettet regel tilbake (med samme av/på-tilstand som før) og evaluerer på nytt.
-pub fn restore(store: &mut Store, id: RuleId, now: i64) -> Result<EvalReport, RuleError> {
-    if !store.rule_set_deleted(id, None)? {
-        return Err(RuleError::NotFound);
-    }
-    evaluate(store, now)
-}
-
-fn items(store: &Store, deleted: bool) -> Result<Vec<RuleItem>, RuleError> {
-    let counts = store.rule_hit_counts()?;
-    let mut out = Vec::new();
-    for row in store.rule_rows()? {
-        if row.deleted_at.is_some() != deleted {
-            continue;
-        }
-        let decoded = spec::decode(&row.spec);
-        let hits = counts
-            .iter()
-            .find(|(id, _)| *id == row.id)
-            .map_or(0, |(_, n)| *n);
-        out.push(RuleItem {
-            id: row.id,
-            name: row.name,
-            corrupt: decoded.is_err(),
-            spec: decoded.unwrap_or_default(),
-            enabled: row.enabled,
-            hits: if row.enabled && row.deleted_at.is_none() {
-                hits
-            } else {
-                0
-            },
-            deleted_at: row.deleted_at,
-        });
-    }
-    Ok(out)
-}
-
-/// Aktive (ikke slettede) regler, eldste først.
-pub fn list(store: &Store) -> Result<Vec<RuleItem>, RuleError> {
-    items(store, false)
-}
-
-/// Slettede regler som kan hentes tilbake.
-pub fn list_deleted(store: &Store) -> Result<Vec<RuleItem>, RuleError> {
-    items(store, true)
-}
-
-/// Hva `spec` ville truffet nå. Lagrer og endrer ingenting; tom regel gir null treff.
-pub fn preview(store: &Store, spec: &RuleSpec, now: i64) -> Result<Preview, RuleError> {
-    let hits = eval::scan(store, &[spec], now)?.pop().unwrap_or_default();
-    Ok(Preview {
-        hits: hits.len() as u64,
-        bytes: hits.iter().map(|h| h.bytes).sum(),
-        sample: hits.iter().take(SAMPLE_LIMIT).map(|h| h.asset).collect(),
+/// Første `ProtectFolder` (i listerekkefølge) som dekker `path`; gir mappen.
+pub fn protecting_prefix<'a>(rules: &'a [KeeperRule], path: &str) -> Option<&'a str> {
+    rules.iter().find_map(|r| match r {
+        KeeperRule::ProtectFolder { prefix } if in_folder(path, prefix) => Some(prefix.as_str()),
+        _ => None,
     })
 }
 
-/// Alle bilder `spec` treffer nå, stigende id.
-pub fn match_ids(store: &Store, spec: &RuleSpec, now: i64) -> Result<Vec<AssetId>, RuleError> {
-    let hits = eval::scan(store, &[spec], now)?.pop().unwrap_or_default();
-    Ok(hits.into_iter().map(|h| h.asset).collect())
+fn file_name(path: &str) -> &str {
+    path.rsplit(['/', '\\']).next().unwrap_or(path)
 }
 
-/// Kjører alle aktive regler mot indeksen og oppdaterer `rule_hit` og ventende `rule`-forslag.
-/// Beskyttede bilder, av-slåtte og slettede regler gir ingen treff. Endrer aldri `asset` eller `action_log`.
-pub fn evaluate(store: &mut Store, now: i64) -> Result<EvalReport, RuleError> {
-    let mut report = EvalReport::default();
-    let mut live: Vec<(RuleId, RuleSpec)> = Vec::new();
-    for row in store.rule_rows()? {
-        if !row.enabled || row.deleted_at.is_some() {
-            continue;
-        }
-        match spec::decode(&row.spec) {
-            Ok(s) if !s.is_empty() => live.push((row.id, s)),
-            _ => report.rules_skipped += 1,
+/// Behold kandidatene med best nøkkel (`pick` velger beste av to). Gir `true` hvis noen falt bort.
+fn keep_best<K: Ord + Copy>(
+    c: &mut Vec<&RuleCandidate>,
+    key: impl Fn(&RuleCandidate) -> K,
+    max: bool,
+) -> bool {
+    let keys = c.iter().map(|m| key(m));
+    let best = if max { keys.max() } else { keys.min() };
+    let Some(best) = best else { return false };
+    let before = c.len();
+    c.retain(|m| key(m) == best);
+    c.len() < before
+}
+
+/// Snevrer inn `cands` med reglene i rekkefølge. Beskyttede mapper (`ProtectFolder`) går foran alle
+/// andre regler: finnes beskyttede kandidater, er bare de med. Resultatet er uavhengig av
+/// rekkefølgen på `cands`.
+pub fn decide(rules: &[KeeperRule], cands: &[RuleCandidate]) -> Decision {
+    let mut c: Vec<&RuleCandidate> = cands.iter().collect();
+    let mut reason: Option<RuleReason> = None;
+    // Beskyttede mapper først.
+    let prot: Vec<(&RuleCandidate, &str)> = c
+        .iter()
+        .filter_map(|m| protecting_prefix(rules, &m.path).map(|p| (*m, p)))
+        .collect();
+    if !prot.is_empty() && prot.len() < c.len() {
+        let prefix = prot
+            .iter()
+            .min_by_key(|(m, _)| m.id)
+            .map_or("", |(_, p)| *p);
+        reason = Some(RuleReason::ProtectedFolder {
+            prefix: prefix.to_string(),
+        });
+        let ids: BTreeSet<AssetId> = prot.iter().map(|(m, _)| m.id).collect();
+        c.retain(|m| ids.contains(&m.id));
+    }
+    let mut folders_done = false;
+    for rule in rules {
+        let (narrowed, why) = match rule {
+            KeeperRule::PreferFolder { .. } if folders_done => continue,
+            KeeperRule::PreferFolder { .. } => {
+                folders_done = true;
+                let (n, w) = prefer_folder(rules, &mut c);
+                (n, w)
+            }
+            KeeperRule::PreferNewest => (
+                keep_best(&mut c, |m| m.created_at, true),
+                RuleReason::PreferNewest,
+            ),
+            KeeperRule::PreferOldest => (
+                keep_best(&mut c, |m| m.created_at, false),
+                RuleReason::PreferOldest,
+            ),
+            KeeperRule::PreferLargest => (
+                keep_best(&mut c, |m| m.bytes, true),
+                RuleReason::PreferLargest,
+            ),
+            KeeperRule::PreferHighestResolution => (
+                keep_best(&mut c, |m| m.pixels, true),
+                RuleReason::PreferHighestResolution,
+            ),
+            KeeperRule::PreferSharpest => {
+                let best = c
+                    .iter()
+                    .filter_map(|m| m.sharpness)
+                    .fold(f64::MIN, f64::max);
+                let before = c.len();
+                c.retain(|m| m.sharpness.is_none_or(|s| s * SHARPER_FACTOR >= best));
+                (c.len() < before, RuleReason::PreferSharpest)
+            }
+            KeeperRule::PreferShortestPath => (
+                keep_best(&mut c, |m| m.path.chars().count(), false),
+                RuleReason::PreferShortestPath,
+            ),
+            KeeperRule::PreferShortestName => (
+                keep_best(&mut c, |m| file_name(&m.path).chars().count(), false),
+                RuleReason::PreferShortestName,
+            ),
+            KeeperRule::ProtectFolder { .. } => continue,
+        };
+        if narrowed && reason.is_none() {
+            reason = Some(why);
         }
     }
-    let specs: Vec<&RuleSpec> = live.iter().map(|(_, s)| s).collect();
-    let found = eval::scan(store, &specs, now)?;
-    report.rules_evaluated = live.len() as u32;
-    let hits: Vec<(RuleId, Vec<AssetId>)> = live
-        .iter()
-        .zip(found)
-        .map(|((id, _), h)| (*id, h.into_iter().map(|h| h.asset).collect()))
-        .collect();
-    let stats = store.rule_apply(&hits, now)?;
-    report.hits = stats.hits;
-    report.suggestions_added = stats.suggestions_added;
-    report.suggestions_removed = stats.suggestions_removed;
-    Ok(report)
+    let mut narrowed: Vec<AssetId> = c.iter().map(|m| m.id).collect();
+    narrowed.sort();
+    Decision { narrowed, reason }
 }
 
-/// Detaljen bak begrunnelsesmerket «regel»: regelen med lavest id som treffer bildet.
-pub fn reason_detail(store: &Store, asset: AssetId) -> Result<ReasonDetail, RuleError> {
-    Ok(store
-        .rule_hit_for_asset(asset)?
-        .map_or(ReasonDetail::None, ReasonDetail::Rule))
+/// Samlet vurdering av alle `PreferFolder`: høyest prioritet blant treff vinner.
+fn prefer_folder(rules: &[KeeperRule], c: &mut Vec<&RuleCandidate>) -> (bool, RuleReason) {
+    let score = |m: &RuleCandidate| -> Option<(i32, usize)> {
+        // (prioritet, -listeindeks) via max: lavest indeks vinner ved lik prioritet.
+        rules
+            .iter()
+            .enumerate()
+            .filter_map(|(i, r)| match r {
+                KeeperRule::PreferFolder { prefix, priority } if in_folder(&m.path, prefix) => {
+                    Some((*priority, usize::MAX - i))
+                }
+                _ => None,
+            })
+            .max()
+    };
+    let Some(best) = c.iter().filter_map(|m| score(m)).max() else {
+        return (
+            false,
+            RuleReason::PreferFolder {
+                prefix: String::new(),
+            },
+        );
+    };
+    let prefix = match &rules[usize::MAX - best.1] {
+        KeeperRule::PreferFolder { prefix, .. } => prefix.clone(),
+        _ => String::new(),
+    };
+    let before = c.len();
+    c.retain(|m| score(m).is_some_and(|s| s.0 == best.0));
+    (c.len() < before, RuleReason::PreferFolder { prefix })
+}
+
+fn esc(s: &str) -> String {
+    let mut o = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '%' => o.push_str("%25"),
+            '\t' => o.push_str("%09"),
+            '\n' => o.push_str("%0A"),
+            '\r' => o.push_str("%0D"),
+            ':' => o.push_str("%3A"),
+            _ => o.push(ch),
+        }
+    }
+    o
+}
+
+fn unesc(s: &str) -> Option<String> {
+    let mut o = String::with_capacity(s.len());
+    let mut it = s.chars();
+    while let Some(ch) = it.next() {
+        if ch != '%' {
+            o.push(ch);
+            continue;
+        }
+        let hex: String = it.by_ref().take(2).collect();
+        o.push(u8::from_str_radix(&hex, 16).ok()? as char);
+    }
+    Some(o)
+}
+
+/// Lagringsform: én regel per linje, felt skilt med tab: `type[\tparam[\tprioritet]]`.
+pub fn encode_rules(rules: &[KeeperRule]) -> String {
+    let mut out = String::new();
+    for r in rules {
+        let line = match r {
+            KeeperRule::PreferFolder { prefix, priority } => {
+                format!("prefer_folder\t{}\t{priority}", esc(prefix))
+            }
+            KeeperRule::PreferNewest => "prefer_newest".into(),
+            KeeperRule::PreferOldest => "prefer_oldest".into(),
+            KeeperRule::PreferLargest => "prefer_largest".into(),
+            KeeperRule::PreferHighestResolution => "prefer_highest_resolution".into(),
+            KeeperRule::PreferSharpest => "prefer_sharpest".into(),
+            KeeperRule::PreferShortestPath => "prefer_shortest_path".into(),
+            KeeperRule::PreferShortestName => "prefer_shortest_name".into(),
+            KeeperRule::ProtectFolder { prefix } => format!("protect_folder\t{}", esc(prefix)),
+        };
+        out.push_str(&line);
+        out.push('\n');
+    }
+    out
+}
+
+/// Motsatt av `encode_rules`. Ukjente eller ødelagte linjer hoppes over (aldri panikk, aldri gjetting).
+pub fn decode_rules(s: &str) -> Vec<KeeperRule> {
+    s.lines()
+        .filter_map(|line| {
+            let f: Vec<&str> = line.split('\t').collect();
+            Some(match f.as_slice() {
+                ["prefer_folder", p, n] => KeeperRule::PreferFolder {
+                    prefix: unesc(p)?,
+                    priority: n.parse().ok()?,
+                },
+                ["protect_folder", p] => KeeperRule::ProtectFolder { prefix: unesc(p)? },
+                ["prefer_newest"] => KeeperRule::PreferNewest,
+                ["prefer_oldest"] => KeeperRule::PreferOldest,
+                ["prefer_largest"] => KeeperRule::PreferLargest,
+                ["prefer_highest_resolution"] => KeeperRule::PreferHighestResolution,
+                ["prefer_sharpest"] => KeeperRule::PreferSharpest,
+                ["prefer_shortest_path"] => KeeperRule::PreferShortestPath,
+                ["prefer_shortest_name"] => KeeperRule::PreferShortestName,
+                _ => return None,
+            })
+        })
+        .collect()
 }

@@ -1,7 +1,7 @@
 //! Lagring for V1-grenen `protect` (store, L1). Eier alle SQL-spørringer for tabellen `protection`.
 //!
 //! Avhenger av: `super` (`Store`), `crate::model`. Filen eies av grenen `protect` (docs/v1/V1-PLAN.md);
-//! ingen andre grener rører den. Skjemaet er ferdig i migrering 2 (`002_v1.sql`) og endres ikke av grenen.
+//! ingen andre grener rører den. Skjemaet er ferdig i migrering 5 (`005_v1.sql`) og endres ikke av grenen.
 //! Grensesnitt:
 //! - `Store::protection_count`, `protection_add` (idempotent), `protection_restore` (angre av fjerning,
 //!   bevarer opprinnelig tidspunkt), `protection_remove`, `protection_list`, `protection_target_exists`.

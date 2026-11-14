@@ -10,8 +10,8 @@
 //! Status (M1): skjema og migrering 1 med triggere.
 //! Status (M4, undermoduler `index`, `groups`, `cards`): K6-delene indekseringen trenger (`upsert_assets`,
 //! `work_set`, `put_fingerprints`, `index_rows`), utskifting av grupper/forslag og kortspørringer.
-//! Status (V1-kontrakt): migrering 2 (`002_v1.sql`) og skjelettmodulene `protection`, `series`, `people`, `rules`,
-//! `dashboard` (én eier hver, docs/v1/V1-PLAN.md). `migrate_to` slår av `foreign_keys` rundt tabellomskriving.
+//! Status (V1-kontrakt): migrering 5 (`005_v1.sql`) og undermodulene `protection`, `series`, `people`,
+//! `suggest_rules` (forslagsregler; keeper-reglene ligger i `rules`), `dashboard` (én eier hver, docs/v1/V1-PLAN.md). `migrate_to` slår av `foreign_keys` rundt tabellomskriving.
 //! Status (M3, undermodul `ops`): trygg sletting. `apply_batch` (én transaksjon per batch), `undo_top`,
 //! `reconcile_removed`, lesespørringer for plan/utløp/oppsummering.
 
@@ -29,23 +29,30 @@ mod ops_read;
 #[cfg(test)]
 mod ops_tests;
 mod people;
+#[cfg(test)]
+mod perf_tests;
 mod protection;
 mod reconcile;
 mod rules;
 mod series;
+mod suggest_rules;
+mod verify;
 
 use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 
 pub use cards::{CardRow, SuggestionRow};
-pub use groups::{GroupSpec, GroupingStats, LoneSuggestion};
-pub use index::{FingerprintRow, HashRow, IndexRow, UpsertStats, WorkItem, MAX_FAILS};
+pub use groups::{plan_grouping, GroupSpec, GroupingPlan, GroupingStats, LoneSuggestion};
+pub use index::{
+    index_rows_on, FingerprintRow, HashRow, IndexRow, UpsertStats, WorkItem, MAX_FAILS,
+};
 pub use migrate::{migrate_to, MIGRATIONS};
 pub use ops::{BatchSpec, Cause, RowOp, UndoResult};
 pub use ops_read::{AssetRow, PendingSuggestion};
 pub use people::{AssignSlot, FaceRow, PersonRow};
-pub use rules::RuleRow;
+pub use rules::{rule_groups_on, setting_on, source_ids_on, RuleGroupRow, KEEPER_RULES_KEY};
 pub use series::{SeriesMemberRow, SeriesMemberSpec, SeriesSpec, SeriesStats};
+pub use suggest_rules::RuleRow;
 
 /// Feil fra lagringslaget.
 #[derive(Debug)]
@@ -91,6 +98,8 @@ impl std::error::Error for StoreError {}
 pub struct Store {
     conn: Connection,
     path: Option<PathBuf>,
+    /// Økes av alt som endrer tilstand eller grupper (se `change_counter`).
+    generation: u64,
 }
 
 impl Store {
@@ -113,12 +122,21 @@ impl Store {
         }
         conn.pragma_update(None, "foreign_keys", true)?;
         migrate_to(&mut conn, MIGRATIONS.len() as u32)?;
-        Ok(Store { conn, path })
+        Ok(Store {
+            conn,
+            path,
+            generation: 0,
+        })
     }
 
     /// Skrivetilkoblingen (kun brukt fra denne modulen og tester).
     #[cfg(test)]
     pub(crate) fn conn(&self) -> &Connection {
+        &self.conn
+    }
+
+    /// Tilkoblingen til rene lesespørringer utenfor `store` (`storage`). Kallere skriver aldri via den.
+    pub(crate) fn read_conn(&self) -> &Connection {
         &self.conn
     }
 
@@ -131,6 +149,20 @@ impl Store {
                 Ok(Some(Connection::open_with_flags(p, flags)?))
             }
         }
+    }
+
+    /// Monoton teller som økes av alt som endrer bilders tilstand eller grupper/forslag (trash, angre,
+    /// avstemming, keeper-valg, `apply_plan`). Skanningens egne skrivinger (rader, hasher, fingeravtrykk)
+    /// teller ikke. Brukes til å se at en utregning ikke er foreldet mellom lesing og skriving.
+    pub fn change_counter(&self) -> u64 {
+        self.generation
+    }
+
+    /// Som `active_source_ids`, men på en indeksfil via egen skrivebeskyttet tilkobling (blokkerer ikke
+    /// og blokkeres ikke av en åpen `Store`). Brukes av kilder som ikke eier indeksen.
+    pub fn active_source_ids_at(path: &Path) -> Result<Vec<crate::model::SourceId>, StoreError> {
+        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+        index::active_source_ids_on(&Connection::open_with_flags(path, flags)?)
     }
 
     /// Gjeldende `PRAGMA user_version`.

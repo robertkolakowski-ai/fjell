@@ -2,7 +2,7 @@
 
 | Fase | Innhold |
 |---|---|
-| MVP (ca. 3 mnd; anslag 13 uker, se `mvp/MVP-PLAN.md`) | **Windows-PC-app** (Tauri 2; avklart 2026-11-11). Eksakte og visuelle duplikater, uskarpe og skjermbilder, kortmodus (swipe), papirkurv, angre, norsk og engelsk. Rekkefølge M0–M8: `mvp/MVP-PLAN.md` |
+| MVP (ca. 3 mnd; anslag 13 uker, se `mvp/MVP-PLAN.md`) | **Windows-PC-app** (Tauri 2; avklart 2026-11-11). Eksakte og visuelle duplikater, uskarpe og skjermbilder, kortmodus (swipe), papirkurv, angre, norsk og engelsk. Rekkefølge M0–M8: `mvp/MVP-PLAN.md`; M9 «Windows-verifisering og ekte data» følger etter M8 (`mvp/PLAN-M9.md`), og MVP er ferdig først etter M9 |
 | V1 (3–6 mnd) | Serier med beste-valg, lukkede øyne, personer, lagringsdashboard, regelmotor |
 | V2 (6–12 mnd) | Culling for fotografer, RAW, sammenligning, iPhone og Android (SwiftUI/PhotoKit, Kotlin/MediaStore; UniFFI), Lightroom-eksport |
 | V3 (12+ mnd) | Naturlig språk-søk, hendelsesforslag, familiedeling, valgfri sky-analyse, NAS |
@@ -12,10 +12,10 @@ Detaljer og åpne spørsmål: `v1/V1-PLAN.md`.
 
 | Del | Status |
 |---|---|
-| Kontrakt (typer, migrering 002, API-metoder) | Ferdig |
+| Kontrakt (typer, migrering 005, API-metoder) | Ferdig |
 | Beskyttelse per bilde, mappe, album og person | Kjerne ferdig og koblet til `Fjell`; krever alltid egen bekreftelse (`decide_many` og `confirm_purge`) |
 | Serier med beste valg | Kjerne ferdig og koblet til skanning; rangering på skarphet, øyesignal først når en øyemodell er valgt |
-| Regelmotor | Kjerne ferdig og koblet (evalueres etter hver gruppering og ved endret beskyttelse); foreslår bare |
+| Forslagsregler (`suggest_rules`) | Kjerne ferdig og koblet oppå keeper-reglene fra MVP (`docs/mvp/REGLER.md`, uendret): evalueres etter hver gruppering og ved endret beskyttelse; foreslår bare; keeper-reglenes beskyttede mapper får aldri forslag |
 | Personer og ansiktsindeks | Kjerne ferdig og koblet; indeksen er av som standard; ingen ansiktsmodell valgt ennå |
 | Dashboard | Kjerne ferdig og koblet |
 | Innstillinger og terskler (sensitivitet per forslagstype) | Lagres og styrer serier, visuelle duplikater og uskarphet; verdiene er ikke kalibrert mot golden-korpus |

@@ -18,15 +18,21 @@
 
 mod fjell;
 mod fjell_ops;
+mod fjell_rules;
 #[cfg(test)]
 mod fjell_tests;
 mod fjell_v1;
 #[cfg(test)]
 mod fjell_v1_tests;
+#[cfg(test)]
+mod hardening_tests;
 pub mod mock;
+#[cfg(test)]
+mod rules_tests;
 pub mod types;
 
 pub use fjell::Fjell;
+pub use fjell_rules::KeeperChange;
 pub use mock::MemApi;
 pub use types::*;
 

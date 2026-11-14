@@ -1,0 +1,18 @@
+# Frittstående spike (M19). IKKE medlem av core-workspacet og IKKE bygget i CI.
+# Se docs/mvp/ML-ADR.md. Bygg: CARGO_TARGET_DIR=/home/user/tgt-core cargo build
+[package]
+name = "fjell-faces-spike"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Tom workspace-tabell: hindrer at cargo leter oppover og tolker dette som del av core/.
+[workspace]
+
+[dependencies]
+tract-onnx = { version = "=0.23.10", default-features = false }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+
+[profile.dev]
+debug = 0
+opt-level = 1

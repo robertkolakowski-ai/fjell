@@ -151,20 +151,27 @@ Filstruktur (`desktop/src/`): `features/{onboarding,home,review,group,cards,tras
 }
 ```
 
-### 5.3 Nøkkelkatalog (omfang, ca. 160 nøkler i MVP)
+### 5.3 Nøkkelkatalog (omfang: 160 nøkler planlagt, 273 per M7-hull; tall fra `i18n/nb.json`)
 
 | Område | Nøkler (ca.) | Eksempler (nb → en) |
 |---|---|---|
-| `onb.*` | 22 | «Kom i gang» → «Get started»; «Fant {count} eksakte duplikater» → «Found {count} exact duplicates» |
-| `home.*` | 18 | «{size} kan ryddes» → «{size} can be cleaned up» |
-| `review.*` | 24 | «Velg alle» → «Select all» |
-| `group.*` | 16 | «Behold dette, flytt {count} til papirkurv» → «Keep this one, move {count} to trash» |
-| `cards.*` | 16 | «Hopp over» → «Skip» |
-| `trash.*` | 22 | «Plassen frigjøres først når du tømmer papirkurven.» → «Space is freed only when you empty the trash.» |
-| `reason.*` | 14 | se 5.4 |
+| `onb.*` | 24 | «Kom i gang» → «Get started»; «Fant {count} eksakte duplikater» → «Found {count} exact duplicates» |
+| `home.*` | 35 | «{size} kan ryddes» → «{size} can be cleaned up» |
+| `review.*` | 27 | «Velg alle» → «Select all» |
+| `group.*` | 21 | «Behold dette, flytt {count} til papirkurv» → «Keep this one, move {count} to trash» |
+| `cards.*` | 17 | «Hopp over» → «Skip» |
+| `trash.*` | 26 | «Plassen frigjøres først når du tømmer papirkurven.» → «Space is freed only when you empty the trash.» |
+| `reason.*` | 12 | se 5.4 |
 | `a11y.*` | 18 | «Pil opp flytter til papirkurv» → «Up arrow moves to trash» |
-| `err.*`, `folders.*`, `settings.*` | 20 | |
+| `restore.*` | 7 | «{count} bilder gjenopprettet» → «{count} photos restored» (Gjenopprett i Papirkurv) |
+| `help.*` | 13 | F1-dialogen: «Overalt», «På denne skjermen», tasthandlinger |
+| `settings.*`, `setting.*` | 20 | Innstillinger: språk, papirkurvfrist, karantenemappe, Tøm-standard. `setting.*` (entall) er eldre nøkler for språk og frist og beholdes |
+| `err.*`, `folders.*` | 7 | |
+| `common.*`, `nav.*`, `app.*` | 18 | Felles knapper og navigasjon |
+| `ui.*`, `dev.*` | 12 | Komponentbibliotek og utviklingsgalleri |
 | `consequence.*` | 16 | En nøkkel per `ConsequenceCode` og feilkode fra TRYGGHET (`AckRequired`, `PlanStale`, `PurgeStale`, `NotUndoable`, `AlreadyPurged`, `UnknownAsset`) |
+
+**Avklaring `onb.*` mot `onboarding.*` (M7-hull):** prefikset er `onb.*`, og det beholdes. Det finnes ingen nøkler med `onboarding.*` i `i18n/*.json`, generert kode eller kode i `desktop/src`; tilstandsfilene og komponenten heter `onboarding*` (filnavn), nøklene `onb.*`. Nye nøkler for onboarding bruker alltid `onb.`. Prefiks per område eier områdets agent: `restore.*`, `settings.*`, `help.*`, `home.*` (M7-hull), `onb.*`, `trash.*`. Tallene i tabellen er faktisk antall i `i18n/nb.json` og oppdateres ved endring.
 
 ### 5.4 Begrunnelseskoder (kjerne) → tekst (UI)
 
@@ -245,6 +252,7 @@ Avklart 2026-11-11: nn er ikke MVP-krav. MVP = nb + en. Nøkkelstruktur og nøkk
 | Gjennomgang | Ctrl+A / Shift+klikk | Velg alle / område |
 | Gjennomgang | Delete | Flytt valgte til papirkurv (bekreftelse ved massesletting, som knappen) |
 | Gruppevisning | ← / → | Forrige / neste bilde |
+| Gruppevisning | 1–9 | Gjør bilde nr. N til beste (bare med fokus i gruppeområdet; knappen «Gjør dette til beste» finnes alltid) |
 
 Regler: ingen Alt-, Win- eller Ctrl+W/Tab/F4-kombinasjoner (reservert av Windows og WebView2; Alt+←/→ er «tilbake/frem»); ingen enkelttegn-taster (WCAG 2.1.4); Backspace brukes ikke; piler, Delete og Mellomrom er bare aktive når kortområdet eller listen har fokus, aldri i tekstfelt. Endring av tabellen krever oppdatering her først. Test: `shortcuts.test.ts` sjekker at tabellen, F1-dialogen og `aria-keyshortcuts` er like.
 

@@ -220,8 +220,40 @@ fn v1_end_to_end() {
         .iter()
         .find(|k| k.kind == SuggestionKind::Series)
         .unwrap();
-    // Beskyttet bilde teller ikke som «kan ryddes».
-    assert_eq!(series_stat.count, 1);
+    // Beskyttet bilde teller ikke som «kan ryddes»: serien har to forslag, det ene (victim) er beskyttet.
+    // Hvert bilde teller under nøyaktig én type, og uskarpt går foran serie i dashboardet. Etter K8-kalibreringen
+    // av uskarphet (main) kan det andre seriebildet også være uskarpt, så forventningen regnes fra indeksen.
+    let (series_only, reclaimable): (u64, u64) = f.with_store(|s| {
+        let one = |sql: &str| -> u64 {
+            s.conn()
+                .query_row(sql, [victim.asset.0 as i64], |r| r.get::<_, i64>(0))
+                .unwrap() as u64
+        };
+        (
+            one("SELECT count(DISTINCT s.asset_id) FROM suggestion s \
+                 WHERE s.kind = 'series' AND s.status = 'pending' AND s.asset_id <> ?1 \
+                   AND NOT EXISTS (SELECT 1 FROM suggestion o WHERE o.asset_id = s.asset_id \
+                       AND o.status = 'pending' \
+                       AND o.kind IN ('exact_dup', 'visual_dup', 'screenshot', 'blurry'))"),
+            one("SELECT count(DISTINCT asset_id) FROM suggestion \
+                 WHERE status = 'pending' AND asset_id <> ?1"),
+        )
+    });
+    assert_eq!(series_stat.count, series_only);
+    assert!(
+        series_stat.count <= 1,
+        "det beskyttede seriebildet telles aldri"
+    );
+    assert_eq!(
+        d.per_kind.iter().map(|k| k.count).sum::<u64>(),
+        reclaimable,
+        "beskyttet bilde telles ikke under noen type"
+    );
+    assert_eq!(
+        all(&f, SuggestionKind::Series).len(),
+        2,
+        "kortene (serie går foran uskarpt) viser fortsatt begge"
+    );
     let h = f.home_summary();
     assert_eq!(h.per_kind.len(), SuggestionKind::ALL.len());
 
@@ -359,4 +391,78 @@ fn every_code_the_core_sends_has_i18n_key_in_nb_and_en() {
             assert!(text.contains(&format!("\"{k}\"")), "{loc}.json mangler {k}");
         }
     }
+}
+
+/// Keeper-reglenes beskyttede mapper (`ProtectFolder`, docs/mvp/REGLER.md) vinner over V1-forslagene: bilder i
+/// mappen får verken serie- eller regelforslag, forhåndsvisningen teller dem ikke, og alt kommer tilbake når
+/// keeper-regelen fjernes (konfigurasjon, ingen bilder røres). Kjøres både mot minnedatabase (utregning under
+/// låsen) og indeksfil (utregning på egen lesetilkobling).
+#[test]
+fn keeper_rule_protected_folder_blocks_series_and_rule_suggestions() {
+    use crate::rules::KeeperRule;
+    let dir = std::env::temp_dir().join(format!("fjell-v1-guard-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for store in [
+        Store::open_in_memory().unwrap(),
+        Store::open(&dir.join("index.db")).unwrap(),
+    ] {
+        let mut fx = Fx::new();
+        fx.corpus();
+        let base = scene(700);
+        fx.uniq("arkiv/s1.jpg", base.clone());
+        fx.uniq("arkiv/s2.jpg", shifted(&base, 8, 8, 80));
+        fx.uniq("arkiv/s3.jpg", shifted(&base, 20, 8, 80));
+        let f = Fjell::new(store, fx.src.clone(), Arc::new(FakeClock::new(5_000_000)));
+        scan(&f);
+        f.sync_groups().unwrap();
+        let spec = RuleSpec {
+            all_of: vec![RuleCondition::LargerThanBytes(0)],
+        };
+        let rid = f
+            .rule_save(RuleDraft {
+                id: None,
+                name: "alt".into(),
+                spec: spec.clone(),
+            })
+            .unwrap();
+        let count = |sql: &str| -> i64 {
+            f.with_store(|s| s.conn().query_row(sql, [], |r| r.get(0)).unwrap())
+        };
+        const IN_FOLDER: &str =
+            "SELECT count(*) FROM suggestion s JOIN asset a ON a.id = s.asset_id \
+                                 WHERE a.source_id LIKE 'arkiv/%' AND s.status = 'pending'";
+        const SERIES: &str = "SELECT count(*) FROM grp WHERE kind = 'series'";
+        let total = f.rule_preview(spec.clone()).unwrap().hits;
+        assert_eq!(total, 28 + 3);
+        assert_eq!(f.rules_list().unwrap()[0].hits, total);
+        assert_eq!(count(SERIES), 1);
+        // To serieforslag og tre regelforslag i mappen.
+        assert!(count(IN_FOLDER) >= 5, "{}", count(IN_FOLDER));
+
+        f.set_keeper_rules(vec![KeeperRule::ProtectFolder {
+            prefix: "arkiv".into(),
+        }])
+        .unwrap();
+        f.sync_groups().unwrap();
+        assert_eq!(count(IN_FOLDER), 0, "beskyttet mappe får aldri forslag");
+        assert_eq!(count(SERIES), 0);
+        assert_eq!(f.rule_preview(spec.clone()).unwrap().hits, total - 3);
+        assert_eq!(f.rules_list().unwrap()[0].hits, total - 3);
+        // Sperren gjelder også når forslagsregelen endres direkte (uten ny gruppeutregning).
+        f.rule_toggle(rid, false).unwrap();
+        f.rule_toggle(rid, true).unwrap();
+        assert_eq!(count(IN_FOLDER), 0);
+        assert_eq!(f.rules_list().unwrap()[0].hits, total - 3);
+
+        // Fjernes keeper-regelen, er forslagene tilbake. Ingen bilder er rørt underveis.
+        f.set_keeper_rules(Vec::new()).unwrap();
+        f.sync_groups().unwrap();
+        assert!(count(IN_FOLDER) >= 5);
+        assert_eq!(count(SERIES), 1);
+        assert_eq!(f.rules_list().unwrap()[0].hits, total);
+        assert_eq!(count("SELECT count(*) FROM asset WHERE state <> 0"), 0);
+        assert_eq!(count("SELECT count(*) FROM action_log"), 0);
+    }
+    let _ = std::fs::remove_dir_all(&dir);
 }

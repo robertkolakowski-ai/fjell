@@ -275,3 +275,45 @@ fn trashed_images_stay_trashed_through_a_rescan_and_settings_roundtrip() {
     });
     assert_eq!(f.settings().trash_days, 7);
 }
+
+#[test]
+fn restore_assets_brings_trashed_back_and_is_one_undoable_batch() {
+    let (f, _src) = scanned();
+    let c = all(&f, SuggestionKind::ExactDup)[0].clone();
+    f.decide_many(vec![(c.id, Decision::Trash)]).unwrap();
+    assert_eq!(state(&f, c.asset), State::Trashed);
+    let b = f.restore_assets(&[c.asset]).unwrap();
+    assert!(b.is_some());
+    assert_eq!(state(&f, c.asset), State::Active);
+    // Allerede aktiv: ingen ny batch.
+    assert_eq!(f.restore_assets(&[c.asset]).unwrap(), None);
+    // Gjenoppretting kan angres (tilbake i «Nylig slettet»).
+    f.undo().unwrap();
+    assert_eq!(state(&f, c.asset), State::Trashed);
+}
+
+#[test]
+fn storage_summary_over_scanned_corpus_matches_index_and_follows_trash() {
+    let (f, _) = scanned();
+    let s = f.storage_summary().unwrap();
+    let (n, bytes): (u64, u64) = f.with_store(|st| {
+        let rows = st.index_rows().unwrap();
+        (rows.len() as u64, rows.iter().map(|r| r.bytes).sum())
+    });
+    assert_eq!((s.total_count, s.total_bytes), (n, bytes));
+    assert_eq!(s.per_kind.iter().map(|k| k.bytes).sum::<u64>(), bytes);
+    assert_eq!(s.per_root.len(), 1);
+    assert_eq!(
+        f.largest_files(3).unwrap(),
+        s.largest_files[..3.min(s.largest_files.len())]
+    );
+    assert_eq!(s.trash_bytes, 0);
+    let card = &all(&f, SuggestionKind::ExactDup)[0];
+    f.decide_many(vec![(card.id, Decision::Trash)]).unwrap();
+    f.sync_groups().unwrap();
+    let t = f.storage_summary().unwrap();
+    assert_eq!(t.total_count, s.total_count - 1);
+    assert_eq!(t.trash_count, 1);
+    assert_eq!(t.trash_bytes, card.bytes);
+    assert_eq!(t.total_bytes + t.trash_bytes, s.total_bytes);
+}

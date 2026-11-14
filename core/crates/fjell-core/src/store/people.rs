@@ -1,7 +1,7 @@
 //! Lagring for V1-grenen `people` (store, L1). Eier alle SQL-spørringer for `person` og `face_embedding`.
 //!
 //! Avhenger av: `super` (`Store`), `crate::model`. Filen eies av grenen `people` (docs/v1/V1-PLAN.md);
-//! ingen andre grener rører den. Skjemaet er ferdig i migrering 2 (`002_v1.sql`) og endres ikke av grenen.
+//! ingen andre grener rører den. Skjemaet er ferdig i migrering 5 (`005_v1.sql`) og endres ikke av grenen.
 //! Grensesnitt:
 //! - `face_index_enabled`/`set_face_index_enabled`: valgfri ansiktsindeks (standard av, `setting.face_index_enabled`).
 //! - `put_faces`, `faces_all`, `face_assign`, `asset_has_faces`: ansikter per bilde (embedding kun lokal).

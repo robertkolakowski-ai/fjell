@@ -132,6 +132,8 @@ fn i16_schema_has_no_image_data_or_free_text() {
         "asset.mod_token",
         "asset.mime",
         "grp.kind",
+        "grp.keeper_reason",
+        "grp.keeper_rule", // regelnøkkel + mappesti (som asset.source_id), aldri fritekst
         "suggestion.kind",
         "suggestion.reason_code",
         "suggestion.status",
@@ -141,7 +143,7 @@ fn i16_schema_has_no_image_data_or_free_text() {
         "setting.key",
         "setting.value",
         "album.name",
-        // V1 (migrering 2): kategorier og id-koding.
+        // V1 (migrering 5): kategorier og id-koding.
         "protection.scope",
         "protection.target",
         // V1: brukerens egne etiketter (person- og regelnavn) og regelkoding. Eneste fritekst, bevisst utvidelse
@@ -209,4 +211,27 @@ fn reconcile_logs_every_transition_and_deletes_nothing() {
         .query_row("SELECT COUNT(*) FROM asset", [], |r| r.get(0))
         .unwrap();
     assert_eq!(n, 3);
+}
+
+/// F1: `relocate_source` flytter bare pekeren; opptatt sti gir feil og ingen endring.
+#[test]
+fn relocate_source_moves_only_the_pointer_and_refuses_an_occupied_path() {
+    let mut s = store_with(2);
+    let to = SourceId("s1 (gjenopprettet)".into());
+    assert!(s.relocate_source(AssetId(1), &to).unwrap());
+    assert!(!s.relocate_source(AssetId(1), &to).unwrap(), "idempotent");
+    assert!(!s.relocate_source(AssetId(9), &to).is_ok_and(|moved| moved));
+    assert!(s
+        .relocate_source(AssetId(1), &SourceId("s2".into()))
+        .is_err());
+    let ids = s.source_ids(&[AssetId(1), AssetId(2)]).unwrap();
+    assert_eq!(ids[0].1, to);
+    assert_eq!(ids[1].1, SourceId("s2".into()));
+    assert_eq!(
+        s.asset_rows(&[AssetId(1)]).unwrap()[0]
+            .as_ref()
+            .unwrap()
+            .state,
+        State::Active
+    );
 }

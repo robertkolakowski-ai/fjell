@@ -443,16 +443,16 @@ impl From<&SeriesCompare> for SeriesCompareDto {
 /// Innstillinger: sensitivitet per forslagstype (`low|normal|high`), ansiktsindeks og papirkurvdager.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SettingsDto {
+pub struct SuggestionSettingsDto {
     pub trash_days: u32,
     /// Nøkkel = forslagstype (`exact_dup`, `visual_dup`, `blurry`, `screenshot`, `series`, `rule`).
     pub sensitivity: BTreeMap<String, String>,
     pub face_index: bool,
 }
 
-impl From<&Settings> for SettingsDto {
-    fn from(s: &Settings) -> SettingsDto {
-        SettingsDto {
+impl From<&Settings> for SuggestionSettingsDto {
+    fn from(s: &Settings) -> SuggestionSettingsDto {
+        SuggestionSettingsDto {
             trash_days: s.trash_days,
             sensitivity: SuggestionKind::ALL
                 .iter()
@@ -468,7 +468,7 @@ impl From<&Settings> for SettingsDto {
     }
 }
 
-impl SettingsDto {
+impl SuggestionSettingsDto {
     /// Ukjent forslagstype eller sensitivitetskode gir `None` (kommandoen svarer `bad_request`).
     pub fn to_core(&self) -> Option<Settings> {
         let mut out = Settings {

@@ -26,6 +26,7 @@ impl Store {
         removed: &[SourceId],
         ts: i64,
     ) -> Result<Vec<AssetId>, StoreError> {
+        self.generation += 1;
         let tx = self.conn.transaction()?;
         let batch = next_batch_id(&tx)?;
         let mut purged = Vec::new();
@@ -54,5 +55,22 @@ impl Store {
         }
         tx.commit()?;
         Ok(purged)
+    }
+}
+
+impl Store {
+    /// Filen ble flyttet tilbake fra karantenen til et annet navn (navnekollisjon ved gjenoppretting):
+    /// indeksen skal peke på filen som faktisk har innholdet, ikke på den opprinnelige stien, der det nå
+    /// ligger en annen fil (F1). Endrer bare `source_id`; `false` hvis id er ukjent. Opptatt `source_id`
+    /// (annen rad) gir feil og ingen endring.
+    pub fn relocate_source(&mut self, id: AssetId, to: &SourceId) -> Result<bool, StoreError> {
+        let n = self.conn.execute(
+            "UPDATE asset SET source_id = ?2 WHERE id = ?1 AND source_id <> ?2",
+            rusqlite::params![id.0 as i64, to.0],
+        )?;
+        if n > 0 {
+            self.generation += 1;
+        }
+        Ok(n > 0)
     }
 }

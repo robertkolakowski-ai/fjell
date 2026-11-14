@@ -6,7 +6,7 @@
 //! ```text
 //! L4  api
 //! L3  pipeline
-//! L2  cluster   suggest   actions   series   people   rules   protect   dashboard
+//! L2  cluster   suggest   actions   rules   storage   series   people   suggest_rules   protect   dashboard
 //! L1  store   hash   quality   screenshot
 //! L0  model
 //! ```
@@ -24,8 +24,10 @@ pub mod quality;
 pub mod rules;
 pub mod screenshot;
 pub mod series;
+pub mod storage;
 pub mod store;
 pub mod suggest;
+pub mod suggest_rules;
 
 /// Kjernens versjon (fra Cargo).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

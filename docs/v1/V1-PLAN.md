@@ -33,14 +33,14 @@ Kontrakt ──┬─> protect   ─┐
 **Kontrakten eier alle delte filer** og er ferdig før grenene starter. Grenene endrer dem ikke; trenger en gren en endring i en delt fil, meldes det til Integrer (åpne spørsmål, del 4).
 
 Delt (kontrakten, låst for grenene):
-`model/mod.rs`, `model/v1.rs`, `model/analyze.rs`, `model/plan.rs`, `store/002_v1.sql`, `store/migrate.rs`, `store/migrate_tests.rs`, `store/ops_tests.rs`, `store/mod.rs`, `api/mod.rs`, `api/types.rs`, `api/mock.rs`, `lib.rs`, `tools/check-layers/layers.toml`, `i18n/nb.json`, `i18n/en.json`, `docs/mvp/ARKITEKTUR.md`, `docs/v1/V1-PLAN.md`, `fjell-ffi`-speilene (`types.rs`).
+`model/mod.rs`, `model/v1.rs`, `model/analyze.rs`, `model/plan.rs`, `store/005_v1.sql`, `store/migrate.rs`, `store/migrate_tests.rs`, `store/ops_tests.rs`, `store/mod.rs`, `api/mod.rs`, `api/types.rs`, `api/mock.rs`, `lib.rs`, `tools/check-layers/layers.toml`, `i18n/nb.json`, `i18n/en.json`, `docs/mvp/ARKITEKTUR.md`, `docs/v1/V1-PLAN.md`, `fjell-ffi`-speilene (`types.rs`).
 
 | Gren | Eier (hele mappen/filen) | Bruker fra kontrakten |
 |---|---|---|
 | `protect` | `src/protect/`, `store/protection.rs`, `src/actions/plan.rs` (bare de delene som legger til `ConsequenceCode::ProtectedByScope`/`ProtectCounts.scope`; ingen annen gren rører `actions/`) | `ProtectScope`, `ProtectionEntry`, tabell `protection` |
 | `series` | `src/series/`, `store/series.rs` | `SeriesId`, `EyeAnalyzer`/`EyeReport`, `ReasonCode::{SeriesMember, KeeperBestOverall, KeeperEyesOpen, ClosedEyes}`, `ReasonDetail::Position`, `SeriesCompare`, tabellene `grp` (kind `series`), `eye_result` |
 | `people` | `src/people/`, `store/people.rs` | `PersonId`, `FaceAnalyzer`/`FaceObservation`/`Embedding`, `PersonView`, tabellene `person`, `face_embedding`, `setting.face_index_enabled` |
-| `rules` | `src/rules/`, `store/rules.rs` | `RuleId`, `RuleSpec`/`RuleCondition`, `RuleDraft`/`RuleView`/`RulePreview`, `ReasonCode::Rule`, tabellene `rule`, `rule_hit` |
+| `rules` (nå `suggest_rules`) | `src/suggest_rules/`, `store/suggest_rules.rs` | `RuleId`, `RuleSpec`/`RuleCondition`, `RuleDraft`/`RuleView`/`RulePreview`, `ReasonCode::Rule`, tabellene `rule`, `rule_hit` |
 | `dashboard` | `src/dashboard/`, `store/dashboard.rs` | `DashboardData` og delvisninger |
 | Integrer | `api/fjell.rs`, `api/fjell_ops.rs` (+ tester), `pipeline/` (kjør analysatorer og gruppering), `fjell-cli`, `fjell-ffi`, `desktop/`, `testdata/`, `Settings`-lagring | alt over |
 
@@ -51,7 +51,7 @@ Lagdeling (`tools/check-layers`): de fem modulene er L2, kan bruke `model` og `s
 ## 4. Kontraktens innhold
 
 - **model**: `SeriesId` (= `grp.id` med `kind = 'series'`), `PersonId`, `RuleId`, `ProtectScope` (kode og mål-koding for `protection`), `ReasonDetail`, `RuleSpec`/`RuleCondition` (tom regel treffer ingenting), `DashboardData`; `EyeAnalyzer`, `FaceAnalyzer` med `NullEyeAnalyzer`/`NullFaceAnalyzer` (svarer `Unavailable`, aldri «ingen funn»); `Embedding` (LE-bytes). `SuggestionKind::{Series, Rule}` (`ALL` = 6), 6 nye `ReasonCode` (`ALL` = 18) med i18n i nb og en, `ConsequenceCode::ProtectedByScope`, `KindCounts.{series, rule}`, `ProtectCounts.scope`. `Card.detail: ReasonDetail`.
-- **store**: migrering `002_v1.sql` (001 uendret): `grp.kind` og `suggestion.kind` utvidet via trygg tabellomskriving (`foreign_keys` av utenfor transaksjonen, `foreign_key_check` før commit, ingen kaskade; testet med data), `protection`, `eye_result`, `person` (`merged_into`), `face_embedding` (BLOB, kun lokal), `rule` (`deleted_at`, trigger mot hard sletting), `rule_hit`, `setting.face_index_enabled = '0'`. «Fra tom» og «fra forrige» gir lik dump (K6-1). Triggere og I1-I16 urørt. I16 er utvidet bevisst, se åpne spørsmål.
+- **store**: migrering `005_v1.sql` (opprinnelig `002_v1.sql`; omnummerert ved sammenslåing med main, 001–004 uendret): `grp.kind` og `suggestion.kind` utvidet via trygg tabellomskriving (`foreign_keys` av utenfor transaksjonen, `foreign_key_check` før commit, ingen kaskade; testet med data), `protection`, `eye_result`, `person` (`merged_into`), `face_embedding` (BLOB, kun lokal), `rule` (`deleted_at`, trigger mot hard sletting), `rule_hit`, `setting.face_index_enabled = '0'`. «Fra tom» og «fra forrige» gir lik dump (K6-1). Triggere og I1-I16 urørt. I16 er utvidet bevisst, se åpne spørsmål.
 - **api**: `FjellApi` har alle V1-metodene med standardimplementasjon (tom verdi eller `ApiError::Internal("ikke implementert")`): `protect_set`, `unprotect`, `protections`, `rules_list`, `rule_save`, `rule_preview`, `rule_toggle`, `rule_delete`, `rule_restore`, `people_list`, `person_name`, `person_merge`, `person_unmerge`, `person_protect`, `face_index_enabled`, `face_index_set`, `face_index_wipe`, `dashboard`, `series_compare`, `thresholds`. `rule_delete` og `person_merge` er angrebare (`rule_restore`, `person_unmerge`). `MemApi` og `Fjell` uendret oppførsel.
 - **Settings**: `trash_days`, `sensitivity: Sensitivities` (per `SuggestionKind`, standard `Normal`), `face_index: bool` (standard av). Nøkler i `setting`: `sensitivity.<kind>` og `face_index_enabled`; manglende nøkkel gir standardverdi (eldre databaser leses uendret). Lagring i `Fjell` er Integrers jobb.
 
@@ -86,7 +86,7 @@ V1 er ferdig når Integrer har koblet alle grenene til `Fjell` (skanning kjører
 
 Grenene er slått sammen i rekkefølgen protect, series, dashboard, people, rules uten konflikter (hver eide sine egne filer). Integrer har koblet alt til `Fjell`:
 
-- **Pipeline** (`pipeline/groups.rs`, `tuning.rs`, `analyzers.rs`): `refresh_groups` regner nå eksakte og visuelle grupper, deretter serier (`Store::apply_series`) og til slutt brukerregler (`rules::evaluate`). `run_analyzers` kjører etter skanning: øyne til serier, og ansikter og klynging bare når `face_index` er på. `Unavailable` (Null-analysatorene) avbryter steget uten å lagre noe; ingen modell er valgt eller lastet ned. `Fjell::with_analyzers` injiserer modellene.
+- **Pipeline** (`pipeline/groups.rs`, `tuning.rs`, `analyzers.rs`): `refresh_groups` regner nå eksakte og visuelle grupper, deretter serier (`Store::apply_series`) og til slutt forslagsregler (`suggest_rules::evaluate`). `run_analyzers` kjører etter skanning: øyne til serier, og ansikter og klynging bare når `face_index` er på. `Unavailable` (Null-analysatorene) avbryter steget uten å lagre noe; ingen modell er valgt eller lastet ned. `Fjell::with_analyzers` injiserer modellene.
 - **Sensitivitet**: `setting.sensitivity.<type>` leses av `pipeline::tuning_from_store`. Low/Normal/High flytter visuell `max_dist` (4/6/8), uskarphetsterskel (x0,7/x1/x1,3), serieglipp (5/10/20 s), serie-`max_dist` (8/10/12) og øyesikkerhet (0,9/0,8/0,7). Normal er identisk med MVP. Verdiene er startverdier, ikke kalibrert (åpent spørsmål 3).
 - **API** (`api/fjell_v1.rs`): alle V1-metodene på `FjellApi` er overstyrt for `Fjell`. `Card.detail` fylles (serieposisjon, antall lukkede øyne, regel). `home_summary` viser alle seks forslagstyper. Feil er koder i `ApiError::Internal` (`empty_folder`, `unknown_target`, `empty_rule`, `empty_name`, `name_too_long`, `invalid_condition`, `rule_not_found`, `unknown_person`, `not_merged`, `unknown_series`).
 - **Kortprioritet** (`store/cards.rs`): eksakt > visuelt > serie > regel > skjermbilde > uskarpt, så samme bilde vises aldri i flere kort. Svar på åpent spørsmål 6: bilder som alt er eksakt eller visuelt duplikat deltar ikke i serier (`series_specs`), så serier dekker nesten-like bilder utenfor duplikatterskelen (Hamming 7..=10) og alle serier om sensitiviteten for visuelle duplikater settes til Low.
@@ -114,3 +114,22 @@ Grenene er slått sammen i rekkefølgen protect, series, dashboard, people, rule
 - **Klynging holder ikke skrive-låsen under regningen**: `cluster_load` (kort lås), `cluster_plan` (ingen lås), `cluster_apply` (én transaksjon). p95-test i `people/tests.rs`.
 - **Dashboard**: `FjellApi::dashboard_full` gir fremdrift, neste steg og tømt per måned (`DashboardDto`).
 - **Keeper-bytte**: `set_keeper` finnes som Shell-metode, Tauri-kommando og `setKeeper` i bridgen.
+
+## Sammenslåing med main (regelmotoren fra PR #25)
+
+Main har en egen regelmotor (keeper-regler, `docs/mvp/REGLER.md`: `src/rules/`, `store/rules.rs`, migrering 004). Den gjelder og er uendret. V1 er lagt oppå:
+
+- **Navn**: V1-reglene heter nå forslagsregler og bor i `src/suggest_rules/` og `store/suggest_rules.rs` (tabellene `rule`, `rule_hit` og forslagstypen `rule` er uendret). Keeper-reglene velger keeper i grupper; forslagsreglene foreslår enkeltbilder. Ingen av dem sletter eller godtar noe.
+- **Beskyttede mapper vinner**: et bilde under en keeper-regel `ProtectFolder` får verken serie- eller regelforslag og telles ikke i forhåndsvisning (`suggest_rules::Guard`, bygget i `pipeline/groups.rs` og `api/fjell_v1.rs`; testet i `api/fjell_v1_tests.rs` og `suggest_rules/tests.rs`).
+- **Migrering**: `002_v1.sql` er blitt `005_v1.sql`. Den tar med `grp.keeper_reason`/`grp.keeper_rule` og indeksene fra 002 og 003 gjennom tabellomskrivingen. En database fra main (versjon 4) oppgraderes uten tap (`store/migrate_tests.rs`).
+- **Gruppering**: `refresh_groups` bruker mains inkrementelle klynging og lesetilkobling; sensitivitet går inn via `compute_tuned`. Serier og forslagsregler skrives under låsen rett etter gruppene (`apply_v1`). `store/groups.rs` rører ikke lenger serier eller forslag av typen `series`/`rule`.
+- **Skall og bro**: `Shell::decide_confirmed`, `set_keeper` og `settings` er mains. V1-innstillingene heter `suggestion_settings`/`set_suggestion_settings` (`get_suggestion_settings`/`set_suggestion_settings` i Tauri, `SuggestionSettingsDto`). V1-funksjonene i frontend ligger i `desktop/src/bridge/v1.ts` og `types-v1.ts`, utenfor `CoreBridge`; ingen skjermer bruker dem.
+
+Punkt 14 over er løst av main: skallet åpner en ekte `Fjell` (`Shell::with_data_dir`), så V1-kommandoene går mot ekte kjerne; `Shell::mock()` brukes bare i tester og dev. Punkt 15 gjelder fortsatt: `fjell-desktop` (Tauri-limet) er ikke bygget i utviklingsmiljøet (mangler webkit2gtk); de nye kommandoene der er bare gjennomgått, og bygges av `desktop`-jobben på `windows-latest`.
+
+Åpent etter sammenslåingen:
+
+16. **MVP-skjermene kjenner bare fire forslagstyper.** Kjernen lager nå serieforslag ved skanning, og et bilde med serieforslag vises ikke lenger som uskarpt/skjermbilde-kort (kortprioritet). `get_state.perKind` inneholder også `series` og `rule`. Til V1-skjermene finnes, kan slike bilder ikke gjennomgås i UI, og tallet på Hjem teller dem med. Må avklares før V1-kjernen slippes til brukere.
+17. **To mappebeskyttelser** finnes side om side: keeper-regelen `ProtectFolder` (hele stikomponenter, uavhengig av store/små bokstaver; får aldri forslag) og `protection`-tabellens `folder` (rent prefiks; krever egen bekreftelse). Bør samles i én.
+18. **Mappevilkåret i forslagsregler** (`InFolder`) er rent prefiks på `source_id`, ikke hele stikomponenter som i keeper-reglene.
+19. **Sensitivitet og inkrementell klynging**: endret sensitivitet for visuelle duplikater bygger klyngeindeksen på nytt ved neste utregning.

@@ -5,6 +5,7 @@
 //! - `rank_group(&[Member]) -> Option<Ranked>`: keeper og begrunnelse (`None` bare for tom gruppe).
 //! - `group_suggestions(GroupKind, &[Member]) -> Option<GroupResult>` og `suggestions(..)`: alle
 //!   ikke-keepere får `exact_dup`/`visual_dup`. Keeper får aldri forslag.
+//! - `group_suggestions_with(..)`: som over, men med keeper valgt av brukerregler.
 //! - `blur_threshold(&[f32])`, `blurry_suggestion(..)`, `screenshot_suggestion(..)`: forslag uten gruppe.
 //! - `without_rejected(..)`: nye forslag overstyrer aldri en avvisning (`UNIQUE(asset_id, kind)`).
 //!
@@ -169,6 +170,32 @@ pub fn group_suggestions(kind: GroupKind, members: &[Member]) -> Option<GroupRes
 
 fn group_at(index: usize, kind: GroupKind, members: &[Member]) -> Option<GroupResult> {
     let ranked = rank_group(members)?;
+    group_with(index, kind, members, ranked)
+}
+
+/// Som `group_suggestions`, men med keeper valgt utenfra (brukerregler, se `rules`). `ranked.keeper`
+/// må være medlem. Keeper får aldri forslag; alle andre får det.
+pub fn group_suggestions_with(
+    kind: GroupKind,
+    members: &[Member],
+    ranked: Ranked,
+) -> Option<GroupResult> {
+    members
+        .iter()
+        .any(|m| m.id == ranked.keeper)
+        .then_some(())?;
+    group_with(0, kind, members, ranked).map(|mut r| {
+        r.suggestions.iter_mut().for_each(|s| s.group = None);
+        r
+    })
+}
+
+fn group_with(
+    index: usize,
+    kind: GroupKind,
+    members: &[Member],
+    ranked: Ranked,
+) -> Option<GroupResult> {
     let (sk, reason, confidence) = match kind {
         GroupKind::Exact => (SuggestionKind::ExactDup, ReasonCode::ExactCopy, 1.0),
         GroupKind::Visual { max_hamming } => (

@@ -5,7 +5,7 @@
 //! - `upsert_assets(&[AssetMeta]) -> UpsertStats`: transaksjoner på 500 rader. Uendret rad skrives
 //!   ikke. Endret `mod_token` nullstiller fingeravtrykket (raden beholdes, `algo_ver = 0`). `state`,
 //!   `trashed_at` og `expires_at` røres aldri (I13). Purgede rader røres ikke (terminal).
-//! - `hash_rows()` (aktive, lokale, ikke video) og `put_content_hashes(..)` for rask fase.
+//! - `hash_rows()` (aktive, lokale, også video) og `put_content_hashes(..)` for rask fase.
 //! - `begin_scan(algo)`: nullstiller `fail_count` når algoritmeversjonen har økt.
 //! - `work_set(algo)`: aktive lokale bilder uten fingeravtrykk eller med `algo_ver < algo`, og med
 //!   `fail_count < 3`. `put_fingerprints(..)` (én transaksjon per kall), `record_failures(..)`.
@@ -321,12 +321,14 @@ impl Store {
         Ok(())
     }
 
-    /// Aktive, lokale bilder (ikke video) for størrelsesforfilteret.
+    /// Aktive, lokale filer for størrelsesforfilteret. Video er med: en fil hashes bare når en annen
+    /// har nøyaktig samme størrelse, og bytelik video er et like trygt eksakt duplikat som et bilde.
+    /// (Full fase, `work_set`, tar aldri video: ingen dekoding, ingen visuell sammenligning.)
     pub fn hash_rows(&self) -> Result<Vec<HashRow>, StoreError> {
         let mut st = self.conn.prepare_cached(
             "SELECT a.id, a.source_id, a.bytes, f.content_hash IS NOT NULL FROM asset a \
              LEFT JOIN fingerprint f ON f.asset_id = a.id \
-             WHERE a.state = 0 AND a.is_local = 1 AND a.kind != 'video' ORDER BY a.id",
+             WHERE a.state = 0 AND a.is_local = 1 ORDER BY a.id",
         )?;
         let rows = st.query_map([], |r| {
             Ok(HashRow {
@@ -447,15 +449,15 @@ impl Store {
         Ok(out)
     }
 
+    /// Plattform-ID for alle AKTIVE bilder (ikke papirkurv, ikke purgede). Kilder bruker den til å
+    /// oppdage filer som er fjernet utenfor Fjell (T11); papirkurvbilder ligger i karantenen med vilje.
+    pub fn active_source_ids(&self) -> Result<Vec<SourceId>, StoreError> {
+        active_source_ids_on(&self.conn)
+    }
+
     /// Aktive bilder med fingeravtrykksrad, sortert på id.
     pub fn index_rows(&self) -> Result<Vec<IndexRow>, StoreError> {
-        let mut st = self.conn.prepare_cached(
-            "SELECT a.id, a.kind, a.width, a.height, a.bytes, a.created_at, a.protect_flags, \
-             f.content_hash, f.dhash, f.phash, f.blur_score, f.shot_signals, f.algo_ver \
-             FROM asset a JOIN fingerprint f ON f.asset_id = a.id WHERE a.state = 0 ORDER BY a.id",
-        )?;
-        let rows = st.query_map([], map_index_row)?;
-        Ok(rows.collect::<Result<_, _>>()?)
+        index_rows_on(&self.conn)
     }
 
     /// Som `index_rows`, men bare for `ids` (aktive bilder med fingeravtrykk), sortert på id.
@@ -473,5 +475,30 @@ impl Store {
         }
         out.sort_by_key(|r| r.id);
         Ok(out)
+    }
+}
+
+pub(super) fn active_source_ids_on(
+    conn: &rusqlite::Connection,
+) -> Result<Vec<SourceId>, StoreError> {
+    let mut st = conn.prepare_cached("SELECT source_id FROM asset WHERE state = 0")?;
+    let rows = st.query_map([], |r| r.get::<_, String>(0))?;
+    Ok(rows
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .map(SourceId)
+        .collect())
+}
+
+/// Som `Store::index_rows`, men på en gitt tilkobling (f.eks. `Store::reader`, utenfor skrivelåsen).
+pub fn index_rows_on(conn: &rusqlite::Connection) -> Result<Vec<IndexRow>, StoreError> {
+    {
+        let mut st = conn.prepare_cached(
+            "SELECT a.id, a.kind, a.width, a.height, a.bytes, a.created_at, a.protect_flags, \
+             f.content_hash, f.dhash, f.phash, f.blur_score, f.shot_signals, f.algo_ver \
+             FROM asset a JOIN fingerprint f ON f.asset_id = a.id WHERE a.state = 0 ORDER BY a.id",
+        )?;
+        let rows = st.query_map([], map_index_row)?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 }

@@ -1,76 +1,143 @@
-//! Windows Papirkurv (`cfg(windows)`). ALT HER ER KUN KOMPILERT OG TESTET PÅ WINDOWS I CI-jobben `desktop`;
-//! på Linux finnes `delete::FakeRecycleBin` og tester av alt rundt.
+//! Windows Papirkurv (`cfg(windows)`). Kompileres og testes på Windows i CI-jobben `desktop`;
+//! på Linux finnes `delete::FakeRecycleBin` og tester av alt rundt. Eneste modul med `unsafe`.
 //!
-//! Grensesnitt: `WindowsRecycleBin` (`impl RecycleBin`). Eneste modul med `unsafe`.
-//! Valg og avvik fra ARKITEKTUR 22 (som sier `IFileOperation`): `SHFileOperationW` med
-//! `FOF_ALLOWUNDO` er enklere å kalle uten COM og gir samme Papirkurv-semantikk per fil.
+//! Valg (ARKITEKTUR 22): `IFileOperation` via `windows`-craten. Den erstatter `SHFileOperationW`,
+//! som ikke tar `\\?\` og dermed ga `Failed` for stier over MAX_PATH. Shell-parseren gir
+//! E_INVALIDARG på `\\?\`, så stier sendes alltid uten prefiks. Stier over MAX_PATH prøves via
+//! 8.3-kortnavn og gir ellers `Unsupported` (filen røres ikke; appen beholder den i karantenen).
 //! Sikkerhet mot stille permanent sletting:
-//! - Bare faste disker (`DRIVE_FIXED`) forsøkes; nettverk, UNC og flyttbare gir `Unsupported`
-//!   (de har ingen Papirkurv, og Windows ville ellers slettet permanent).
-//! - `FOF_WANTNUKEWARNINGS` gjør at filer som ikke får plass i Papirkurv gir advarsel i stedet
-//!   for stille sletting; avbrutt gir `Cancelled`.
+//! - Bare faste disker (`DRIVE_FIXED`) forsøkes; nettverk, UNC og flyttbare gir `Unsupported`.
+//! - `FOFX_RECYCLEONDELETE` får operasjonen til å feile når filen ikke kan til Papirkurv, i stedet
+//!   for å slette permanent. `FOF_WANTNUKEWARNINGS` er satt som ekstra sikring.
+//! - Etter kallet sjekkes at filen faktisk er borte fra opprinnelig sted; ellers `Failed`.
+//! - Ingen fallback til `remove_file` her. Permanent går bare via `FsDeleter` med `PermanentAck`.
 //!
-//! Begrensning: `SHFileOperationW` støtter ikke `\\?\`; stier over MAX_PATH gir `Failed`.
+//! Ikke verifisert på Linux: hele modulen. Se `tests/windows.rs` (kjøres på windows-latest).
 
 #![allow(unsafe_code)]
 
 use crate::delete::{RecycleBin, RecycleError};
-use crate::path::windows_volume_root;
-use std::os::windows::ffi::OsStrExt;
+use crate::drives::{drive_status, volume_root_of, DriveStatus};
+use crate::path::extended_str;
 use std::path::Path;
-use windows_sys::Win32::Storage::FileSystem::GetDriveTypeW;
-use windows_sys::Win32::UI::Shell::{
-    SHFileOperationW, FOF_ALLOWUNDO, FOF_NOCONFIRMATION, FOF_NOERRORUI, FOF_SILENT, FO_DELETE,
-    SHFILEOPSTRUCTW,
+use windows::core::HSTRING;
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitializeEx, CoUninitialize, IBindCtx, CLSCTX_ALL,
+    COINIT_APARTMENTTHREADED,
+};
+use windows::Win32::UI::Shell::{
+    FileOperation, IFileOperation, IFileOperationProgressSink, IShellItem,
+    SHCreateItemFromParsingName, FILEOPERATION_FLAGS,
 };
 
-/// Ikke eksportert av windows-sys: `shellapi.h` FOF_WANTNUKEWARNINGS.
+// shellapi.h / shobjidl_core.h; rå verdi for å slippe forskjeller i konstanttype mellom crate-versjoner.
+const FOF_SILENT: u32 = 0x0004;
+const FOF_NOCONFIRMATION: u32 = 0x0010;
+const FOF_ALLOWUNDO: u32 = 0x0040;
+const FOF_NOERRORUI: u32 = 0x0400;
 const FOF_WANTNUKEWARNINGS: u32 = 0x4000;
-const DRIVE_FIXED: u32 = 3;
+const FOFX_RECYCLEONDELETE: u32 = 0x0008_0000;
 
 pub struct WindowsRecycleBin;
 
-fn wide(s: &std::ffi::OsStr) -> Vec<u16> {
-    s.encode_wide().chain(std::iter::once(0)).collect()
+struct ComGuard(bool);
+impl Drop for ComGuard {
+    fn drop(&mut self) {
+        if self.0 {
+            // SAFETY: paret med vellykket `CoInitializeEx` på samme tråd.
+            unsafe { CoUninitialize() };
+        }
+    }
 }
 
-fn has_recycle_bin(path: &Path) -> bool {
-    let Some(root) = path.to_str().and_then(windows_volume_root) else {
-        return false;
-    };
-    if root.starts_with(r"\\") {
-        return false;
+fn fail(what: &str, e: windows::core::Error) -> RecycleError {
+    RecycleError::Failed(format!("{what}: {:#x}", e.code().0))
+}
+
+fn recycle_item(path: &str) -> Result<(), RecycleError> {
+    // Allerede initialisert med annen modell gir RPC_E_CHANGED_MODE; COM er da brukbart likevel.
+    // SAFETY: standard COM-oppstart; guard avslutter på samme tråd.
+    let _com = ComGuard(unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) }.is_ok());
+    // Shell-parseren avviser `\\?\` for vanlige stier (E_INVALIDARG): prefiks bare når stien er lang.
+    let plain = crate::path::strip_extended(path).replace('/', "\\");
+    let ext = HSTRING::from(extended_str(&plain, false));
+    // SAFETY: COM er initialisert; `ext` lever gjennom kallene; grensesnittene slippes før `_com`.
+    unsafe {
+        let op: IFileOperation =
+            CoCreateInstance(&FileOperation, None, CLSCTX_ALL).map_err(|e| fail("CoCreate", e))?;
+        op.SetOperationFlags(FILEOPERATION_FLAGS(
+            FOF_ALLOWUNDO
+                | FOF_NOCONFIRMATION
+                | FOF_NOERRORUI
+                | FOF_SILENT
+                | FOF_WANTNUKEWARNINGS
+                | FOFX_RECYCLEONDELETE,
+        ))
+        .map_err(|e| fail("SetOperationFlags", e))?;
+        let item: IShellItem = SHCreateItemFromParsingName(&ext, None::<&IBindCtx>)
+            .map_err(|e| fail("SHCreateItemFromParsingName", e))?;
+        op.DeleteItem(&item, None::<&IFileOperationProgressSink>)
+            .map_err(|e| fail("DeleteItem", e))?;
+        op.PerformOperations()
+            .map_err(|e| fail("PerformOperations", e))?;
+        if op
+            .GetAnyOperationsAborted()
+            .map_err(|e| fail("Aborted", e))?
+            .as_bool()
+        {
+            return Err(RecycleError::Cancelled);
+        }
     }
-    let w = wide(std::ffi::OsStr::new(&root));
-    // SAFETY: `w` er nullterminert og lever gjennom kallet.
-    unsafe { GetDriveTypeW(w.as_ptr()) == DRIVE_FIXED }
+    Ok(())
+}
+
+/// Shell-grensen for stilengde (MAX_PATH inkl. nullterminator).
+const MAX_SHELL_PATH: usize = 260;
+
+/// 8.3-kortform av en eksisterende sti, hvis den finnes og er under grensen.
+fn short_path(path: &str) -> Option<String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;
+    let wide: Vec<u16> = std::ffi::OsStr::new(&extended_str(path, true))
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    let mut buf = vec![0u16; 4096];
+    // SAFETY: `wide` er nullterminert og lever gjennom kallet; `buf` har oppgitt lengde.
+    let n =
+        unsafe { GetShortPathNameW(wide.as_ptr(), buf.as_mut_ptr(), buf.len() as u32) } as usize;
+    if n == 0 || n >= buf.len() {
+        return None;
+    }
+    let short = crate::path::strip_extended(&String::from_utf16_lossy(&buf[..n]));
+    (short.len() < MAX_SHELL_PATH).then_some(short)
 }
 
 impl RecycleBin for WindowsRecycleBin {
     fn recycle(&self, path: &Path) -> Result<(), RecycleError> {
-        if !has_recycle_bin(path) {
-            return Err(RecycleError::Unsupported);
+        let root = volume_root_of(path).ok_or(RecycleError::Unsupported)?;
+        match drive_status(&root) {
+            DriveStatus::Online(k) if k.has_recycle_bin() => {}
+            DriveStatus::Online(_) => return Err(RecycleError::Unsupported),
+            DriveStatus::Unavailable => {
+                return Err(RecycleError::Failed("volumet er frakoblet".into()))
+            }
         }
-        // pFrom er en liste med doble nullbyte på slutten.
-        let mut from = wide(path.as_os_str());
-        from.push(0);
-        let mut op: SHFILEOPSTRUCTW = unsafe { std::mem::zeroed() };
-        op.wFunc = FO_DELETE;
-        op.pFrom = from.as_ptr();
-        op.fFlags = (FOF_ALLOWUNDO
-            | FOF_NOCONFIRMATION
-            | FOF_NOERRORUI
-            | FOF_SILENT
-            | FOF_WANTNUKEWARNINGS) as u16;
-        // SAFETY: `op` er fullt initialisert; `from` lever gjennom kallet og er dobbelt nullterminert.
-        let rc = unsafe { SHFileOperationW(&mut op) };
-        let aborted = op.fAnyOperationsAborted != 0;
-        if aborted {
-            Err(RecycleError::Cancelled)
-        } else if rc != 0 {
-            Err(RecycleError::Failed(format!("SHFileOperationW: {rc:#x}")))
+        let s = path.to_str().ok_or(RecycleError::Unsupported)?;
+        // Shell-APIet tar ikke `\\?\`-stier (E_INVALIDARG, målt på windows-latest). Lange stier
+        // prøves via 8.3-kortnavn; finnes det ikke, avvises de uten å røre filen (Unsupported).
+        let short;
+        let target = if crate::path::strip_extended(s).len() >= MAX_SHELL_PATH {
+            short = short_path(s).ok_or(RecycleError::Unsupported)?;
+            short.as_str()
         } else {
-            Ok(())
+            s
+        };
+        recycle_item(target)?;
+        // Aldri meld Deleted hvis filen fortsatt ligger der.
+        if std::fs::symlink_metadata(crate::path::os_path(path)).is_ok() {
+            return Err(RecycleError::Failed("filen ligger fortsatt igjen".into()));
         }
+        Ok(())
     }
 }

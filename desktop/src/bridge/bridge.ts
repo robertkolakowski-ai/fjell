@@ -1,159 +1,98 @@
-// Tynt lag over Tauri `invoke` (CoreBridge-embryo, ARKITEKTUR beslutning 11).
-// Grensesnitt: én funksjon per Tauri-kommando i src-tauri/src/lib.rs, med samme navn i camelCase.
-// Ingen forretningslogikk; feil kommer som `BridgeError` (koder, aldri tekst). UI-fasen (M6/M7) utvider og
-// legger til MockBridge; UI-fundamentet finnes ikke ennå, så ingen skjermer bruker V1-funksjonene.
-//
-// Sikkerhet: ingen funksjon her sletter bilder. `protect(.., false)`, `deleteRule` og `mergePeople` kan angres
-// (`protect(.., true)`, `restoreRule`, `unmergePerson`). `wipeFaceIndex` fjerner bare avledede ansiktsdata og
-// må bekreftes av brukeren først. Beskyttede bilder gir `ack_required` til `decideCardsConfirmed` brukes.
-import { invoke } from "@tauri-apps/api/core";
-import type {
-  AppState,
-  CardPage,
-  Condition,
-  Dashboard,
-  Decision,
-  KindCode,
-  Person,
-  Protection,
-  Rule,
-  RuleDraft,
-  RulePreview,
-  Scope,
-  SeriesCompare,
-  Settings,
-  Thresholds,
-} from "./types";
+// Velger bro: Tauri når `__TAURI_INTERNALS__` finnes, ellers MockBridge (nettleser/dev).
+import type { CoreBridge } from "./core-bridge";
+import { MOCK_UPDATES, MockBridge, type MockUpdate } from "./mock-bridge";
+import { TauriBridge } from "./tauri-bridge";
+import { THUMB_ERROR_CODES, type ThumbErrorCode } from "./types";
 
-export function getState(): Promise<AppState> {
-  return invoke<AppState>("get_state");
+export function createBridge(): CoreBridge {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
+    ? new TauriBridge()
+    : new MockBridge({
+      delayMs: mockDelay(),
+      update: mockUpdate(),
+      scanPolls: mockScanPolls(),
+      autoUpdate: mockAuto(),
+      pick: mockPick(),
+      ...mockUnsupported(),
+      ...mockLibrary(),
+      ...mockThumbs(),
+    });
 }
 
-export function startScan(full: boolean): Promise<void> {
-  return invoke<void>("start_scan", { full });
+/** Mappevalg i mock (bare dev-server): `?mockPick=C:\\Bilder\\Ferie` gir den stien, `?mockPick=cancel` simulerer avbrutt. Uten parameter er mappevalg utilgjengelig. */
+function mockPick(): string | null | undefined {
+  if (import.meta.env.DEV && typeof location !== "undefined") {
+    const v = new URLSearchParams(location.search).get("mockPick");
+    if (v !== null) return v === "cancel" ? null : v;
+  }
+  return undefined;
 }
 
-export function listCards(
-  kind: KindCode,
-  limit: number,
-  cursor: number | null = null,
-): Promise<CardPage> {
-  return invoke<CardPage>("list_cards", { kind, limit, cursor });
+/** Simulert latens i nettleser/dev. `?mockDelay=0` (bare i dev-server) gir e2e- og ytelsesmålinger uten kunstig ventetid. */
+function mockDelay(): number {
+  if (import.meta.env.DEV && typeof location !== "undefined") {
+    const v = new URLSearchParams(location.search).get("mockDelay");
+    if (v !== null && Number.isFinite(Number(v))) return Number(v);
+  }
+  return 150;
 }
 
-/** Returnerer batch-id (ett angre). */
-export function decideCards(ids: number[], decision: Decision): Promise<number> {
-  return invoke<number>("decide_cards", { ids, decision });
+/** Dev-parametre for e2e (M9), bare i dev-server: `?mockUpdate=none|available|error|slow`, `?mockScanPolls=N` (skann blir stående i «analyserer») og `?mockAuto=1` («Sjekk automatisk ved oppstart» på). */
+function mockUpdate(): MockUpdate {
+  if (import.meta.env.DEV && typeof location !== "undefined") {
+    const v = new URLSearchParams(location.search).get("mockUpdate");
+    if (MOCK_UPDATES.includes(v as MockUpdate)) return v as MockUpdate;
+  }
+  return "none";
+}
+function mockAuto(): boolean {
+  return !!import.meta.env.DEV && typeof location !== "undefined" && new URLSearchParams(location.search).get("mockAuto") === "1";
+}
+function mockScanPolls(): number {
+  if (import.meta.env.DEV && typeof location !== "undefined") {
+    const v = new URLSearchParams(location.search).get("mockScanPolls");
+    if (v !== null && Number.isInteger(Number(v)) && Number(v) >= 0) return Number(v);
+  }
+  return 0;
 }
 
-/** Etter `ack_required`: `confirmed` er konsekvenskodene brukeren har bekreftet. */
-export function decideCardsConfirmed(
-  ids: number[],
-  decision: Decision,
-  confirmed: string[],
-): Promise<number> {
-  return invoke<number>("decide_cards_confirmed", { ids, decision, confirmed });
+/** Bare dev: `?mockUnsupported=N` gir N filer uten Papirkurv-støtte, `all` gir volum uten Papirkurv (e2e og skjermbilder). */
+function mockUnsupported(): { noBin?: boolean; unsupportedCount?: number } {
+  if (import.meta.env.DEV && typeof location !== "undefined") {
+    const v = new URLSearchParams(location.search).get("mockUnsupported");
+    if (v === "all") return { noBin: true };
+    if (v !== null && Number.isInteger(Number(v)) && Number(v) > 0) return { unsupportedCount: Number(v) };
+  }
+  return {};
 }
 
-export function undo(): Promise<number> {
-  return invoke<number>("undo");
+/** Bare dev: `?mockLibrary=<sti>` setter valgt mappe i mocken (e2e og skjermbilder av skymappe-advarselen, f.eks. `C:\\Users\\a\\OneDrive\\Bilder`). */
+function mockLibrary(): { library?: string } {
+  if (import.meta.env.DEV && typeof location !== "undefined") {
+    const v = new URLSearchParams(location.search).get("mockLibrary");
+    if (v !== null && v.trim() !== "") return { library: v };
+  }
+  return {};
 }
 
-// ---- Beskyttelse ----
-
-export function protect(scope: Scope, on: boolean): Promise<void> {
-  return invoke<void>("protect", { scope, on });
+/** Bare dev: `?mockThumbErr=3:corrupt,4:unavailable` gir miniatyrfeil per bilde-id; `?mockThumbDelay=N` setter ventetid per miniatyr (ms). */
+function mockThumbs(): { thumbErrors?: Record<number, ThumbErrorCode>; thumbDelayMs?: number } {
+  const out: { thumbErrors?: Record<number, ThumbErrorCode>; thumbDelayMs?: number } = {};
+  if (import.meta.env.DEV && typeof location !== "undefined") {
+    const q = new URLSearchParams(location.search);
+    const errs: Record<number, ThumbErrorCode> = {};
+    for (const part of (q.get("mockThumbErr") ?? "").split(",")) {
+      const [id, code] = part.split(":");
+      if (Number.isInteger(Number(id)) && (THUMB_ERROR_CODES as readonly string[]).includes(code)) errs[Number(id)] = code as ThumbErrorCode;
+    }
+    if (Object.keys(errs).length > 0) out.thumbErrors = errs;
+    const d = q.get("mockThumbDelay");
+    if (d !== null && Number.isFinite(Number(d))) out.thumbDelayMs = Number(d);
+  }
+  return out;
 }
 
-export function listProtections(): Promise<Protection[]> {
-  return invoke<Protection[]>("list_protections");
-}
-
-// ---- Regler ----
-
-export function listRules(): Promise<Rule[]> {
-  return invoke<Rule[]>("list_rules");
-}
-
-export function saveRule(draft: RuleDraft): Promise<number> {
-  return invoke<number>("save_rule", { draft });
-}
-
-export function previewRule(conditions: Condition[]): Promise<RulePreview> {
-  return invoke<RulePreview>("preview_rule", { conditions });
-}
-
-export function toggleRule(id: number, enabled: boolean): Promise<void> {
-  return invoke<void>("toggle_rule", { id, enabled });
-}
-
-export function deleteRule(id: number): Promise<void> {
-  return invoke<void>("delete_rule", { id });
-}
-
-export function restoreRule(id: number): Promise<void> {
-  return invoke<void>("restore_rule", { id });
-}
-
-// ---- Personer og ansiktsindeks ----
-
-export function listPeople(): Promise<Person[]> {
-  return invoke<Person[]>("list_people");
-}
-
-export function namePerson(id: number, name: string | null): Promise<void> {
-  return invoke<void>("name_person", { id, name });
-}
-
-/** Returnerer personen som ble stående. */
-export function mergePeople(target: number, absorbed: number): Promise<number> {
-  return invoke<number>("merge_people", { target, absorbed });
-}
-
-export function unmergePerson(absorbed: number): Promise<void> {
-  return invoke<void>("unmerge_person", { absorbed });
-}
-
-export function protectPerson(id: number, protect: boolean): Promise<void> {
-  return invoke<void>("protect_person", { id, protect });
-}
-
-export function getFaceIndex(): Promise<boolean> {
-  return invoke<boolean>("get_face_index");
-}
-
-export function setFaceIndex(enabled: boolean): Promise<void> {
-  return invoke<void>("set_face_index", { enabled });
-}
-
-/** Returnerer antall ansikter slettet. Bildene beholdes. Bekreft med brukeren først. */
-export function wipeFaceIndex(): Promise<number> {
-  return invoke<number>("wipe_face_index");
-}
-
-// ---- Oversikt, serier og innstillinger ----
-
-export function getDashboard(): Promise<Dashboard> {
-  return invoke<Dashboard>("get_dashboard");
-}
-
-/** Knappen «Behold dette i stedet» (`series.keeper.set`): brukerens valg overstyrer forslaget. Ingenting slettes. */
-export function setKeeper(group: number, keeper: number): Promise<void> {
-  return invoke<void>("set_keeper", { group, keeper });
-}
-
-export function compareSeries(series: number): Promise<SeriesCompare> {
-  return invoke<SeriesCompare>("compare_series", { series });
-}
-
-export function getSettings(): Promise<Settings> {
-  return invoke<Settings>("get_settings");
-}
-
-export function setSettings(settings: Settings): Promise<Settings> {
-  return invoke<Settings>("set_settings", { settings });
-}
-
-export function getThresholds(): Promise<Thresholds> {
-  return invoke<Thresholds>("get_thresholds");
-}
+/** Appens bridge: Tauri når tilgjengelig, ellers MockBridge (dev/test). */
+export const bridge = createBridge();
+export const getState = () => bridge.getState();
+export type { CoreBridge };

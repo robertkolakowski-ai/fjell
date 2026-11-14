@@ -3,7 +3,7 @@
 //! beskyttelse krever bekreftelse, at ansiktsindeksen er av som standard og at feil er koder.
 
 use crate::dto::DecisionDto;
-use crate::dto_v1::{ConditionDto, RuleDraftDto, ScopeDto, SettingsDto};
+use crate::dto_v1::{ConditionDto, RuleDraftDto, ScopeDto, SuggestionSettingsDto};
 use crate::Shell;
 use fjell_core::api::{Fjell, FjellApi, ScanConfig, ScanMode};
 use fjell_core::model::{AssetMeta, FakeClock, Kind, MemSource, ProtectFlags, SourceId};
@@ -162,11 +162,11 @@ fn rules_roundtrip_with_undo_and_error_codes() {
 #[test]
 fn face_index_is_off_by_default_and_wipe_is_explicit() {
     let s = shell();
-    assert!(!s.face_index());
-    assert!(!s.settings().face_index);
+    assert!(!s.face_index().unwrap());
+    assert!(!s.suggestion_settings().unwrap().face_index);
     assert!(s.people().unwrap().is_empty());
     s.set_face_index(true).unwrap();
-    assert!(s.face_index());
+    assert!(s.face_index().unwrap());
     assert_eq!(s.wipe_face_index().unwrap(), 0);
     assert_eq!(
         s.name_person(999, Some("x".into())).unwrap_err().detail,
@@ -195,20 +195,26 @@ fn dashboard_series_settings_and_thresholds() {
         .any(|k| k["kind"] == "exact_dup"));
     assert_eq!(s.compare_series(42).unwrap_err().detail, "unknown_series");
 
-    let mut st = s.settings();
+    let mut st = s.suggestion_settings().unwrap();
     assert_eq!(st.sensitivity.len(), 6);
     assert!(st.sensitivity.values().all(|v| v == "normal"));
     st.sensitivity.insert("series".into(), "low".into());
     st.trash_days = 14;
-    let saved = s.set_settings(&st).unwrap();
+    let saved = s.set_suggestion_settings(&st).unwrap();
     assert_eq!(saved, st);
-    assert!(s.thresholds().series_gap_secs < 10);
-    let mut bad: SettingsDto = st.clone();
+    assert!(s.thresholds().unwrap().series_gap_secs < 10);
+    let mut bad: SuggestionSettingsDto = st.clone();
     bad.sensitivity.insert("series".into(), "extreme".into());
-    assert_eq!(s.set_settings(&bad).unwrap_err().code, "bad_request");
+    assert_eq!(
+        s.set_suggestion_settings(&bad).unwrap_err().code,
+        "bad_request"
+    );
     bad.sensitivity.clear();
     bad.sensitivity.insert("nope".into(), "low".into());
-    assert_eq!(s.set_settings(&bad).unwrap_err().code, "bad_request");
+    assert_eq!(
+        s.set_suggestion_settings(&bad).unwrap_err().code,
+        "bad_request"
+    );
 }
 
 #[test]
@@ -216,7 +222,7 @@ fn mock_backend_answers_v1_with_codes_not_panics() {
     let m = Shell::mock();
     assert!(m.rules().unwrap().is_empty());
     assert!(m.people().unwrap().is_empty());
-    assert!(!m.face_index());
+    assert!(!m.face_index().unwrap());
     assert_eq!(m.dashboard().unwrap().active_count, 0);
     assert_eq!(m.wipe_face_index().unwrap_err().code, "core_error");
 }
@@ -250,4 +256,24 @@ fn set_keeper_overrides_suggestion_and_rejects_unknowns_with_codes() {
     );
     let back = s.cards("exact_dup", 10, None).unwrap().cards.remove(0);
     assert_eq!(back.keeper, Some(old_keeper));
+}
+
+/// Skallets `set_trash_days` (MVP-innstillingen) endrer bare fristen: sensitivitet og ansiktsindeks (V1) består.
+#[test]
+fn set_trash_days_keeps_suggestion_settings() {
+    let s = shell();
+    let mut st = s.suggestion_settings().unwrap();
+    st.sensitivity.insert("series".into(), "low".into());
+    st.face_index = true;
+    s.set_suggestion_settings(&st).unwrap();
+    assert_eq!(s.set_trash_days(7).unwrap().trash_days, 7);
+    let after = s.suggestion_settings().unwrap();
+    assert_eq!(after.trash_days, 7);
+    assert_eq!(after.sensitivity["series"], "low");
+    assert!(after.face_index);
+    st.trash_days = 0;
+    assert_eq!(
+        s.set_suggestion_settings(&st).unwrap_err().code,
+        "bad_request"
+    );
 }

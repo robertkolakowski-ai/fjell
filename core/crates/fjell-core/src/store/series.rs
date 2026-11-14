@@ -1,7 +1,7 @@
 //! Lagring for V1-grenen `series` (store, L1). Eier alle SQL-spørringer for serier (`grp` med kind 'series') og `eye_result`.
 //!
 //! Avhenger av: `super` (`Store`), `crate::model`. Filen eies av grenen `series` (docs/v1/V1-PLAN.md);
-//! ingen andre grener rører den. Skjemaet er ferdig i migrering 2 (`002_v1.sql`) og endres ikke av grenen.
+//! ingen andre grener rører den. Skjemaet er ferdig i migrering 5 (`005_v1.sql`) og endres ikke av grenen.
 //! Grensesnitt:
 //! - `eye_result_count`, `put_eye_results`, `eye_results`, `eye_missing`: øyeanalyse per bilde. Ingen rad =
 //!   ikke analysert (aldri «ingen lukkede øyne»). `algo_ver` gjør at nye modeller analyserer på nytt.

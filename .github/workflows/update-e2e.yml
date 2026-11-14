@@ -1,0 +1,180 @@
+# Oppdatering via appen selv, hele flyten på Windows: installer v1, appen sjekker mot en lokal server, laster ned v2, starter NSIS (/P /UPDATE)
+# og avslutter seg selv. Reproduserer «Installasjonen er avbrutt – Kunne ikke avslutte Fjell». Se docs/mvp/OPPDATERING-E2E.md.
+# Deretter (M22): en hengt (suspendert) Fjell-instans kjører mens installeren (/P /UPDATE) og avinstalleren (/P) kjøres; begge skal fullføre
+# (NSIS-hookene i desktop/src-tauri/installer-hooks.nsh tvangsavslutter gjenværende Fjell-prosesser før malens Restart Manager-sjekk).
+# Testnøkkel og testkonfig lever bare i denne kjøringen (tauri --config); ingen hemmeligheter, ingenting committes, produksjonskonfig er urørt.
+name: update-e2e
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "43 3 * * *"
+  pull_request:
+    paths:
+      - ".github/workflows/update-e2e.yml"
+      - "desktop/e2e-real/update*.ts"
+      - "desktop/e2e-real/playwright.update.config.ts"
+      - "desktop/e2e-real/launch.ts"
+      - "desktop/scripts/update-e2e/**"
+      - "desktop/src-tauri/**"
+      - "desktop/src/bridge/tauri-bridge.ts"
+      - "desktop/src/screens/Update*"
+      - "desktop/src/screens/update*"
+      - "tools/set-version.mjs"
+permissions:
+  contents: read
+concurrency:
+  group: update-e2e-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  UPDATE_PORT: "18765"
+  FROM_VERSION: "0.0.1"
+  TO_VERSION: "0.0.2"
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            core
+            desktop/src-tauri
+      - name: Installer frontend-avhengigheter
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+      - name: Forbered mapper og generer testnøkkel (kun for denne kjøringen)
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $base = Join-Path $env:RUNNER_TEMP "update-e2e"
+          foreach ($d in "keys", "build", "www", "out") { New-Item -ItemType Directory -Force -Path (Join-Path $base $d) | Out-Null }
+          $key = Join-Path $base "keys\test.key"
+          # Utdata skjules (den skriver bare stier, men vi tar ingen sjanse). Tom passfrase.
+          npx tauri signer generate --ci -w $key *> $null
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $key) -or -not (Test-Path "$key.pub")) { throw "tauri signer generate feilet" }
+          Add-Content -Path $env:GITHUB_ENV -Value "UPDATE_BASE=$base"
+          Add-Content -Path $env:GITHUB_ENV -Value "UPDATE_KEY=$key"
+          Add-Content -Path $env:GITHUB_ENV -Value "UPDATE_OUT=$(Join-Path $base 'out')"
+          Add-Content -Path $env:GITHUB_ENV -Value "UPDATE_T0=$((Get-Date).ToUniversalTime().ToString('o'))"
+      - name: Bygg to signerte versjoner (testkonfig via --config, versjon satt uten commit)
+        shell: pwsh
+        run: |
+          $priv = (Get-Content -Raw $env:UPDATE_KEY).Trim()
+          Write-Host "::add-mask::$priv"
+          $env:TAURI_SIGNING_PRIVATE_KEY = $priv
+          $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+          $pub = (Get-Content -Raw "$($env:UPDATE_KEY).pub").Trim()
+          $cfg = [ordered]@{
+            bundle  = [ordered]@{ createUpdaterArtifacts = $true }
+            plugins = [ordered]@{ updater = [ordered]@{
+              pubkey = $pub
+              endpoints = @("http://127.0.0.1:$($env:UPDATE_PORT)/latest.json")
+              dangerousInsecureTransportProtocol = $true
+            } }
+          }
+          $cfgFile = Join-Path $env:UPDATE_BASE "test-config.json"
+          [IO.File]::WriteAllText($cfgFile, ($cfg | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
+          $nsis = "desktop/src-tauri/target/release/bundle/nsis"
+          foreach ($ver in @($env:FROM_VERSION, $env:TO_VERSION)) {
+            node tools/set-version.mjs $ver
+            if ($LASTEXITCODE -ne 0) { throw "set-version feilet" }
+            Remove-Item -Recurse -Force $nsis -ErrorAction SilentlyContinue
+            Push-Location desktop
+            npx tauri build --bundles nsis --config $cfgFile
+            $rc = $LASTEXITCODE
+            Pop-Location
+            if ($rc -ne 0) { throw "tauri build $ver feilet ($rc)" }
+            $setup = Get-ChildItem "$nsis/*-setup.exe" | Select-Object -First 1
+            if (-not $setup) { throw "fant ikke setup.exe for $ver" }
+            if (-not (Test-Path "$($setup.FullName).sig")) { throw "fant ikke $($setup.Name).sig for $ver" }
+            $dest = Join-Path $env:UPDATE_BASE "build\$ver"
+            New-Item -ItemType Directory -Force -Path $dest | Out-Null
+            Copy-Item $setup.FullName, "$($setup.FullName).sig" $dest
+            Write-Host "Bygget $ver : $($setup.Name)"
+          }
+      - name: Lag latest.json og legg v2 i serverrota
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:UPDATE_BASE "build\$($env:TO_VERSION)"
+          $setup = Get-ChildItem "$dir\*-setup.exe" | Select-Object -First 1
+          $sig = (Get-Content -Raw "$($setup.FullName).sig").Trim()
+          Copy-Item $setup.FullName (Join-Path $env:UPDATE_BASE "www")
+          $manifest = [ordered]@{
+            version   = $env:TO_VERSION
+            notes     = "Testoppdatering (update-e2e)"
+            pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{ "windows-x86_64" = [ordered]@{ signature = $sig; url = "http://127.0.0.1:$($env:UPDATE_PORT)/$([uri]::EscapeDataString($setup.Name))" } }
+          }
+          [IO.File]::WriteAllText((Join-Path $env:UPDATE_BASE "www\latest.json"), ($manifest | ConvertTo-Json -Depth 5), (New-Object System.Text.UTF8Encoding($false)))
+          Write-Host "latest.json: versjon $($env:TO_VERSION), fil $($setup.Name)"
+      # Stille førsteinstallasjon av v1 som vanlig bruker (NSIS installMode=currentUser: ingen heving). Samme mappe oppdateres senere.
+      - name: Installer v1 stille
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem (Join-Path $env:UPDATE_BASE "build\$($env:FROM_VERSION)\*-setup.exe") | Select-Object -First 1
+          $dir = Join-Path $env:UPDATE_BASE "app"
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/S", "/D=$dir" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "installasjon av v1 feilet, kode $($p.ExitCode)" }
+          $exe = Get-ChildItem $dir -Filter *.exe -Recurse | Where-Object { $_.Name -notmatch "^uninstall" } | Select-Object -First 1
+          if (-not $exe) { throw "ingen app-exe etter installasjon i $dir" }
+          Write-Host "Installert: $($exe.FullName), versjon $($exe.VersionInfo.ProductVersion)"
+          Add-Content -Path $env:GITHUB_ENV -Value "FJELL_EXE=$($exe.FullName)"
+      # Tauri/wry setter selv AdditionalBrowserArguments, og WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS blir da ikke lagt til (sett i CI-logg:
+      # msedgewebview2 startet uten --remote-debugging-port). WebView2-policyen i registeret gjelder uavhengig av appens egne valg.
+      # Kun på denne runneren (ephemeral); gjelder også ny app etter oppdatering, som ønsket.
+      - name: Slå på CDP-port for WebView2 (policy i registeret, kun denne runneren)
+        shell: pwsh
+        run: |
+          foreach ($hive in "HKCU", "HKLM") {
+            $k = "${hive}:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments"
+            New-Item -Path $k -Force | Out-Null
+            foreach ($n in "fjell-desktop.exe", "*") { New-ItemProperty -Path $k -Name $n -Value "--remote-debugging-port=9222" -PropertyType String -Force | Out-Null }
+            Get-Item $k | Format-List
+          }
+      - name: Test oppdatering via appen (Playwright over CDP)
+        working-directory: desktop
+        shell: pwsh
+        env:
+          FJELL_UPDATE_E2E: "1"
+          FJELL_UPDATE_WWW: ${{ runner.temp }}\update-e2e\www
+          FJELL_UPDATE_PORT: ${{ env.UPDATE_PORT }}
+          FJELL_UPDATE_FROM: ${{ env.FROM_VERSION }}
+          FJELL_UPDATE_TO: ${{ env.TO_VERSION }}
+          FJELL_UPDATE_OUT: ${{ runner.temp }}\update-e2e\out
+        run: npx playwright test -c e2e-real/playwright.update.config.ts
+      # Diagnostikk ved feil. NSIS-installeren har ingen egen loggfil; vindustekst, prosesstidslinje og skjermbilder ligger i watch.log/PNG fra testen.
+      - name: Samle diagnostikk
+        if: failure()
+        shell: pwsh
+        run: |
+          $out = $env:UPDATE_OUT
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $t0 = [datetime]::Parse($env:UPDATE_T0).ToUniversalTime()
+          Get-Process | Sort-Object ProcessName | Select-Object Id, ProcessName, Path, MainWindowTitle, StartTime | Format-Table -AutoSize -Wrap | Out-String -Width 300 | Set-Content (Join-Path $out "Get-Process.txt")
+          Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'fjell|setup|msedgewebview2' -or $_.CommandLine -match '/UPDATE' } | Select-Object ProcessId, ParentProcessId, Name, CommandLine | Format-List | Out-String -Width 400 | Set-Content (Join-Path $out "prosesser-kommandolinje.txt")
+          try {
+            Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $t0 } -ErrorAction Stop |
+              Where-Object { $_.ProviderName -match 'RestartManager|Application Error|Application Hang|MsiInstaller|Windows Error Reporting|NSIS|Fjell' -or $_.Message -match 'Fjell|fjell-desktop' } |
+              Select-Object TimeCreated, Id, ProviderName, LevelDisplayName, Message | Format-List | Out-String -Width 400 | Set-Content (Join-Path $out "eventlog-application.txt")
+          } catch { "ingen hendelser eller feil: $_" | Set-Content (Join-Path $out "eventlog-application.txt") }
+          try {
+            Get-WinEvent -FilterHashtable @{ LogName = "Microsoft-Windows-RestartManager/Operational"; StartTime = $t0 } -ErrorAction Stop |
+              Select-Object TimeCreated, Id, Message | Format-List | Out-String -Width 400 | Set-Content (Join-Path $out "eventlog-restartmanager.txt")
+          } catch { "ingen hendelser eller kanalen finnes ikke: $_" | Set-Content (Join-Path $out "eventlog-restartmanager.txt") }
+          Get-ChildItem (Join-Path $env:UPDATE_BASE "app") -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length, LastWriteTime | Format-Table -AutoSize -Wrap | Out-String -Width 300 | Set-Content (Join-Path $out "installert-mappe.txt")
+          Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -eq 'Fjell' } | Format-List | Out-String | Set-Content (Join-Path $out "registry-avinstaller.txt")
+          # Eventuelle installerrester i TEMP (nsis-mapper, loggfiler). Kun navn og størrelse.
+          Get-ChildItem $env:TEMP -Recurse -Depth 2 -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'nsis|setup|Fjell|\.log$' } | Select-Object FullName, Length, LastWriteTime | Format-Table -AutoSize -Wrap | Out-String -Width 300 | Set-Content (Join-Path $out "temp-filer.txt")
+      - name: Last opp logger og skjermbilder
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-e2e-logger
+          path: ${{ runner.temp }}\update-e2e\out
+          if-no-files-found: ignore

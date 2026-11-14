@@ -7,8 +7,9 @@
 //! stabile koder (snake_case) som UI slår opp i nøkkelkatalogen.
 
 use crate::dto_v1::DetailDto;
-use fjell_core::api::{ApiError, Card, CardPage, HomeSummary, ScanPhase, Settings};
-use fjell_core::model::SuggestionKind;
+use fjell_core::api::{ApiError, Card, CardPage, HomeSummary, ScanPhase, Settings, TrashSummary};
+use fjell_core::model::{ConsequenceCode, SuggestionKind};
+use fjell_fs::DeleteError;
 use serde::{Deserialize, Serialize};
 
 /// Stabil kode for forslagstype.
@@ -28,6 +29,11 @@ pub fn parse_kind(code: &str) -> Option<SuggestionKind> {
     SuggestionKind::ALL
         .into_iter()
         .find(|k| kind_code(*k) == code)
+}
+
+/// Motsatt vei for konsekvenskoder (`ack_required` gir dem; UI sender dem tilbake som bekreftelse).
+pub fn parse_consequence(code: &str) -> Option<ConsequenceCode> {
+    ConsequenceCode::ALL.into_iter().find(|c| c.key() == code)
 }
 
 fn phase_code(p: ScanPhase) -> &'static str {
@@ -65,6 +71,39 @@ pub struct StateDto {
     pub scan_done: u64,
     pub scan_total: u64,
     pub trash_days: u32,
+    /// Skann satt på pause av brukeren (avbrutt, gjenopptas med `resume_scan`).
+    pub scan_paused: bool,
+    /// Leverandørkode (`icloud`/`onedrive`/`dropbox`) hvis HELE biblioteket (alle røtter) ligger i
+    /// skysynkede mapper, altså når all papirkurv er sperret. Én skysynket rot blant flere står i
+    /// `roots[].cloud_sync`, og sperrer bare bildene i den roten.
+    pub cloud_sync: Option<&'static str>,
+    /// Bibliotekets røtter i rekkefølge (første er `primary`). Uten tall og uten filsystemtilgang
+    /// her (`online`/`count`/… er `None`); `list_library_roots` fyller dem ut.
+    pub roots: Vec<RootDto>,
+}
+
+/// Én rot (mappe) i biblioteket. `key` er stabil og brukes i `remove_library_root`.
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RootDto {
+    pub key: u32,
+    pub path: String,
+    /// Første rot: eier indeksen og kan ikke fjernes (bytt bibliotek med `set_library`).
+    pub primary: bool,
+    /// Leverandørkode hvis roten ligger i en skysynket mappe: papirkurv er sperret for dens bilder.
+    pub cloud_sync: Option<&'static str>,
+    /// Rotens egen karantenemappe (`<rot>/.fjell-karantene`).
+    pub quarantine_dir: String,
+    /// Mappen finnes nå (ekstern disk tilkoblet). Bare fra `list_library_roots`.
+    pub online: Option<bool>,
+    /// Aktive filer (bilder og video) i indeksen, og samlet størrelse. Bare fra `list_library_roots`.
+    pub count: Option<u64>,
+    pub bytes: Option<u64>,
+    /// Herav video (telles og listes, dekodes aldri).
+    pub videos: Option<u64>,
+    pub video_bytes: Option<u64>,
+    /// Antall i «Nylig slettet» fra denne roten. Over 0: roten kan ikke fjernes.
+    pub trashed: Option<u64>,
 }
 
 impl StateDto {
@@ -89,8 +128,21 @@ impl StateDto {
             scan_done: h.scan.done,
             scan_total: h.scan.total,
             trash_days: s.trash_days,
+            scan_paused: false,
+            cloud_sync: None,
+            roots: Vec::new(),
         }
     }
+}
+
+/// Miniatyr til frontend: JPEG som base64 uten `data:`-prefiks (UI bygger `data:`-URL).
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ThumbDto {
+    pub mime: &'static str,
+    pub data: String,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -159,6 +211,13 @@ pub struct ErrorDto {
 }
 
 impl ErrorDto {
+    pub fn new(code: &'static str, detail: impl Into<String>) -> ErrorDto {
+        ErrorDto {
+            code,
+            detail: detail.into(),
+        }
+    }
+
     pub fn bad_request(detail: impl Into<String>) -> ErrorDto {
         ErrorDto {
             code: "bad_request",
@@ -169,8 +228,14 @@ impl ErrorDto {
 
 impl From<ApiError> for ErrorDto {
     fn from(e: ApiError) -> ErrorDto {
+        if let ApiError::AckRequired(codes) = &e {
+            // Detalj = konsekvenskodene (kommaseparert), slik at UI kan vise og sende dem tilbake.
+            let keys: Vec<&str> = codes.iter().map(|c| c.key()).collect();
+            return ErrorDto::new("ack_required", keys.join(","));
+        }
         let code = match &e {
             ApiError::AckRequired(_) => "ack_required",
+            ApiError::WouldEmptyGroup(_) => "would_empty_group",
             ApiError::UnknownCard(_) => "unknown_card",
             ApiError::UnknownAsset(_) => "unknown_asset",
             ApiError::NothingToUndo => "nothing_to_undo",
@@ -179,18 +244,95 @@ impl From<ApiError> for ErrorDto {
             ApiError::PurgeStale => "purge_stale",
             ApiError::PlanStale => "plan_stale",
             ApiError::NotTrashed(_) => "not_trashed",
-            ApiError::WouldEmptyGroup(_) => "would_empty_group",
             _ => "core_error",
         };
-        // `ack_required`: detaljen er konsekvenskodene (kommaskilt, snake_case) UI må få bekreftet.
         // `core_error` med `Internal(kode)`: detaljen er kjernens stabile feilkode (f.eks. `empty_rule`).
         let detail = match &e {
-            ApiError::AckRequired(codes) => {
-                codes.iter().map(|c| c.key()).collect::<Vec<_>>().join(",")
-            }
             ApiError::Internal(c) => c.clone(),
             other => format!("{other:?}"),
         };
         ErrorDto { code, detail }
     }
+}
+
+impl From<DeleteError> for ErrorDto {
+    fn from(e: DeleteError) -> ErrorDto {
+        match e {
+            DeleteError::AckRequired => ErrorDto::new("ack_required", "permanent"),
+            DeleteError::AckMismatch => ErrorDto::new("ack_mismatch", "permanent"),
+        }
+    }
+}
+
+/// «Nylig slettet»: merket / kan frigjøres / frigjort.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashSummaryDto {
+    pub count: u64,
+    pub bytes: u64,
+    pub expired: u64,
+    pub freed_bytes: u64,
+    pub trash_days: u32,
+}
+
+impl TrashSummaryDto {
+    pub fn from_core(t: &TrashSummary, s: &Settings) -> TrashSummaryDto {
+        TrashSummaryDto {
+            count: t.count,
+            bytes: t.bytes,
+            expired: t.expired,
+            freed_bytes: t.freed_bytes,
+            trash_days: s.trash_days,
+        }
+    }
+}
+
+/// Brukerens ekstra bekreftelse for permanent sletting (avkrysning + antallet på knappen).
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PermanentAckDto {
+    pub checked: bool,
+    pub count: usize,
+}
+
+/// Resultat av «Tøm». Alt som ikke er `purged` ligger fortsatt i «Nylig slettet» (ingen tap).
+#[derive(Serialize, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct EmptyDto {
+    pub purged: u64,
+    pub kept_trashed: u64,
+    /// Volum uten Papirkurv: ikke slettet, UI kan tilby permanent med egen advarsel.
+    pub unsupported: u64,
+    pub cancelled: u64,
+    pub unavailable: u64,
+    pub freed_bytes: u64,
+}
+
+/// Ett bilde i «Nylig slettet». Tider i sekunder siden epoch. `name` er bare filnavnet (ingen sti).
+#[derive(Serialize, Debug, PartialEq, Eq, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashedDto {
+    pub asset: u64,
+    pub name: String,
+    pub bytes: u64,
+    pub trashed_at: i64,
+    pub expires_at: i64,
+    pub expired: bool,
+}
+
+/// Resultat av «Gjenopprett». Bare bilder som lå i «Nylig slettet» telles.
+#[derive(Serialize, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreDto {
+    pub restored: u64,
+}
+
+/// Innstillinger skallet viser. `quarantine_dir` er `None` til en mappe er valgt.
+/// `empty_default` er alltid `"recycle"`: «Tøm» går via Windows Papirkurv, permanent har eget ark.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsDto {
+    pub trash_days: u32,
+    pub quarantine_dir: Option<String>,
+    pub empty_default: &'static str,
 }

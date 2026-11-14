@@ -1,0 +1,27 @@
+// Tekster appen viser. Språket følger Windows-visningsspråk (system), så testene godtar både nb og en.
+// Kilde: desktop/src/lib/i18n/strings/{nb,en}.ts. Endres en tekst der, må den oppdateres her (feilmeldingen peker hit).
+export const S = {
+  welcomeStart: /^(Kom i gang|Get started)$/,
+  foldersTitle: /^(Velg mapper|Choose folders|Pick folders)$/i,
+  folderRemove: /^(Fjern|Remove)$/,
+  folderAdd: /^(Legg til mappe|Add folder)$/,
+  folderPath: /^(Mappens sti|Folder path)$/,
+  folderSubmit: /^(Legg til|Add)$/,
+  scanStart: /^(Start skanning|Start scan)$/,
+  foundExact: /(\d+)\s+(eksakte? duplikater?|exact duplicates?)/i,
+  moveBar: /^(Flytt|Move) \d+/,
+  groupLink: /^(Gruppe|Group)$/,
+  keepMove: /^(Behold dette, flytt|Keep this one, move) \d+/,
+  groupCommitted: /^(Gruppen er ferdig|Group done)/,
+  undo: /^(Angre|Undo)$/,
+  homeTrashLink: /^(Papirkurv|Trash) \((\d+)\)$/,
+  navTrash: /^(Papirkurv|Trash)/,
+  navHome: /^(Hjem|Home)$/,
+  navReview: /^(Gjennomgang|Review)$/,
+  trashEmpty: /^(Tøm papirkurv|Empty trash)/,
+  modeRecycle: /(Flytt til Windows Papirkurv|Move to (the )?Windows Recycle Bin)/,
+  continue_: /^(Fortsett|Continue)$/,
+  purgedRecycle: /(Flyttet til Windows Papirkurv|Moved to the Windows Recycle Bin)/,
+  cloudOneDrive: /(synkroniseres med OneDrive|syncs with OneDrive)/,
+  folderCurrent: (p: string) => new RegExp(`(Mappe|Folder): ${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`),
+};

@@ -161,6 +161,7 @@ impl Store {
     /// Skriver hele batchen i én transaksjon. `None` hvis ingen rader ble skrevet.
     /// Ved feil (også midt i batchen) rulles alt tilbake (I4).
     pub fn apply_batch(&mut self, spec: &BatchSpec) -> Result<Option<BatchId>, StoreError> {
+        self.generation += 1;
         let tx = self.conn.transaction()?;
         let batch = next_batch_id(&tx)?;
         let mut rows = 0u64;
@@ -178,6 +179,7 @@ impl Store {
     /// er den batchen la igjen, hoppes over og rapporteres (T12, T14); de får en `keep`-markør
     /// slik at batchen regnes som angret.
     pub fn undo_top(&mut self, ts: i64, trash_secs: i64) -> Result<UndoResult, StoreError> {
+        self.generation += 1;
         let tx = self.conn.transaction()?;
         let mut cursor = i64::MAX;
         let top = loop {

@@ -24,13 +24,19 @@ mod analyzers;
 mod fast;
 mod full;
 mod groups;
+mod keeper;
 mod progress;
 #[cfg(test)]
 pub(crate) mod tests;
 mod tuning;
 
 pub use analyzers::{run_analyzers, AnalyzerReport, EYE_ALGO, FACE_ALGO};
-pub use groups::{compute, compute_with, refresh_groups, series_specs, Grouping, LOW_INFO_BIT};
+pub(crate) use groups::member;
+pub use groups::{
+    compute, compute_tuned, compute_with, compute_with_rules, refresh_groups, series_specs,
+    GroupEngine, Grouping, LOW_INFO_BIT,
+};
+pub use keeper::{is_protected, pick_group, pick_keeper, Pick, RuleCtx};
 pub use progress::{Phase, Progress, Snapshot, DEFAULT_INTERVAL};
 pub use tuning::{tuning, tuning_from_store, Tuning};
 
@@ -153,6 +159,10 @@ impl std::error::Error for PipelineError {}
 /// Tilgang til den ene skrivetilkoblingen uten å eie den. Implementasjonen låser og slipper per kall.
 pub trait StoreHandle: Sync {
     fn with_store<R>(&self, f: impl FnOnce(&mut Store) -> R) -> R;
+    /// Buffer for inkrementell klynging som overlever mellom utregninger (`None`: bygges på nytt hver gang).
+    fn engine(&self) -> Option<&Mutex<GroupEngine>> {
+        None
+    }
 }
 
 impl StoreHandle for Mutex<Store> {
@@ -246,6 +256,7 @@ pub(crate) fn scan_with<H: StoreHandle>(
         s.set_setting(CURSOR_KEY, &changes.next_token.0)?;
         Ok::<_, StoreError>((stats, purged))
     })?;
+    drop(changes); // hele endringslisten (metadata for alle nye bilder) trengs ikke videre; frigjør før analysen.
     report.new = stats.new;
     report.changed = stats.changed;
     report.removed = purged.len() as u64;

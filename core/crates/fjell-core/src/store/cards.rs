@@ -38,6 +38,8 @@ pub struct CardRow {
     pub asset: AssetId,
     pub group: Option<GroupId>,
     pub keeper: Option<AssetId>,
+    /// Begrunnelse for keeperen (`None`: valgt manuelt eller ukjent).
+    pub keeper_reason: Option<String>,
     pub reason_code: String,
     pub confidence: f32,
     pub bytes: u64,
@@ -62,7 +64,7 @@ impl Store {
         let (conf, id) = after.map_or((f64::MAX, 0i64), |(c, i)| (c as f64, i as i64));
         let sql = format!(
             "SELECT s.id, s.asset_id, s.grp_id, g.keeper_id, s.reason_code, s.confidence, a.bytes, \
-             a.protect_flags FROM suggestion s JOIN asset a ON a.id = s.asset_id \
+             a.protect_flags, g.keeper_reason FROM suggestion s JOIN asset a ON a.id = s.asset_id \
              LEFT JOIN grp g ON g.id = s.grp_id \
              WHERE s.kind = ?1 AND {} AND (s.confidence < ?2 OR (s.confidence = ?2 AND s.id > ?3)) \
              ORDER BY s.confidence DESC, s.id LIMIT ?4",
@@ -79,6 +81,7 @@ impl Store {
                 confidence: r.get::<_, f64>(5)? as f32,
                 bytes: r.get::<_, i64>(6)? as u64,
                 protect: ProtectFlags(r.get::<_, i64>(7)? as u8),
+                keeper_reason: r.get(8)?,
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)

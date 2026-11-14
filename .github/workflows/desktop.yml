@@ -11,6 +11,16 @@ on:
 permissions:
   contents: read
 jobs:
+  # cargo-deny for skallet (egen konfig: tokio er tillatt her, forbudet gjelder bare kjernen; se desktop/src-tauri/deny.toml)
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: cargo deny (desktop/src-tauri)
+        run: cargo deny --manifest-path desktop/src-tauri/Cargo.toml --config desktop/src-tauri/deny.toml check
   desktop:
     runs-on: windows-latest
     steps:
@@ -38,15 +48,63 @@ jobs:
           cargo fmt --manifest-path desktop/src-tauri/Cargo.toml -p fjell-shell -p fjell-desktop --check
           cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings
           cargo test --manifest-path desktop/src-tauri/Cargo.toml --workspace --locked
-      - name: Frontend (svelte-check og vite build)
+      - name: Frontend (kontrast, vitest, svelte-check og vite build)
         working-directory: desktop
         run: |
           npm ci --no-audit --no-fund
+          npm run contrast
+          npm test
           npm run check
           npm run build
+      # Playwright mot vite dev med MockBridge: flyttester, axe (lys/mørk × bred/smal, 0 brudd) og ytelse (p95 < 100 ms)
+      - name: e2e (Playwright, axe, ytelse)
+        working-directory: desktop
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-resultater
+          path: desktop/e2e/.results
+          if-no-files-found: ignore
+      # PR-bygg har ikke (og skal ikke ha) den private oppdateringsnøkkelen: slå av oppdateringsartefakter her.
+      # Signerte bygg lages bare av beta.yml fra main.
       - name: Bygg Tauri-appen (usignert NSIS)
         working-directory: desktop
-        run: npx tauri build --bundles nsis
+        shell: pwsh
+        run: |
+          $cfg = Join-Path $env:RUNNER_TEMP "uten-oppdatering.json"
+          '{"bundle":{"createUpdaterArtifacts":false}}' | Set-Content -Path $cfg -Encoding utf8
+          npx tauri build --bundles nsis --config $cfg
+      # Røyktest: stille installasjon, appen starter og lever 10 s uten krasj, avslutt, avinstaller.
+      # (Appen har ingen --version; en GUI-start er det enkleste som beviser at pakken fungerer.)
+      - name: Røyktest NSIS-installasjonsprogram
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          if (-not $setup) { throw "fant ikke NSIS-installasjonsprogram" }
+          $dir = Join-Path $env:RUNNER_TEMP "fjell-smoke"
+          Start-Process -FilePath $setup.FullName -ArgumentList "/S", "/D=$dir" -Wait
+          $exe = Get-ChildItem $dir -Filter *.exe -Recurse | Where-Object { $_.Name -notmatch "^uninstall" } | Select-Object -First 1
+          if (-not $exe) { throw "ingen app-exe etter installasjon i $dir" }
+          $p = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 10
+          if ($p.HasExited) { throw "appen avsluttet av seg selv, kode $($p.ExitCode)" }
+          # Oppgradering MENS appen kjører (som «Installer og start på nytt» i appen: /P /UPDATE). Produkteier så
+          # «Kunne ikke avslutte Fjell» her. Installasjonsprogrammet skal selv få avsluttet appen og fullføre med kode 0.
+          $up = Start-Process -FilePath $setup.FullName -ArgumentList "/P", "/UPDATE", "/D=$dir" -PassThru
+          if (-not $up.WaitForExit(180000)) { Stop-Process -Id $up.Id -Force; throw "oppgradering mens appen kjørte: installasjonsprogrammet hang (over 180 s)" }
+          if ($up.ExitCode -ne 0) { throw "oppgradering mens appen kjørte feilet, kode $($up.ExitCode) (Kunne ikke avslutte Fjell?)" }
+          if (-not (Test-Path $exe.FullName)) { throw "app-exe mangler etter oppgradering" }
+          Start-Sleep -Seconds 3
+          $left = Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($exe.Name)) -ErrorAction SilentlyContinue
+          if ($left) { Write-Host "NB: appprosess lever etter oppgradering (id $($left.Id -join ','))"; $left | Stop-Process -Force }
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          $un = Join-Path $dir "uninstall.exe"
+          Start-Process -FilePath $un -ArgumentList "/S" -Wait
+          Start-Sleep -Seconds 5
+          if (Test-Path $exe.FullName) { throw "appen ligger igjen etter avinstallasjon" }
       - uses: actions/upload-artifact@v4
         with:
           name: fjell-desktop-nsis-unsigned

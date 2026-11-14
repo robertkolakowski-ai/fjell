@@ -123,26 +123,34 @@ impl VisualIndex {
     }
 
     /// Naboer (andre nøkler) innen `max_dist`, sortert, med avstand.
+    ///
+    /// Avstanden sjekkes direkte mens bøttene gås gjennom; bare treffene samles og sorteres/dedupes
+    /// (en nøkkel kan ligge i flere bøtter). Tidligere ble alle kandidater satt inn i et `BTreeSet`
+    /// først, som var den dominerende kostnaden i store indekser.
     fn neighbors(&self, k: Key) -> Vec<(Key, u32)> {
-        let mut cand: BTreeSet<Key> = BTreeSet::new();
+        let mut out: Vec<(Key, u32)> = Vec::new();
+        let mut visit = |c: Key| {
+            if c != k {
+                let d = dist(k, c);
+                if d <= self.p.max_dist {
+                    out.push((c, d));
+                }
+            }
+        };
         if self.p.max_dist >= 8 {
-            cand.extend(self.keys.keys().copied());
-        } else {
-            for (i, b) in self.buckets.iter().enumerate() {
-                if let Some(s) = b.get(&block(k.0, i)) {
-                    if s.len() <= self.p.bucket_cap {
-                        cand.extend(s.iter().copied());
-                    }
+            self.keys.keys().copied().for_each(&mut visit);
+            return out; // BTreeMap-rekkefølge: allerede sortert og uten duplikater.
+        }
+        for (i, b) in self.buckets.iter().enumerate() {
+            if let Some(s) = b.get(&block(k.0, i)) {
+                if s.len() <= self.p.bucket_cap {
+                    s.iter().copied().for_each(&mut visit);
                 }
             }
         }
-        cand.into_iter()
-            .filter(|&c| c != k)
-            .filter_map(|c| {
-                let d = dist(k, c);
-                (d <= self.p.max_dist).then_some((c, d))
-            })
-            .collect()
+        out.sort_unstable();
+        out.dedup();
+        out
     }
 
     /// Legger til/endrer `upserts` og fjerner `removed`, og bygger om bare berørte komponenter.
@@ -213,6 +221,12 @@ impl VisualIndex {
             }
             seen.extend(comp.iter().copied());
             let groups = self.protect(&comp, &edges);
+            // En enslig nøkkel uten gruppe (det vanlige i store bibliotek) trenger ingen komponentoppføring: den
+            // finnes igjen som nabo når en nærliggende nøkkel settes inn, og har ingenting å bygge om ved fjerning.
+            // Å lagre den kostet ca. 250 byte per bilde (`BTreeSet` + to kart-oppføringer).
+            if comp.len() == 1 && groups.is_empty() {
+                continue;
+            }
             let cid = self.next_comp;
             self.next_comp += 1;
             for &k in &comp {
