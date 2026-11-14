@@ -1,6 +1,7 @@
 // Gjennomgang: ViewState + ren reduce (PLAN-UX-I18N 3.3 og 4). Ingen I/O: kalleren gjør bridge-kall og sender resultat som events.
 // Beskyttede kort er aldri valgbare (aldri i «Velg alle»); sum og bytes summeres her fra kortdata, ikke via kjernekall.
 import type { BridgeError, Card } from "../bridge/types";
+import { isProtectedAck } from "./protectAck";
 
 /** Fra og med så mange bilder kreves bekreftelsesark med avkrysning (MassAck). */
 export const MASS_ACK = 50;
@@ -23,6 +24,10 @@ export interface ReviewState {
   batch: number | null;
   moved: number;
   error: BridgeError | null;
+  /** Kjernen ba om bekreftelse for beskyttede bilder (`protected_by_scope`); dialogen venter på svar. */
+  askProtected: boolean;
+  /** Brukeren har bekreftet: neste papirkurv-kall sender `protected_by_scope`. */
+  protectedOk: boolean;
 }
 
 export type ReviewEvent =
@@ -39,11 +44,13 @@ export type ReviewEvent =
   | { type: "confirmCommit" }
   | { type: "committed"; batch: number }
   | { type: "commitFailed"; error: BridgeError }
+  | { type: "confirmProtected" }
+  | { type: "cancelProtected" }
   | { type: "reload" };
 
 export const initialReview: ReviewState = {
   phase: "loading", items: [], next: null, selected: new Set(), anchor: null,
-  confirming: false, ack: false, batch: null, moved: 0, error: null,
+  confirming: false, ack: false, batch: null, moved: 0, error: null, askProtected: false, protectedOk: false,
 };
 
 /** Liste som kan brukes (også rett etter commit, med Angre synlig). */
@@ -138,10 +145,18 @@ export function reduceReview(s: ReviewState, e: ReviewEvent): ReviewState {
       if (s.phase !== "committing") return s;
       const moved = summarize(s.items, s.selected).count;
       const items = s.items.filter((c) => !s.selected.has(c.id));
-      return { ...s, phase: "committed", items, selected: new Set(), anchor: null, batch: e.batch, moved };
+      return { ...s, phase: "committed", items, selected: new Set(), anchor: null, batch: e.batch, moved, protectedOk: false };
     }
     case "commitFailed":
-      return s.phase === "committing" ? { ...s, phase: "list", error: e.error } : s;
+      if (s.phase !== "committing") return s;
+      // Beskyttet bilde: ikke en feil, men et spørsmål. Valget beholdes mens dialogen er åpen.
+      return isProtectedAck(e.error)
+        ? { ...s, phase: "list", error: null, askProtected: true, protectedOk: false }
+        : { ...s, phase: "list", error: e.error, protectedOk: false };
+    case "confirmProtected":
+      return s.askProtected && isLive(s) ? { ...s, phase: "committing", askProtected: false, protectedOk: true, error: null } : s;
+    case "cancelProtected":
+      return s.askProtected ? { ...s, askProtected: false } : s;
     case "reload":
       return { ...initialReview };
   }

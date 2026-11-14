@@ -428,6 +428,55 @@ export interface MessageParams {
   "protect.toggle.off": Record<never, never>;
   "protect.toggle.hint": { scope: string | number };
   "rules.name.unnamed": Record<never, never>;
+  "series.compare.lead": Record<never, never>;
+  "series.member.name": { n: string | number; total: string | number };
+  "series.info.rank": Record<never, never>;
+  "series.info.score": Record<never, never>;
+  "series.info.reason": Record<never, never>;
+  "series.mark.move": Record<never, never>;
+  "series.protect.label": { n: string | number };
+  "series.protect.changed.on": { n: string | number };
+  "series.protect.changed.off": { n: string | number };
+  "series.zoom.reset": Record<never, never>;
+  "series.zoom.level": { pct: string | number };
+  "series.zoom.hint": Record<never, never>;
+  "series.move.primary": { count: number };
+  "series.committed": { count: number };
+  "series.kept": Record<never, never>;
+  "series.error.body": Record<never, never>;
+  "series.live.keeper": { n: string | number };
+  "series.live.marked": { count: number };
+  "series.ack.title": Record<never, never>;
+  "series.ack.body": Record<never, never>;
+  "series.ack.go": Record<never, never>;
+  "series.ack.cancel": Record<never, never>;
+  "card.explain.note": Record<never, never>;
+  "card.explain.fact.blur": Record<never, never>;
+  "card.explain.fact.percent": Record<never, never>;
+  "card.explain.fact.count": Record<never, never>;
+  "card.explain.fact.position": Record<never, never>;
+  "card.explain.fact.rule": Record<never, never>;
+  "card.explain.fact.person": Record<never, never>;
+  "card.explain.value.position": { index: string | number; of: string | number };
+  "card.explain.value.person": Record<never, never>;
+  "card.explain.exact_copy": Record<never, never>;
+  "card.explain.visual_duplicate": Record<never, never>;
+  "card.explain.blurry": { pct: string | number };
+  "card.explain.screenshot": Record<never, never>;
+  "card.explain.higher_resolution": Record<never, never>;
+  "card.explain.less_compressed": Record<never, never>;
+  "card.explain.sharper": Record<never, never>;
+  "card.explain.older": Record<never, never>;
+  "card.explain.shot_platform_flag": Record<never, never>;
+  "card.explain.shot_screen_size": Record<never, never>;
+  "card.explain.shot_no_camera_exif": Record<never, never>;
+  "card.explain.shot_png": Record<never, never>;
+  "card.explain.series_member": { index: string | number; of: string | number };
+  "card.explain.keeper_best_overall": Record<never, never>;
+  "card.explain.keeper_eyes_open": Record<never, never>;
+  "card.explain.closed_eyes": { count: number };
+  "card.explain.rule": { name: string | number };
+  "card.explain.protected_person": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;
@@ -568,4 +617,22 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "protect.toggle.on",
   "protect.toggle.off",
   "rules.name.unnamed",
+  "series.info.rank",
+  "series.info.score",
+  "series.info.reason",
+  "series.mark.move",
+  "series.protect.label",
+  "series.zoom.reset",
+  "series.zoom.level",
+  "series.move.primary",
+  "series.ack.go",
+  "series.ack.cancel",
+  "card.explain.fact.blur",
+  "card.explain.fact.percent",
+  "card.explain.fact.count",
+  "card.explain.fact.position",
+  "card.explain.fact.rule",
+  "card.explain.fact.person",
+  "card.explain.value.position",
+  "card.explain.value.person",
 ]);

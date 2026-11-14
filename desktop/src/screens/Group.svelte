@@ -11,6 +11,8 @@
   import { fmt, tr } from "../lib/i18n";
   import { formatHash, navigate } from "../router";
   import { cloudFromError, loadCloud } from "./cloud";
+  import CardExplain from "./CardExplain.svelte";
+  import { isProtectedAck, PROTECTED_ACK } from "./protectAck";
   import {
     findGroup, groupItems, listGroups, initialGroup, keeperForKey, movableCards, reduceGroup, type GroupEvent, type GroupState,
   } from "./groupState";
@@ -27,6 +29,7 @@
   let gone = false;
   /** Skysynket bibliotek (leverandørkode): papirkurv er sperret synlig, med forklaring. */
   let cloud: string | null = $state(null);
+  let protDialog: HTMLDialogElement | undefined = $state();
 
   const items = $derived(view.group ? groupItems(view.group) : []);
   const movable = $derived(view.group ? movableCards(view.group) : []);
@@ -83,12 +86,13 @@
       send({ type: "actionFailed", error: e as BridgeError });
     }
   }
-  async function keepPrimary(): Promise<void> {
+  async function keepPrimary(confirmed: string[] = []): Promise<void> {
     if (view.phase !== "ready" || movable.length === 0 || cloud) return;
     send({ type: "start" });
     try {
-      send({ type: "committed", batch: await b.decide(movable.map((c) => c.id), "trash"), moved: movable.length });
+      send({ type: "committed", batch: await b.decide(movable.map((c) => c.id), "trash", confirmed), moved: movable.length });
     } catch (e) {
+      if (isProtectedAck(e as BridgeError)) { send({ type: "askProtected" }); return; }
       cloud = cloudFromError(e as BridgeError) ?? cloud;
       send({ type: "actionFailed", error: e as BridgeError });
     }
@@ -107,6 +111,12 @@
     try { await b.undo(); } catch { /* ingenting å angre */ }
     retry();
   }
+  // Beskyttet bilde: kjernen ber om bekreftelse før papirkurv. Ingenting er flyttet før brukeren sier ja.
+  $effect(() => {
+    if (!protDialog) return;
+    if (view.askProtected && !protDialog.open) protDialog.showModal();
+    else if (!view.askProtected && protDialog.open) protDialog.close();
+  });
   function keydown(e: KeyboardEvent): void {
     if (!view.group || e.ctrlKey || e.altKey || e.metaKey || (e.target as HTMLElement).closest("input, textarea, select")) return;
     const asset = keeperForKey(view.group, e.key);
@@ -169,6 +179,7 @@
               <dl>
                 {#if it.bytes !== null}<dt>{$tr("group.info.size")}</dt><dd>{fmt.bytes(it.bytes)}</dd>{/if}
               </dl>
+              {#if it.reason}<CardExplain reason={it.reason} detail={it.detail} confidence={it.confidence ?? undefined} />{/if}
               {#if !it.best}
                 <Button size="sm" disabled={busy} ariaKeyshortcuts={it.n <= 9 ? String(it.n) : undefined} onclick={() => makeBest(it.asset)}>{$tr("group.make.best")}</Button>
               {/if}
@@ -179,12 +190,21 @@
     </div></div>
 
     <BottomBar ariaLabel={$tr("group.title")} announce="" label={$tr("group.keep.primary", { count: movable.length })}
-      disabled={busy || (!cloud && movable.length === 0)} blocked={!!cloud} describedby="cloud-why" onclick={keepPrimary}>
+      disabled={busy || (!cloud && movable.length === 0)} blocked={!!cloud} describedby="cloud-why" onclick={() => keepPrimary()}>
       {#snippet secondary()}
         <Button disabled={busy} onclick={keepAll}>{$tr("group.keep.all")}</Button>
       {/snippet}
     </BottomBar>
   {/if}
+
+  <dialog bind:this={protDialog} aria-labelledby="gr-pt" onclose={() => send({ type: "dismissAsk" })}>
+    <h2 id="gr-pt">{$tr("series.ack.title")}</h2>
+    <p>{$tr("series.ack.body")}</p>
+    <div class="actions">
+      <Button onclick={() => send({ type: "dismissAsk" })}>{$tr("series.ack.cancel")}</Button>
+      <Button variant="danger" onclick={() => keepPrimary([PROTECTED_ACK])}>{$tr("series.ack.go")}</Button>
+    </div>
+  </dialog>
 </section>
 
 <style>
@@ -231,6 +251,10 @@
     .rail { flex-direction: column; flex-wrap: nowrap; position: sticky; inset-block-start: var(--space-4); }
     .gl { white-space: normal; }
   }
+  dialog { max-inline-size: min(32rem, calc(100vw - 2rem)); padding: var(--space-5); border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); background: var(--c-surface); color: var(--c-text); box-shadow: var(--shadow-pop); }
+  dialog::backdrop { background: var(--c-scrim); }
+  dialog h2 { margin-block-start: 0; font-size: var(--fs-lg); }
+  .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }
   @media (forced-colors: active) {
     .item.best { border-color: Highlight; }
     .tick { background: Highlight; color: HighlightText; }

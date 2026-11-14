@@ -16,6 +16,7 @@
     ariaKeys, CARD_KEYS, cardKey, dragIntent, initialCards, type CardAction, type CardsState,
   } from "./cardsState";
   import { cardReason, loadRuleNames, type RuleNames } from "./reason";
+  import { PROTECTED_ACK } from "./protectAck";
   import CardExplain from "./CardExplain.svelte";
 
   interface Props {
@@ -37,6 +38,7 @@
   let blockedShown = $state(false);
   let blockedSeq = $state(0);
   let help: HTMLDialogElement | undefined = $state();
+  let protDialog: HTMLDialogElement | undefined = $state();
   let deck: HTMLElement | undefined = $state();
   let summary: HTMLElement | undefined = $state();
   interface Drag { x: number; y: number; t: number; dx: number; dy: number }
@@ -64,11 +66,11 @@
     return text + (view.live.seq % 2 ? " " : "");
   });
 
-  const act = (a: CardAction): void => {
+  const act = (a: CardAction, confirmed: string[] = []): void => {
     if (a === "trash" && !top) return;
     if (a === "trash" && cloud) { blockedShown = true; blockedSeq++; return; } // sperret: gjør ingenting, men forklarer
     blockedShown = false;
-    void session.act(a);
+    void session.act(a, confirmed);
   };
   const undo = (): void => { blockedShown = false; void session.undo(); };
   // Skallet kan nekte papirkurv selv om UI ikke visste at mappen er skysynket: sperr da også her.
@@ -119,6 +121,12 @@
     if (!help) return;
     if (helpOpen && !help.open) help.showModal();
     else if (!helpOpen && help.open) help.close();
+  });
+  // Beskyttet bilde: kjernen ber om bekreftelse før papirkurv. Kortet ligger tilbake øverst, og ingenting er flyttet.
+  $effect(() => {
+    if (!protDialog) return;
+    if (view.askProtected && !protDialog.open) protDialog.showModal();
+    else if (!view.askProtected && protDialog.open) protDialog.close();
   });
   // Tom bunke: knappene forsvinner, så fokus går til oppsummeringen (ellers mistes fokus).
   $effect(() => {
@@ -182,7 +190,7 @@
               <Badge label={cardReason(top, ruleNames)} />
               <span class="muted size">{fmt.bytes(top.bytes)}</span>
             </p>
-            {#if top.kind === "series" || top.kind === "rule"}<CardExplain reason={top.reason} detail={top.detail} />{/if}
+            {#if top.kind === "series" || top.kind === "rule"}<CardExplain reason={top.reason} detail={top.detail} confidence={top.confidence} {ruleNames} />{/if}
             {#if hintAction}
               <span class="overlay" class:on={intent !== null} aria-hidden="true">
                 {hintAction === "keep" ? "✓ " + $tx("cards.overlay.keep") : hintAction === "trash" ? "✕ " + $tx("cards.overlay.trash") : "→ " + $tx("cards.overlay.skip")}
@@ -212,6 +220,15 @@
       </div>
     </div></div>
   {/if}
+
+  <dialog bind:this={protDialog} aria-labelledby="cd-pt" onclose={() => session.send({ type: "dismissAsk" })}>
+    <h2 id="cd-pt">{$tx("series.ack.title")}</h2>
+    <p>{$tx("series.ack.body")}</p>
+    <div class="dlg-actions">
+      <Button onclick={() => session.send({ type: "dismissAsk" })}>{$tx("series.ack.cancel")}</Button>
+      <Button variant="danger" onclick={() => { session.send({ type: "dismissAsk" }); act("trash", [PROTECTED_ACK]); }}>{$tx("series.ack.go")}</Button>
+    </div>
+  </dialog>
 
   <dialog bind:this={help} aria-labelledby="cd-ht" onclose={() => (helpOpen = false)}>
     <h2 id="cd-ht">{$tx("cards.help.title")}</h2>
@@ -264,5 +281,5 @@
   table { border-collapse: collapse; inline-size: 100%; }
   th, td { padding: var(--space-2) var(--space-3); text-align: start; border-block-end: var(--border-width) solid var(--c-border); }
   kbd { font: inherit; font-weight: var(--fw-semibold); padding: 0 var(--space-2); border: var(--border-width) solid var(--c-border-strong); border-radius: var(--radius-sm); }
-  .dlg-actions { display: flex; justify-content: flex-end; margin-block-start: var(--space-3); }
+  .dlg-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); margin-block-start: var(--space-3); }
 </style>
