@@ -19,6 +19,12 @@ export interface UpdateView {
   autoFailed: boolean;
   /** Skanning pågår (kjører, ikke pauset). Installasjon er da blokkert. */
   scanning: boolean;
+  /** Reservevei: adressen til siste utgivelse (manuell nedlasting), eller null til den er lest. */
+  downloadUrl: string | null;
+  /** Versjonen en tidligere installasjon prøvde på uten å fullføre (oppdaget ved oppstart), ellers null. */
+  incomplete: string | null;
+  /** Resultat av «Kopier lenke». */
+  copied: "idle" | "ok" | "failed";
 }
 
 export type UpdateEvent =
@@ -33,11 +39,15 @@ export type UpdateEvent =
   | { type: "installing" }
   | { type: "progress"; done: number; total: number | null }
   | { type: "restarting" }
-  | { type: "installFailed"; error: BridgeError };
+  | { type: "installFailed"; error: BridgeError }
+  | { type: "downloadUrl"; url: string }
+  | { type: "incomplete"; version: string }
+  | { type: "copied"; ok: boolean };
 
 export const initialUpdate: UpdateView = {
   status: "idle", version: null, found: null, error: null, done: 0, total: null,
   auto: false, autoSaving: false, autoFailed: false, scanning: false,
+  downloadUrl: null, incomplete: null, copied: "idle",
 };
 
 const busy = (s: UpdateView): boolean => s.status === "checking" || s.status === "installing" || s.status === "restarting";
@@ -66,7 +76,7 @@ export function reduceUpdate(s: UpdateView, e: UpdateEvent): UpdateView {
     case "installing":
       // Bare fra «available» eller etter en mislykket installasjon, og aldri mens skanning pågår.
       return (s.status === "available" || s.status === "installFailed") && s.found && !s.scanning
-        ? { ...s, status: "installing", done: 0, total: null, error: null }
+        ? { ...s, status: "installing", done: 0, total: null, error: null, incomplete: null, copied: "idle" }
         : s;
     case "progress":
       return s.status === "installing" ? { ...s, done: e.done, total: e.total } : s;
@@ -74,6 +84,12 @@ export function reduceUpdate(s: UpdateView, e: UpdateEvent): UpdateView {
       return s.status === "installing" ? { ...s, status: "restarting" } : s;
     case "installFailed":
       return s.status === "installing" ? { ...s, status: "installFailed", error: e.error } : s;
+    case "downloadUrl":
+      return { ...s, downloadUrl: e.url };
+    case "incomplete":
+      return { ...s, incomplete: e.version };
+    case "copied":
+      return { ...s, copied: e.ok ? "ok" : "failed" };
   }
 }
 
@@ -82,6 +98,9 @@ export const isScanning = (st: Pick<AppState, "scanPhase" | "scanPaused">): bool
 
 /** «Installer og start på nytt» er blokkert (men synlig, med forklaring). */
 export const installBlocked = (s: UpdateView): boolean => s.scanning && (s.status === "available" || s.status === "installFailed");
+
+/** Reserveveien (manuell nedlasting) vises når installasjonen feilet nå, eller en tidligere installasjon ikke ble fullført. */
+export const showManual = (s: UpdateView): boolean => s.downloadUrl !== null && (s.status === "installFailed" || (s.incomplete !== null && s.status !== "installing" && s.status !== "restarting"));
 
 /** Fremdrift i hele prosent, eller null når total er ukjent. */
 export function progressPercent(done: number, total: number | null): number | null {

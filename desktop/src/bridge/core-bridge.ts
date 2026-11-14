@@ -60,6 +60,8 @@ export interface CoreBridge {
   checkForUpdate(): Promise<UpdateCheck>;
   /** Laster ned, installerer og starter appen på nytt. `total` er null når størrelsen er ukjent. Kalles aldri uten at brukeren har trykket. */
   installUpdate(onProgress: (done: number, total: number | null) => void): Promise<void>;
+  /** Reservevei når installasjonen feiler: adressen til siste utgivelse. Vises som tekst og kan kopieres; appen åpner den aldri selv. */
+  getUpdateDownloadUrl(): Promise<string>;
   /** «Sjekk automatisk ved oppstart». Standard av. */
   getAutoUpdate(): Promise<boolean>;
   setAutoUpdate(on: boolean): Promise<boolean>;

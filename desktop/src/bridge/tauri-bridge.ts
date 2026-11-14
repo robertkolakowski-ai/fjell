@@ -49,6 +49,8 @@ export class TauriBridge implements CoreBridge {
     private readonly call: Invoke = invoke,
     private readonly updater: UpdaterApi = tauriUpdater,
     private readonly pick: PickDirectory = pickDirectory,
+    /** Hvor lenge appen kan leve etter ferdig nedlasting før installasjonen regnes som stoppet (ms). På Windows avslutter appen seg selv med en gang installeren er startet. */
+    private readonly stallMs = 90_000,
   ) {}
 
   getState(): Promise<AppState> {
@@ -135,6 +137,9 @@ export class TauriBridge implements CoreBridge {
       return "dev";
     }
   }
+  getUpdateDownloadUrl(): Promise<string> {
+    return this.call<string>("get_update_download_url");
+  }
   async checkForUpdate(): Promise<UpdateCheck> {
     if (!this.updater.available()) {
       throw { code: "unsupported", detail: "Oppdatering virker bare i den installerte appen (ikke i nettleser eller utviklingsmodus)." };
@@ -154,8 +159,14 @@ export class TauriBridge implements CoreBridge {
     if (!update) throw { code: "no_update", detail: "Ingen oppdatering er funnet. Sjekk først." };
     let done = 0;
     let total: number | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let arm: () => void = () => undefined;
+    // Lever vi fortsatt lenge etter «Finished», ble vi verken avsluttet eller erstattet: installasjonen har stoppet.
+    const stalled = new Promise<never>((_, reject) => {
+      arm = () => { timer ??= setTimeout(() => reject({ code: "update_install_stalled", detail: "Installasjonen ble ikke fullført." }), this.stallMs); };
+    });
     try {
-      await update.downloadAndInstall((e) => {
+      await Promise.race([stalled, update.downloadAndInstall((e) => {
         if (e.event === "Started") {
           total = e.data?.contentLength ?? null;
           onProgress(0, total);
@@ -164,10 +175,14 @@ export class TauriBridge implements CoreBridge {
           onProgress(done, total);
         } else if (e.event === "Finished") {
           onProgress(total ?? done, total);
+          arm();
         }
-      });
+      })]);
     } catch (e) {
+      if ((e as { code?: string } | null)?.code === "update_install_stalled") throw e;
       throw { code: "update_install_failed", detail: String(e) };
+    } finally {
+      clearTimeout(timer);
     }
     this.pending = null;
     await this.updater.relaunch();

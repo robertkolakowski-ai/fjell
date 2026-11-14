@@ -304,6 +304,14 @@ export interface MessageParams {
   "update.progress.unknown": { done: string | number };
   "update.status.restarting": Record<never, never>;
   "update.error.install": Record<never, never>;
+  "update.install.note": Record<never, never>;
+  "update.error.stalled": Record<never, never>;
+  "update.error.incomplete": { current: string | number; version: string | number };
+  "update.manual.title": Record<never, never>;
+  "update.manual.text": Record<never, never>;
+  "update.manual.copy": Record<never, never>;
+  "update.manual.copied": Record<never, never>;
+  "update.manual.failed": Record<never, never>;
   "update.blocked": Record<never, never>;
   "update.auto.label": Record<never, never>;
   "update.auto.note": Record<never, never>;
@@ -442,5 +450,7 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "update.title",
   "update.check",
   "update.install",
+  "update.manual.title",
+  "update.manual.copy",
   "update.auto.label",
 ]);

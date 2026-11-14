@@ -1,13 +1,13 @@
 // Ekte oppdatering via appen selv (Tauri updater -> NSIS /P /UPDATE -> app avslutter seg selv). Kun Windows, kun med FJELL_UPDATE_E2E=1.
 // Reproduserer brukerfeilen «Installasjonen er avbrutt – Kunne ikke avslutte Fjell». Se docs/mvp/OPPDATERING-E2E.md.
 // Forutsetter (settes av .github/workflows/update-e2e.yml): v1 er installert, FJELL_EXE peker på den, og FJELL_UPDATE_WWW har latest.json + setup.exe for v2.
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import type { ChildProcess } from "node:child_process";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { spawn, type ChildProcess } from "node:child_process";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { homeDirs, launchApp, type App } from "./launch";
-import { exeVersion, failureWindow, installerProcs, installerStartLine, isAlive, killByPath, killInstallers, procsByPath, readLog, registryVersions, sleep, startServer, startWatcher, stopWatcher } from "./update-watch";
+import { exeVersion, failureWindow, installerProcs, installerStartLine, isAlive, killByPath, killInstallers, killUninstallers, procsByPath, readLog, registryVersions, sleep, startServer, startWatcher, stopWatcher, suspendProcess, uninstallerProcs } from "./update-watch";
 
 const ENABLED = process.env.FJELL_UPDATE_E2E === "1";
 const need = (k: string): string => { const v = process.env[k]; if (!v) throw new Error(`Mangler miljøvariabel ${k} (se docs/mvp/OPPDATERING-E2E.md).`); return v; };
@@ -44,6 +44,7 @@ test.describe("oppdatering via appen", () => {
   test.afterAll(async () => {
     await app?.close().catch(() => undefined);
     killInstallers();
+    killUninstallers();
     stopWatcher(watcher);
     server?.kill();
   });
@@ -126,6 +127,87 @@ test.describe("oppdatering via appen", () => {
     await openSettings(app.page);
     await expect(app.page.getByText(T.version(to)).first(), "ny app skal vise ny versjon").toBeVisible();
     await app.close();
+    app = undefined;
+  });
+
+  /** Starter appen (ny CDP-økt beviser at vinduet er oppe) og suspenderer den: en instans som «henger» og holder exe-filen låst. */
+  async function startHungApp(dir: string, label: string): Promise<number> {
+    app = await launchApp(homeDirs(join(root, dir)));
+    const pid = app.pid;
+    await sleep(1500); // la WebView2-barna komme opp
+    const res = suspendProcess(pid);
+    appendFileSync(join(out, "hengt-instans.txt"), `${label}: ${res}\n`);
+    expect(isAlive(pid), "den suspenderte prosessen skal fortsatt finnes").toBe(true);
+    return pid;
+  }
+  /** Venter til `done()` er sann, et feilvindu dukker opp i overvåkerloggen, eller tiden er ute. Returnerer feilvinduets linje eller null. */
+  async function waitDone(done: () => boolean, since: number): Promise<{ failure: string | null; ok: boolean }> {
+    const t0 = Date.now();
+    while (Date.now() - t0 < INSTALL_TIMEOUT_MS) {
+      const failure = readLog(watchLog).slice(since).split("\n").find((l) => l.includes(" UIA ") && /avbrutt|aborted|kunne ikke avslutte|failed to kill|kjører!|is running!/i.test(l)) ?? null;
+      if (failure) return { failure, ok: false };
+      if (done()) return { failure: null, ok: true };
+      await sleep(1000);
+    }
+    return { failure: null, ok: false };
+  }
+
+  // Rotårsaken på brukerens maskin er ukjent, så dette er ikke en reprodusent av feilen, men et vern: en instans som ikke svarer
+  // (suspendert) skal ikke stoppe installasjon eller avinstallasjon. NSIS-hookene (installer-hooks.nsh) tvangsavslutter den først.
+  test("2. hengt (suspendert) instans kjører: installasjon over (/P /UPDATE) fullfører likevel", async () => {
+    const to = need("FJELL_UPDATE_TO");
+    const installed = exe();
+    const www = need("FJELL_UPDATE_WWW");
+    const setupName = readdirSync(www).find((n) => /-setup\.exe$/i.test(n));
+    expect(setupName, `fant ikke setup.exe i ${www}`).toBeTruthy();
+    expect(exeVersion(installed), "test 1 skal ha etterlatt ny versjon").toMatch(new RegExp(`^${esc(to)}`));
+
+    const hungPid = await startHungApp("c", "installasjon");
+    const since = readLog(watchLog).length;
+    let exit: number | null | undefined;
+    const inst = spawn(join(www, setupName as string), ["/P", "/UPDATE"], { stdio: "ignore", windowsHide: false });
+    inst.once("exit", (code) => { exit = code; });
+    const r = await waitDone(() => exit !== undefined, since);
+    const timeline = readLog(watchLog).slice(since);
+    appendFileSync(join(out, "hengt-instans.txt"), `installasjon: exit=${exit} feilvindu=${r.failure ?? "nei"} hengt pid lever=${isAlive(hungPid)}\n`);
+
+    expect(r.failure, `NSIS viste feilvindu med hengt instans:\n${r.failure}\n\n${timeline.slice(-4000)}`).toBeNull();
+    expect(exit, `installeren ble ikke ferdig innen ${INSTALL_TIMEOUT_MS / 1000} s\n${timeline.slice(-3000)}`).toBe(0);
+    expect(isAlive(hungPid), "den hengte instansen skal være avsluttet av installeren").toBe(false);
+    expect(procsByPath(installed), "ingen Fjell-prosess skal være igjen (installeren startes uten /R)").toEqual([]);
+    expect(exeVersion(installed)).toMatch(new RegExp(`^${esc(to)}`));
+    await app?.close().catch(() => undefined);
+    app = undefined;
+
+    // Appen virker etter installasjonen.
+    app = await launchApp(homeDirs(join(root, "d")));
+    await openSettings(app.page);
+    await expect(app.page.getByText(T.version(to)).first()).toBeVisible();
+    await app.close();
+    app = undefined;
+  });
+
+  // Siste test: appen er avinstallert etterpå.
+  test("3. hengt (suspendert) instans kjører: avinstallering (/P) fullfører likevel", async () => {
+    const installed = exe();
+    const uninstaller = join(dirname(installed), "uninstall.exe");
+    expect(existsSync(uninstaller), `fant ikke ${uninstaller}`).toBe(true);
+
+    const hungPid = await startHungApp("e", "avinstallering");
+    const since = readLog(watchLog).length;
+    // uninstall.exe kopierer seg selv til TEMP og returnerer straks; ferdig = exe-filen er borte og ingen avinstaller kjører.
+    spawn(uninstaller, ["/P"], { stdio: "ignore", windowsHide: false, detached: true }).unref();
+    await sleep(2000);
+    const r = await waitDone(() => !existsSync(installed) && uninstallerProcs().length === 0, since);
+    const timeline = readLog(watchLog).slice(since);
+    appendFileSync(join(out, "hengt-instans.txt"), `avinstallering: ferdig=${r.ok} feilvindu=${r.failure ?? "nei"} hengt pid lever=${isAlive(hungPid)}\n`);
+
+    expect(r.failure, `avinstalleren viste feilvindu med hengt instans:\n${r.failure}\n\n${timeline.slice(-4000)}`).toBeNull();
+    expect(r.ok, `avinstalleringen ble ikke ferdig innen ${INSTALL_TIMEOUT_MS / 1000} s\n${timeline.slice(-3000)}`).toBe(true);
+    expect(isAlive(hungPid), "den hengte instansen skal være avsluttet av avinstalleren").toBe(false);
+    expect(existsSync(installed), "app-exe skal være fjernet").toBe(false);
+    expect(registryVersions(), "avinstallasjonsnøkkelen skal være fjernet").toEqual([]);
+    await app?.close().catch(() => undefined);
     app = undefined;
   });
 });

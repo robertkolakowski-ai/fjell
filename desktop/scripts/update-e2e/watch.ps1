@@ -23,7 +23,8 @@ while ($true) {
   $now = @{}
   foreach ($p in Get-CimInstance Win32_Process) {
     $cl = [string]$p.CommandLine
-    if ($p.Name -match 'fjell|setup|uninstall|nsis|webview2' -or $cl -match '/UPDATE') {
+    # Au_.exe / Un_A.exe: NSIS-avinstalleren kopierer seg selv til TEMP (~nsu*.tmp) og kjører derfra.
+    if ($p.Name -match 'fjell|setup|uninstall|nsis|webview2|^(Au_|Un_[A-Z]?)\.exe$|^taskkill' -or $cl -match '/UPDATE|~nsu') {
       $short = if ($cl.Length -gt 200) { $cl.Substring(0, 200) + "..." } else { $cl }
       $now[[int]$p.ProcessId] = "$($p.Name) ppid=$($p.ParentProcessId) cmd=$short"
     }

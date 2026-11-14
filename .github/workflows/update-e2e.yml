@@ -1,5 +1,7 @@
 # Oppdatering via appen selv, hele flyten på Windows: installer v1, appen sjekker mot en lokal server, laster ned v2, starter NSIS (/P /UPDATE)
 # og avslutter seg selv. Reproduserer «Installasjonen er avbrutt – Kunne ikke avslutte Fjell». Se docs/mvp/OPPDATERING-E2E.md.
+# Deretter (M22): en hengt (suspendert) Fjell-instans kjører mens installeren (/P /UPDATE) og avinstalleren (/P) kjøres; begge skal fullføre
+# (NSIS-hookene i desktop/src-tauri/installer-hooks.nsh tvangsavslutter gjenværende Fjell-prosesser før malens Restart Manager-sjekk).
 # Testnøkkel og testkonfig lever bare i denne kjøringen (tauri --config); ingen hemmeligheter, ingenting committes, produksjonskonfig er urørt.
 name: update-e2e
 on:
@@ -16,6 +18,7 @@ on:
       - "desktop/src-tauri/**"
       - "desktop/src/bridge/tauri-bridge.ts"
       - "desktop/src/screens/Update*"
+      - "desktop/src/screens/update*"
       - "tools/set-version.mjs"
 permissions:
   contents: read
