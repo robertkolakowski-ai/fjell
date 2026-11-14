@@ -6,6 +6,14 @@ import {
   type AppSettings, type EmptyResult, type KindCode, type LibraryRoot, type PermanentAck, type ReasonCode, type RestoreResult,
   type ScanPhase, type Thumbnail, type ThumbErrorCode, type TrashedItem, type UpdateCheck,
 } from "./types";
+import type {
+  Condition, Dashboard, Person, Protection, Rule, RuleDraft, RulePreview, Scope, SensitivityCode, SeriesCompare, SeriesMember,
+  SuggestionSettings, Thresholds,
+} from "./types-v1";
+import {
+  cleanRuleName, folderMatches, MOCK_ALBUMS, MOCK_ASSETS, MOCK_BYTES, monthSeries, normalizeScope, PERSON_NAME_MAX, ruleCandidates, ruleHitBytes,
+  SCOPE_FLAG, scopeKey, seedPeople, seedRules, thresholdsFor, TOP_FOLDERS, validateConditions, yearMonthOf, type MockPerson, type MockRule,
+} from "./mock-v1";
 
 export interface MockOptions {
   /** Simulert latens per kall i ms. 0 = av (tester). */
@@ -71,8 +79,10 @@ const DAY = 86_400;
 const QUARANTINE = ".fjell-karantene";
 
 const REASON: Record<KindCode, ReasonCode> = {
-  exact_dup: "ExactCopy", visual_dup: "VisualDuplicate", blurry: "Blurry", screenshot: "Screenshot",
+  exact_dup: "ExactCopy", visual_dup: "VisualDuplicate", blurry: "Blurry", screenshot: "Screenshot", series: "SeriesMember", rule: "Rule",
 };
+/** Kort per serie (pluss behold-kandidaten, som er seriens første bilde). */
+const SERIES_CARDS = 3;
 const PER_KIND = 6;
 const err = (code: string, detail = ""): BridgeError => ({ code, detail });
 
@@ -81,12 +91,19 @@ export function seedCards(): Card[] {
   let id = 1;
   KIND_CODES.forEach((kind, ki) => {
     for (let i = 0; i < PER_KIND; i++, id++) {
-      const grouped = kind === "exact_dup" || kind === "visual_dup";
+      const per = kind === "series" ? SERIES_CARDS : 2;
+      const grouped = kind === "exact_dup" || kind === "visual_dup" || kind === "series";
+      // Serie 42: første kort har lukkede øyne. Regel 1 eier kort 1-3 i regelkategorien, regel 2 de neste.
+      const closed = kind === "series" && i === SERIES_CARDS;
       out.push({
         id, kind, asset: id,
-        group: grouped ? ki * 10 + Math.floor(i / 2) + 1 : null,
-        keeper: grouped ? 1000 + id - (i % 2) : null,
-        reason: REASON[kind],
+        group: grouped ? ki * 10 + Math.floor(i / per) + 1 : null,
+        keeper: grouped ? 1000 + id - (i % per) : null,
+        reason: closed ? "ClosedEyes" : REASON[kind],
+        detail: closed ? { kind: "count", value: 1 }
+          : kind === "series" ? { kind: "position", index: 2 + (i % SERIES_CARDS), of: SERIES_CARDS + 1 }
+          : kind === "rule" ? { kind: "rule", id: i < 3 ? 1 : 2 }
+          : { kind: "none" },
         confidence: kind === "exact_dup" ? 1 : 0.8 + (i % 3) / 20,
         bytes: 1_000_000 * (ki + 1) + i * 1000,
         protectFlags: 0,
@@ -122,6 +139,18 @@ export class MockBridge implements CoreBridge {
   private language: string | null;
   private readonly thumbErrors: Record<number, ThumbErrorCode>;
   private readonly thumbDelayMs: number;
+  // ---- V1-tilstand ----
+  private protections: Protection[] = [];
+  private rules: MockRule[] = seedRules();
+  private nextRuleId = 3;
+  /** Id-er for kort mocken lager selv (regeltreff); over alle seed-id-er. */
+  private nextCardId = 5000;
+  private people: MockPerson[] = seedPeople();
+  private faceIndex = false;
+  private sens = Object.fromEntries(KIND_CODES.map((k) => [k, "normal"])) as Record<KindCode, SensitivityCode>;
+  /** Antall tømt fra «Nylig slettet» (teller som avgjort i fremdriften). */
+  private purged = 0;
+  private freedMonths = new Map<number, { count: number; bytes: number }>();
   private pollsLeft = 0;
   private paused = false;
   /** Sekunder siden epoch når bildet (`asset`) ble flyttet til «Nylig slettet». */
@@ -156,7 +185,7 @@ export class MockBridge implements CoreBridge {
   async getState(): Promise<AppState> {
     await this.wait();
     if (this.phase === "analyzing" && !this.paused && this.pollsLeft-- <= 0) this.phase = "done";
-    const have = this.phase === "idle" ? [] : this.cards;
+    const have = this.phase === "idle" ? [] : this.visible();
     const perKind = KIND_CODES.map((kind) => {
       const k = have.filter((c) => c.kind === kind);
       return { kind, count: k.length, bytes: k.reduce((s, c) => s + c.bytes, 0) };
@@ -232,6 +261,8 @@ export class MockBridge implements CoreBridge {
     await this.wait();
     if (this.library === null) throw err("no_library");
     this.paused = false;
+    // Ansikter bygges bare ved skanning og bare når indeksen er på (etter en sletting bygges den opp igjen).
+    if (this.faceIndex && this.people.length === 0) this.people = seedPeople();
     this.begin();
   }
 
@@ -263,26 +294,33 @@ export class MockBridge implements CoreBridge {
   async listCards(kind: KindCode, limit: number, cursor: number | null = null): Promise<CardPage> {
     await this.wait();
     if (!KIND_CODES.includes(kind)) throw err("bad_request", "unknown kind");
-    const all = this.cards.filter((c) => c.kind === kind && (cursor == null || c.id > cursor));
+    const all = this.visible().filter((c) => c.kind === kind && (cursor == null || c.id > cursor));
     const n = Math.min(Math.max(limit, 1), 200);
     const cards = all.slice(0, n);
     return { cards, next: all.length > n ? cards[cards.length - 1].id : null };
   }
 
-  async decide(ids: number[], decision: Decision): Promise<number> {
+  async decide(ids: number[], decision: Decision, confirmed: string[] = []): Promise<number> {
     await this.wait();
-    const hit = ids.map((id) => this.cards.find((c) => c.id === id) ?? null);
+    const live = this.visible();
+    const hit = ids.map((id) => live.find((c) => c.id === id) ?? null);
     if (hit.some((c) => c === null)) throw err("unknown_card");
+    // Beskyttet av brukeren (bilde, mappe, album, person): papirkurv krever egen bekreftelse. Behold er alltid trygt.
+    if (decision === "trash" && (hit as Card[]).some((c) => (c.protectFlags & SCOPE_FLAG) !== 0) && !confirmed.includes("protected_by_scope")) {
+      throw err("ack_required", "protected_by_scope");
+    }
     // Som skallet: papirkurv i skysynket bibliotek nektes FØR noe endres. Behold er tillatt.
     const cloud = decision === "trash" ? this.cloud() : null;
     if (cloud) throw err("cloud_synced_readonly", cloud);
     const batch = this.nextBatch++;
+    // Lagre kortene slik de var (uten beskyttelsesflagget mocken legger på ved visning), så angre gir dem tilbake uendret.
+    const picked = ids.map((id) => this.cards.find((c) => c.id === id) as Card);
     this.cards = this.cards.filter((c) => !ids.includes(c.id));
     if (decision === "trash") {
-      this.trashed.push(...(hit as Card[]));
-      for (const c of hit as Card[]) this.trashedAt.set(c.asset, Math.floor(this.now() / 1000));
+      this.trashed.push(...picked);
+      for (const c of picked) this.trashedAt.set(c.asset, Math.floor(this.now() / 1000));
     }
-    else this.kept.push(...(hit as Card[]));
+    else this.kept.push(...picked);
     this.batches.push({ ids, decision });
     return batch;
   }
@@ -425,7 +463,7 @@ export class MockBridge implements CoreBridge {
   async purge(): Promise<number> {
     await this.wait();
     const n = this.trashed.length;
-    this.freed += this.trashed.reduce((s, c) => s + c.bytes, 0);
+    this.noteFreed(n, this.trashed.reduce((s, c) => s + c.bytes, 0));
     this.trashed = [];
     this.batches = [];
     return n;
@@ -441,6 +479,7 @@ export class MockBridge implements CoreBridge {
       const stay = this.noBin ? n : Math.min(n, this.unsupportedCount);
       const moved = this.trashed.slice(0, n - stay);
       const ids = new Set(moved.map((c) => c.id));
+      this.purged += moved.length;
       this.trashed = this.trashed.slice(n - stay);
       this.batches = this.batches.filter((b) => b.decision !== "trash" || !b.ids.every((i) => ids.has(i)));
       return { ...none, purged: moved.length, keptTrashed: stay, unsupported: stay };
@@ -449,7 +488,7 @@ export class MockBridge implements CoreBridge {
     if (!permanent.checked || permanent.count !== n) throw err("ack_required", "permanent");
     this.trashed = [];
     this.batches = this.batches.filter((b) => b.decision !== "trash");
-    this.freed += bytes;
+    this.noteFreed(n, bytes);
     this.freedSince ??= Date.now();
     return { ...none, purged: n, freedBytes: bytes };
   }
@@ -470,9 +509,9 @@ export class MockBridge implements CoreBridge {
     };
   }
 
-  /** Mock: en lokal adresse (ingen eksterne URL-er i frontend, se nonet.test.ts). Ekte adresse kommer fra skallet. */
+  /** Mock: en lokal sti uten skjema (ingen URL-er i bygget, se nonet.test.ts). Ekte adresse kommer fra skallet. */
   async getUpdateDownloadUrl(): Promise<string> {
-    return "http://localhost/fjell/releases/tag/beta";
+    return "/fjell/releases/tag/beta";
   }
 
   async installUpdate(onProgress: (done: number, total: number | null) => void): Promise<void> {
@@ -496,5 +535,303 @@ export class MockBridge implements CoreBridge {
     await this.wait();
     this.auto = on;
     return this.auto;
+  }
+
+  // ---- V1 ----
+  private noteFreed(count: number, bytes: number): void {
+    this.purged += count;
+    this.freed += bytes;
+    const ym = yearMonthOf(this.now());
+    const m = this.freedMonths.get(ym) ?? { count: 0, bytes: 0 };
+    this.freedMonths.set(ym, { count: m.count + count, bytes: m.bytes + bytes });
+  }
+
+  /** Alle personer som ikke er slått inn i en annen, og bare når indeksen er på. */
+  private livePeople(): MockPerson[] {
+    return this.faceIndex ? this.people.filter((p) => p.mergedInto === null) : [];
+  }
+  private rootOf(p: MockPerson): MockPerson {
+    let cur = p;
+    for (let guard = 0; cur.mergedInto !== null && guard < 100; guard++) cur = this.people.find((x) => x.id === cur.mergedInto) ?? cur;
+    return cur;
+  }
+  /** Personen og alle som er slått inn i den (direkte og indirekte). */
+  private familyOf(id: number): MockPerson[] {
+    const root = this.people.find((p) => p.id === id);
+    return root ? this.people.filter((p) => this.rootOf(p).id === id) : [];
+  }
+  private personAssets(id: number): number[] {
+    return [...new Set(this.familyOf(id).flatMap((p) => p.assets))];
+  }
+  private personProtected(id: number): boolean {
+    return this.protections.some((p) => p.scope.scope === "person" && p.scope.target === String(id));
+  }
+
+  private inScope(asset: number, scope: Scope): boolean {
+    switch (scope.scope) {
+      case "asset": return scope.target === String(asset);
+      case "folder": return folderMatches(this.library ?? "C:\\Bilder", asset, scope.target);
+      case "album": return (MOCK_ALBUMS[Number(scope.target)] ?? []).includes(asset);
+      case "person": return this.personAssets(Number(scope.target)).includes(asset);
+    }
+  }
+  private isProtected(asset: number): boolean {
+    return this.protections.some((p) => this.inScope(asset, p.scope));
+  }
+  private ruleLive(id: number): boolean {
+    const r = this.rules.find((x) => x.id === id);
+    return r !== undefined && r.enabled && !r.deleted;
+  }
+
+  /**
+   * Forslagene slik kjernen viser dem: regelkort bare for aktive regler og aldri på beskyttede bilder; bilder brukeren
+   * har beskyttet får `SCOPE_FLAG`, så skjermene aldri forhåndsvelger dem.
+   */
+  private visible(): Card[] {
+    return this.cards
+      .filter((c) => c.kind !== "rule" || (c.detail.kind === "rule" && this.ruleLive(c.detail.id) && !this.isProtected(c.asset)))
+      .map((c) => (this.isProtected(c.asset) ? { ...c, protectFlags: c.protectFlags | SCOPE_FLAG } : c));
+  }
+
+  /** Regelens treff som kort: bilder som alt er avgjort foreslås ikke på nytt. */
+  private syncRuleCards(rule: MockRule): void {
+    const decided = new Set([...this.trashed, ...this.kept].map((c) => c.asset));
+    this.cards = this.cards.filter((c) => !(c.kind === "rule" && c.detail.kind === "rule" && c.detail.id === rule.id));
+    for (const asset of ruleCandidates(rule.conditions)) {
+      if (decided.has(asset)) continue;
+      this.cards.push({
+        id: this.nextCardId++, kind: "rule", asset, group: null, keeper: null, reason: "Rule", detail: { kind: "rule", id: rule.id },
+        confidence: 0.8, bytes: ruleHitBytes(asset), protectFlags: 0,
+      });
+    }
+  }
+
+  async protect(scope: Scope, on: boolean): Promise<void> {
+    await this.wait();
+    const s = normalizeScope(scope);
+    const key = scopeKey(s);
+    const has = this.protections.some((p) => scopeKey(p.scope) === key);
+    if (!on) {
+      this.protections = this.protections.filter((p) => scopeKey(p.scope) !== key);
+      return;
+    }
+    const n = Number(s.target);
+    const known = s.scope === "asset" ? Number.isInteger(n) && n >= 1 && n <= MOCK_ASSETS
+      : s.scope === "album" ? n in MOCK_ALBUMS
+      : s.scope === "person" ? this.livePeople().some((p) => p.id === n)
+      : true;
+    if (!known) throw err("unknown_target", `${s.scope}:${s.target}`);
+    if (!has) this.protections.push({ scope: s, createdAt: Math.floor(this.now() / 1000) });
+  }
+
+  async listProtections(): Promise<Protection[]> {
+    await this.wait();
+    return this.protections.map((p) => ({ scope: { ...p.scope }, createdAt: p.createdAt }));
+  }
+
+  private ruleView(r: MockRule): Rule {
+    const hits = r.enabled ? this.visible().filter((c) => c.kind === "rule" && c.detail.kind === "rule" && c.detail.id === r.id).length : 0;
+    return { id: r.id, name: r.name, conditions: r.conditions.map((c) => ({ ...c })), enabled: r.enabled, hits };
+  }
+
+  async listRules(): Promise<Rule[]> {
+    await this.wait();
+    return this.rules.filter((r) => !r.deleted).map((r) => this.ruleView(r));
+  }
+
+  async saveRule(draft: RuleDraft): Promise<number> {
+    await this.wait();
+    validateConditions(draft.conditions);
+    const name = cleanRuleName(draft.name);
+    let rule: MockRule | undefined;
+    if (draft.id === null) {
+      rule = { id: this.nextRuleId++, name, conditions: draft.conditions.map((c) => ({ ...c })), enabled: true, deleted: false };
+      this.rules.push(rule);
+    } else {
+      rule = this.rules.find((r) => r.id === draft.id && !r.deleted);
+      if (!rule) throw err("rule_not_found");
+      rule.name = name;
+      rule.conditions = draft.conditions.map((c) => ({ ...c }));
+    }
+    this.syncRuleCards(rule);
+    return rule.id;
+  }
+
+  async previewRule(conditions: Condition[]): Promise<RulePreview> {
+    await this.wait();
+    validateConditions(conditions);
+    const decided = new Set([...this.trashed, ...this.kept].map((c) => c.asset));
+    const hits = ruleCandidates(conditions).filter((a) => !decided.has(a) && !this.isProtected(a));
+    return { hits: hits.length, bytes: hits.reduce((n, a) => n + ruleHitBytes(a), 0), sample: hits.slice(0, 3) };
+  }
+
+  private liveRule(id: number): MockRule {
+    const r = this.rules.find((x) => x.id === id && !x.deleted);
+    if (!r) throw err("rule_not_found");
+    return r;
+  }
+
+  async toggleRule(id: number, enabled: boolean): Promise<void> {
+    await this.wait();
+    this.liveRule(id).enabled = enabled;
+  }
+
+  async deleteRule(id: number): Promise<void> {
+    await this.wait();
+    this.liveRule(id).deleted = true;
+  }
+
+  async restoreRule(id: number): Promise<void> {
+    await this.wait();
+    const r = this.rules.find((x) => x.id === id);
+    if (!r) throw err("rule_not_found");
+    r.deleted = false;
+  }
+
+  async listPeople(): Promise<Person[]> {
+    await this.wait();
+    return this.livePeople().map((p) => {
+      const family = this.familyOf(p.id);
+      const assets = this.personAssets(p.id);
+      return {
+        id: p.id, name: p.name, faceCount: family.reduce((n, f) => n + f.faces, 0), assetCount: assets.length,
+        cover: assets[0] ?? null, protected: this.personProtected(p.id),
+      };
+    });
+  }
+
+  private livePerson(id: number): MockPerson {
+    const p = this.livePeople().find((x) => x.id === id);
+    if (!p) throw err("unknown_person");
+    return p;
+  }
+
+  async namePerson(id: number, name: string | null): Promise<void> {
+    await this.wait();
+    const n = name === null ? null : name.trim();
+    if (n !== null && [...n].length > PERSON_NAME_MAX) throw err("name_too_long");
+    this.livePerson(id).name = n === "" ? null : n;
+  }
+
+  async mergePeople(target: number, absorbed: number): Promise<number> {
+    await this.wait();
+    const t = this.livePerson(target);
+    const a = this.livePerson(absorbed);
+    if (t.id === a.id) return t.id;
+    a.mergedInto = t.id;
+    return t.id;
+  }
+
+  async unmergePerson(absorbed: number): Promise<void> {
+    await this.wait();
+    const a = this.people.find((p) => p.id === absorbed);
+    if (!a) throw err("unknown_person");
+    if (a.mergedInto === null) throw err("not_merged");
+    a.mergedInto = null;
+  }
+
+  async protectPerson(id: number, protect: boolean): Promise<void> {
+    await this.wait();
+    this.livePerson(id);
+    return this.protect({ scope: "person", target: String(id) }, protect);
+  }
+
+  async getFaceIndex(): Promise<boolean> {
+    await this.wait();
+    return this.faceIndex;
+  }
+
+  async setFaceIndex(enabled: boolean): Promise<void> {
+    await this.wait();
+    this.faceIndex = enabled;
+  }
+
+  /** Fjerner ansiktsdata og personer, aldri bilder. Personbeskyttelser blir til beskyttelse av hvert bilde (ingen mister vernet). */
+  async wipeFaceIndex(): Promise<number> {
+    await this.wait();
+    const faces = this.people.reduce((n, p) => n + p.faces, 0);
+    const now = Math.floor(this.now() / 1000);
+    const added: Protection[] = [];
+    for (const prot of this.protections.filter((p) => p.scope.scope === "person")) {
+      for (const asset of this.personAssets(Number(prot.scope.target))) {
+        added.push({ scope: { scope: "asset", target: String(asset) }, createdAt: now });
+      }
+    }
+    this.protections = this.protections.filter((p) => p.scope.scope !== "person");
+    for (const p of added) if (!this.protections.some((x) => scopeKey(x.scope) === scopeKey(p.scope))) this.protections.push(p);
+    this.people = [];
+    return faces;
+  }
+
+  async getDashboard(): Promise<Dashboard> {
+    await this.wait();
+    const live = this.phase === "idle" ? [] : this.visible();
+    const perKind = KIND_CODES.map((kind) => {
+      const k = live.filter((c) => c.kind === kind);
+      return { kind, count: k.length, bytes: k.reduce((n, c) => n + c.bytes, 0) };
+    });
+    const trashedBytes = this.trashed.reduce((n, c) => n + c.bytes, 0);
+    const decided = this.kept.length + this.trashed.length + this.purged;
+    const total = decided + live.length;
+    const top = [...perKind].sort((a, b) => b.count - a.count || b.bytes - a.bytes)[0];
+    return {
+      activeCount: MOCK_ASSETS - this.trashed.length, activeBytes: MOCK_BYTES - trashedBytes,
+      trashedCount: this.trashed.length, trashedBytes, freedBytes: this.freed,
+      perKind, byMonth: monthSeries(this.now()), topFolders: TOP_FOLDERS(this.library ?? "C:\\Bilder"),
+      protectedCount: this.protections.length,
+      seriesCount: new Set(live.filter((c) => c.kind === "series").map((c) => c.group)).size,
+      peopleCount: this.livePeople().length,
+      rulesActive: this.rules.filter((r) => r.enabled && !r.deleted).length,
+      progress: { decided, total, permille: total === 0 ? 0 : Math.round((1000 * decided) / total) },
+      nextStep: top && top.count > 0
+        ? { kind: "review", suggestionKind: top.kind, count: top.count, bytes: top.bytes }
+        : this.trashed.length > 0
+          ? { kind: "empty_trash", suggestionKind: null, count: this.trashed.length, bytes: trashedBytes }
+          : { kind: "nothing", suggestionKind: null, count: 0, bytes: 0 },
+      freedByMonth: [...this.freedMonths.entries()].sort((a, b) => a[0] - b[0]).map(([yearMonth, v]) => ({ yearMonth, ...v })),
+    };
+  }
+
+  async compareSeries(series: number): Promise<SeriesCompare> {
+    await this.wait();
+    const cards = this.visible().filter((c) => c.kind === "series" && c.group === series);
+    if (cards.length === 0 || cards[0].keeper === null) throw err("unknown_series");
+    const keeper = cards[0].keeper;
+    const flags = (asset: number): number => (this.isProtected(asset) ? SCOPE_FLAG : 0);
+    // Behold-kandidaten (rang 1) forklares med øyne når et av kortene har lukkede øyne, ellers best samlet.
+    const eyes = cards.some((c) => c.reason === "ClosedEyes");
+    const members: SeriesMember[] = [{
+      asset: keeper, rank: 1, score: 0.92, isKeeper: true, reason: eyes ? "KeeperEyesOpen" : "KeeperBestOverall", detail: { kind: "none" },
+      bytes: cards[0].bytes + 60_000, protectFlags: flags(keeper),
+    }];
+    cards.forEach((c, i) => members.push({
+      asset: c.asset, rank: i + 2, score: Math.round((0.84 - i * 0.07) * 100) / 100, isKeeper: false, reason: c.reason, detail: c.detail,
+      bytes: c.bytes, protectFlags: c.protectFlags | flags(c.asset),
+    }));
+    return { series, keeper, members };
+  }
+
+  async getSuggestionSettings(): Promise<SuggestionSettings> {
+    await this.wait();
+    return { trashDays: this.days, sensitivity: { ...this.sens }, faceIndex: this.faceIndex };
+  }
+
+  async setSuggestionSettings(settings: SuggestionSettings): Promise<SuggestionSettings> {
+    await this.wait();
+    if (!Number.isInteger(settings.trashDays) || settings.trashDays < 1 || settings.trashDays > 365) throw err("bad_request", "trash_days");
+    const next = { ...this.sens };
+    for (const [k, v] of Object.entries(settings.sensitivity ?? {})) {
+      if (!KIND_CODES.includes(k as KindCode) || (v !== "low" && v !== "normal" && v !== "high")) throw err("bad_request", "sensitivity");
+      next[k as KindCode] = v;
+    }
+    this.days = settings.trashDays;
+    this.sens = next;
+    this.faceIndex = !!settings.faceIndex;
+    return this.getSuggestionSettings();
+  }
+
+  async getThresholds(): Promise<Thresholds> {
+    await this.wait();
+    return thresholdsFor(this.sens);
   }
 }

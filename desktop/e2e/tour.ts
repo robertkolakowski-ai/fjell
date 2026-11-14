@@ -29,11 +29,31 @@ export async function tour(page: Page, visit: Visit, lang: Lang = "nb"): Promise
   for (const [hash, name] of [
     ["#/review", "gjennomgang"], ["#/review/blurry", "gjennomgang-uskarpe"], ["#/review/screenshot", "gjennomgang-skjermbilder"],
     ["#/review/exact_dup", "gjennomgang-eksakte"], ["#/group/1", "gruppe"], ["#/cards", "kortmodus"], ["#/settings", "innstillinger"],
+    // V1-skjermer (Serie, Regler, Personer med ansiktsindeksen av som standard, Kortmodus med forklaring på serie og regel)
+    ["#/review/series", "gjennomgang-serier"], ["#/review/rule", "gjennomgang-regler"], ["#/series/41", "serie"], ["#/series/42", "serie-lukkede-oyne"],
+    ["#/cards/series", "kortmodus-serie"], ["#/cards/rule", "kortmodus-regel"], ["#/rules", "regler"], ["#/people", "personer-av"],
   ] as const) {
     await go(page, hash);
     await page.waitForTimeout(120);
     await visit(name);
   }
+
+  // V1: regelredigering (dialog), samtykke til ansiktsindeks (dialog) og Personer med indeksen på.
+  await go(page, "#/rules");
+  await page.locator(".list .item").first().waitFor();
+  await page.locator("main header .btn.primary, main .btn.primary").first().click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await visit("regler-ny-regel");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await go(page, "#/people");
+  await page.locator("main .btn.primary").first().click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await visit("personer-samtykke");
+  await page.locator("dialog[open] .btn.primary").last().click();
+  await page.locator("ul.grid .person").first().waitFor();
+  await page.waitForTimeout(150);
+  await visit("personer");
 
   // Dialog: hurtigtaster (F1)
   await go(page, "#/cards");

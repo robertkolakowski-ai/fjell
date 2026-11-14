@@ -21,7 +21,11 @@ describe("identisk grensesnitt", () => {
       "getFirstRun", "getLanguage", "getLibrary", "getSettings", "getState", "getThumbnail", "getUpdateDownloadUrl", "installUpdate", "listCards", "listLibraryRoots", "listTrashed",
       "pauseScan", "pickFolder", "purge", "removeLibraryRoot", "restore", "restoreAll", "resumeScan", "setAutoUpdate", "setKeeper", "setLanguage",
       "setLibrary", "setTrashDays", "startScan", "undo",
-    ];
+      // V1
+      "compareSeries", "deleteRule", "getDashboard", "getFaceIndex", "getSuggestionSettings", "getThresholds", "listPeople", "listProtections",
+      "listRules", "mergePeople", "namePerson", "previewRule", "protect", "protectPerson", "restoreRule", "saveRule", "setFaceIndex",
+      "setSuggestionSettings", "toggleRule", "unmergePerson", "wipeFaceIndex",
+    ].sort();
     expect(names(new TauriBridge())).toEqual(pub);
     expect(names(new MockBridge()).filter((n) => pub.includes(n))).toEqual(pub);
   });

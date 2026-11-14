@@ -6,6 +6,7 @@
   import { provideBridge } from "./context";
   import { tr } from "./lib/i18n";
   import { Button, Icon, NavItem, Sidebar } from "./lib";
+  import type { IconName } from "./lib/components/Icon.svelte";
   import { fmt } from "./lib/i18n";
   import type { AppState } from "./bridge/types";
   import { NAV_ROUTES, navFor, navHash, navigate, route, type NavRoute } from "./router";
@@ -14,9 +15,12 @@
   import Help from "./screens/Help.svelte";
   import { helpScreenOf, isHelpKey } from "./screens/helpKeys";
   import Home from "./screens/Home.svelte";
+  import People from "./screens/People.svelte";
   import Onboarding from "./screens/Onboarding.svelte";
   import { shouldShowOnboarding } from "./screens/onboardingGate";
   import Review from "./screens/Review.svelte";
+  import Rules from "./screens/Rules.svelte";
+  import SeriesCompare from "./screens/SeriesCompare.svelte";
   import Settings from "./screens/Settings.svelte";
   import Trash from "./screens/Trash.svelte";
   import { runStartupCheck } from "./screens/updateFlow";
@@ -32,10 +36,16 @@
   let helpOpen = $state(false);
   let counts = $state<AppState | null>(null);
   let version = $state("");
+  let people = $state(0);
+  let rulesActive = $state(0);
 
   // Tellere og versjon i sidemenyen. Hentes ved start, ved rutebytte og hvert 3. sekund mens vinduet er synlig (billig lesing).
   async function refreshCounts(): Promise<void> {
     try { counts = await bridge.getState(); } catch { /* tellere vises bare når de er kjent */ }
+  }
+  // Personer og aktive regler hentes ved start og rutebytte (ikke i 3-sekundersløkken; oversikten er dyrere enn getState).
+  async function refreshV1Counts(): Promise<void> {
+    try { const d = await bridge.getDashboard(); people = d.peopleCount; rulesActive = d.rulesActive; } catch { /* ingen teller */ }
   }
   onMount(() => {
     void refreshCounts();
@@ -45,10 +55,13 @@
   });
   const pending = $derived(counts ? counts.perKind.reduce((n, k) => n + k.count, 0) : 0);
   const countOf = (n: NavRoute): { count: string | null; label?: string } => {
-    const v = n === "review" ? pending : n === "trash" ? (counts?.trashCount ?? 0) : 0;
-    return v > 0 ? { count: fmt.number(v), label: $tr("common.count.photos", { count: v }) } : { count: null };
+    const v = n === "review" ? pending : n === "trash" ? (counts?.trashCount ?? 0) : n === "people" ? people : n === "rules" ? rulesActive : 0;
+    const label = n === "people" ? $tr("common.count.people", { count: v }) : n === "rules" ? $tr("common.count.rules", { count: v }) : $tr("common.count.photos", { count: v });
+    return v > 0 ? { count: fmt.number(v), label } : { count: null };
   };
-  const iconOf = { home: "home", review: "review", trash: "trash", settings: "settings" } as const satisfies Record<NavRoute, "home" | "review" | "trash" | "settings">;
+  const iconOf = {
+    home: "home", review: "review", people: "people", rules: "rules", trash: "trash", settings: "settings",
+  } as const satisfies Record<NavRoute, IconName>;
 
   // Første gang: gå til onboarding fra Hjem. Senere starter (og avbrutt skann) går rett til Hjem.
   onMount(() => {
@@ -60,8 +73,8 @@
   function windowKey(e: KeyboardEvent): void {
     if (isHelpKey(e, $route)) { e.preventDefault(); helpOpen = !helpOpen; }
   }
-  const label: Record<NavRoute, "nav.home" | "nav.review" | "nav.trash" | "nav.settings"> = {
-    home: "nav.home", review: "nav.review", trash: "nav.trash", settings: "nav.settings",
+  const label: Record<NavRoute, "nav.home" | "nav.review" | "nav.people" | "nav.rules" | "nav.trash" | "nav.settings"> = {
+    home: "nav.home", review: "nav.review", people: "nav.people", rules: "nav.rules", trash: "nav.trash", settings: "nav.settings",
   };
 
   // Fokus til skjermtittel ved rutebytte (skjermleser annonserer ny skjerm); ikke ved første visning.
@@ -74,6 +87,7 @@
   $effect(() => {
     void $route;
     void refreshCounts();
+    void refreshV1Counts();
   });
   $effect(() => {
     document.title = `${$tr(label[navFor($route) ?? "home"])} · ${$tr("app.name")}`;
@@ -111,8 +125,14 @@
       <Review kind={$route.kind} />
     {:else if $route.name === "group"}
       <Group id={$route.id} />
+    {:else if $route.name === "series"}
+      <SeriesCompare id={$route.id} />
     {:else if $route.name === "cards"}
       <Cards kind={$route.kind} />
+    {:else if $route.name === "people"}
+      <People />
+    {:else if $route.name === "rules"}
+      <Rules />
     {:else if $route.name === "trash"}
       <Trash />
     {:else}

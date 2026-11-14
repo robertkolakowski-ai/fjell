@@ -20,9 +20,10 @@ Detaljer og åpne spørsmål: `v1/V1-PLAN.md`.
 | Dashboard | Kjerne ferdig og koblet |
 | Innstillinger og terskler (sensitivitet per forslagstype) | Lagres og styrer serier, visuelle duplikater og uskarphet; verdiene er ikke kalibrert mot golden-korpus |
 | CLI (`protect`, `series`, `dashboard`, `people`, `rules`) | Ferdig, ingen sletting av bilder |
-| Tauri-skall (DTO-er, kommandoer, `bridge.ts`) | Ferdig; ingen skjermer (UI-fundamentet M6/M7 finnes ikke ennå) |
+| Tauri-skall (DTO-er, kommandoer, `bridge.ts`) | Ferdig |
+| Skjermer (`desktop/`, `docs/v1/SKJERMER.md`) | Ferdig mot MockBridge og integrert: Oversikt på Hjem, Serie (sammenlign), Kortforklaring for serie og regel, Regler, Personer (ansiktsindeks av som standard), Beskyttelser, Ansikter og Følsomhet i Innstillinger, F1-hjelp og navigasjonstellere. Dekket av vitest, axe, skalering 100–200 %, høykontrast, pseudo, ytelse og nonet. Skjermbilder i `screens/v1/`. Ikke verifisert på Windows med ekte kjerne (Narrator/NVDA for hånd) |
 | Ende-til-ende-test (`api/fjell_v1_tests.rs`, `fjell-cli/tests/cli_v1.rs`) | Ferdig |
-| Gjenstår | Øyemodell og ansiktsmodell (lisens, ≤ 30 MB, ONNX), kalibrering av terskler, V1-skjermer, UniFFI-speil av V1-flaten i `fjell-ffi`, golden-tester per forslagstype i `testdata`, sluttreview |
+| Gjenstår | Øyemodell og ansiktsmodell (lisens, ≤ 30 MB, ONNX), kalibrering av terskler, Windows-verifisering av V1-skjermene (som M9 for MVP), UniFFI-speil av V1-flaten i `fjell-ffi`, golden-tester per forslagstype i `testdata`, sluttreview |
 
 ## Forretningsmodell
 - **Gratis:** skann, eksakte duplikater, manuell kortsortering, månedlig grense

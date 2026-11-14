@@ -22,3 +22,4 @@ export { default as SettingRow } from "./components/SettingRow.svelte";
 export { default as SettingsCard } from "./components/SettingsCard.svelte";
 export { default as Sidebar } from "./components/Sidebar.svelte";
 export { default as StatTile } from "./components/StatTile.svelte";
+export { default as ProtectToggle } from "./components/ProtectToggle.svelte";

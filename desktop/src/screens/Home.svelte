@@ -10,6 +10,7 @@
   import { fmt, tr } from "../lib/i18n";
   import { formatHash, navigate } from "../router";
   import { pendingUpdate } from "./updateFlow";
+  import DashboardPanel from "./DashboardPanel.svelte";
   import FolderDialog from "./FolderDialog.svelte";
   import { addFolder, controlScan, type ScanNote } from "./homeFlow";
   import { initialHome, kindOf, neverScanned, pendingCount, reduceHome, ringFraction, type HomeEvent, type HomeView } from "./homeState";
@@ -29,7 +30,7 @@
 
   const catKey = {
     exact_dup: "home.cat.exact_dup", visual_dup: "home.cat.visual_dup",
-    blurry: "home.cat.blurry", screenshot: "home.cat.screenshot",
+    blurry: "home.cat.blurry", screenshot: "home.cat.screenshot", series: "home.cat.series", rule: "home.cat.rule",
   } as const satisfies Record<KindCode, string>;
 
   function send(e: HomeEvent): void {
@@ -163,6 +164,7 @@
           {/each}
         </ul>
       </div>
+      <div class="dash"><DashboardPanel /></div>
     {/if}
   {/if}
   <FolderDialog bridge={b} open={folderOpen} onSubmit={chooseFolder} onClose={() => (folderOpen = false)} />
@@ -180,6 +182,7 @@
   .folder .path { color: var(--c-text-muted); }
   progress { flex: 1 1 8rem; max-inline-size: 16rem; block-size: var(--space-2); accent-color: var(--c-accent); }
   .ctl { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .dash { margin-block-start: var(--space-4); }
   .main { display: grid; gap: var(--space-4); align-items: start; }
   .hero { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); }
   .facts { flex: 1 1 12rem; min-inline-size: 0; }

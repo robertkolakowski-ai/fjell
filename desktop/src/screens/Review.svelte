@@ -5,16 +5,18 @@
   import { onDestroy, onMount, untrack } from "svelte";
   import type { CoreBridge } from "../bridge/core-bridge";
   import { groupCards } from "../bridge/groups";
-  import { KIND_CODES, type BridgeError, type KindSummary, type Card, type KindCode } from "../bridge/types";
+  import { GROUPED_KINDS, KIND_CODES, type BridgeError, type KindSummary, type Card, type KindCode } from "../bridge/types";
   import { useBridge } from "../context";
   import { Badge, BottomBar, Banner, Button, Card as UiCard, CloudWarning, LiveRegion, PageHeader, PhotoTile, StatTile } from "../lib";
   import Thumb from "../lib/components/Thumb.svelte";
-  import { fmt, reasonLabel, tr, type TFunction } from "../lib/i18n";
+  import { fmt, tr, type TFunction } from "../lib/i18n";
   import { formatHash } from "../router";
   import { cloudFromError, loadCloud } from "./cloud";
   import {
-    initialReview, isProtected, PAGE_SIZE, reasonSnake, reduceReview, summarize, type ReviewEvent, type ReviewState,
+    initialReview, isProtected, PAGE_SIZE, reduceReview, summarize, type ReviewEvent, type ReviewState,
   } from "./reviewState";
+  import { cardReason, loadRuleNames, type RuleNames } from "./reason";
+  import { PROTECTED_ACK } from "./protectAck";
 
   interface Props {
     bridge?: CoreBridge;
@@ -26,8 +28,11 @@
 
   const catKey = {
     exact_dup: "home.cat.exact_dup", visual_dup: "home.cat.visual_dup",
-    blurry: "home.cat.blurry", screenshot: "home.cat.screenshot",
+    blurry: "home.cat.blurry", screenshot: "home.cat.screenshot", series: "home.cat.series", rule: "home.cat.rule",
   } as const satisfies Record<KindCode, string>;
+  /** Hjelpetekst per forslagstype som trenger en forklaring ut over kategorinavnet. */
+  const helpKey = { series: "review.kind.series.help", rule: "review.kind.rule.help" } as const;
+  let ruleNames: RuleNames = $state(new Map());
 
   let view: ReviewState = $state(initialReview);
   let days = $state(30);
@@ -37,12 +42,13 @@
   let cloud: string | null = $state(null);
   let keyNote = $state(false);
   let dialog: HTMLDialogElement | undefined = $state();
+  let protDialog: HTMLDialogElement | undefined = $state();
   let sentinel: HTMLElement | undefined = $state();
   let shift = false;
   let gone = false;
   let observer: IntersectionObserver | undefined;
 
-  const grouped = $derived(kind === "exact_dup" || kind === "visual_dup");
+  const grouped = $derived(kind !== null && kind !== undefined && GROUPED_KINDS.includes(kind));
   const free = $derived(view.items.filter((c) => !isProtected(c)));
   const prot = $derived(view.items.filter(isProtected));
   const rows = $derived(grouped ? groupCards(free) : []);
@@ -70,7 +76,7 @@
     if (view.phase !== "committing") return;
     const ids = view.items.filter((c) => view.selected.has(c.id) && !isProtected(c)).map((c) => c.id);
     try {
-      send({ type: "committed", batch: await b.decide(ids, "trash") });
+      send({ type: "committed", batch: await b.decide(ids, "trash", view.protectedOk ? [PROTECTED_ACK] : []) });
     } catch (e) {
       send({ type: "commitFailed", error: e as BridgeError });
       cloud = cloudFromError(e as BridgeError) ?? cloud;
@@ -97,6 +103,12 @@
     if (view.confirming && !dialog.open) dialog.showModal();
     else if (!view.confirming && dialog.open) dialog.close();
   });
+  // Beskyttede bilder: kjernen ber om bekreftelse (`protected_by_scope`) før noe flyttes. Ingenting er flyttet før brukeren sier ja.
+  $effect(() => {
+    if (!protDialog) return;
+    if (view.askProtected && !protDialog.open) protDialog.showModal();
+    else if (!view.askProtected && protDialog.open) protDialog.close();
+  });
   // Infinite list: neste side når bunnen synes. Uten IntersectionObserver (test/gamle visninger) hentes resten med én gang.
   $effect(() => {
     observer?.disconnect();
@@ -115,6 +127,7 @@
   onMount(() => {
     b.getState().then((s) => { if (!gone) { days = s.trashDays; cloud = s.cloudSync || null; perKind = s.perKind; } }).catch(() => undefined);
     void loadPage(false);
+    void loadRuleNames(b).then((n) => { if (!gone) ruleNames = n; });
   });
   onDestroy(() => { gone = true; observer?.disconnect(); });
 
@@ -131,8 +144,7 @@
   }
 
   function badges(c: Card, _t: TFunction): { label: string; tone?: "warn" }[] {
-    const code = reasonSnake(c.reason);
-    return [{ label: reasonLabel(code, code === "blurry" ? { pct: fmt.percent(c.confidence) } : {}) }];
+    return [{ label: cardReason(c, ruleNames) }];
   }
   const statOf = (k: KindCode): KindSummary | undefined => perKind?.find((x) => x.kind === k);
   const nameOf = (c: Card, i: number, total: number, t: TFunction): string =>
@@ -169,7 +181,8 @@
     {#if view.error}<Banner tone="danger" role="alert"><p>{$tr(cloudFromError(view.error) ? "cloud.error.blocked" : "review.error.body")}</p></Banner>{/if}
     {#if keyNote}<Banner tone="warn" role="group"><p class="note">{$tr("cloud.key.blocked")}</p></Banner>{/if}
     <LiveRegion message={keyNote ? $tr("cloud.key.blocked") : ""} />
-    {#if grouped}<p class="muted lead">{$tr("group.exact.note")}</p>{/if}
+    {#if kind === "series" || kind === "rule"}<p class="muted lead">{$tr(helpKey[kind])}</p>
+    {:else if grouped}<p class="muted lead">{$tr("group.exact.note")}</p>{/if}
 
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="list" role="group" aria-label={$tr("review.title")} onkeydown={keydown} onclickcapture={(e) => (shift = e.shiftKey)}>
@@ -180,7 +193,7 @@
             {@const on = ids.every((id) => view.selected.has(id))}
             <li class="row" class:on>
               <button type="button" class="pick" aria-pressed={on} disabled={busy}
-                aria-label="{$tr('review.group.row', { count: g.cards.length })}, {fmt.bytes(g.bytes)}, {$tr('review.group.best')}"
+                aria-label="{$tr('review.group.row', { count: g.cards.length })}, {fmt.bytes(g.bytes)}, {$tr('review.group.best')}{g.cards.some((c) => c.reason === 'ClosedEyes') ? `, ${$tr('reason.closed_eyes')}` : ''}"
                 onclick={() => send({ type: "toggleMany", ids })}>
                 <span class="thumbs" aria-hidden="true">
                   {#each g.cards.slice(0, 3) as c, n (c.id)}<span class="thumb" style:--n={n}><Thumb id={c.asset} size="sm" /></span>{/each}
@@ -189,10 +202,15 @@
                   <span class="cnt">{$tr("review.group.row", { count: g.cards.length })}</span>
                   <span class="muted size">{fmt.bytes(g.bytes)}</span>
                   <span class="best"><Badge label={$tr("review.group.best")} /></span>
+                  {#if g.cards.some((c) => c.reason === "ClosedEyes")}<span class="best"><Badge tone="warn" label={$tr("reason.closed_eyes")} /></span>{/if}
                 </span>
                 <span class="mark" aria-hidden="true">{on ? "✓" : ""}</span>
               </button>
-              <a class="open" href={formatHash({ name: "group", id: g.id })}>{$tr("group.title")}</a>
+              {#if kind === "series"}
+                <a class="open" href={formatHash({ name: "series", id: g.id })}>{$tr("review.series.open")}</a>
+              {:else}
+                <a class="open" href={formatHash({ name: "group", id: g.id })}>{$tr("group.title")}</a>
+              {/if}
             </li>
           {/each}
         </ul>
@@ -245,6 +263,14 @@
     <div class="actions">
       <Button onclick={() => send({ type: "cancelConfirm" })}>{$tr("common.cancel")}</Button>
       <Button variant="primary" disabled={!view.ack} onclick={confirm}>{$tr("review.confirm.go")}</Button>
+    </div>
+  </dialog>
+  <dialog bind:this={protDialog} aria-labelledby="rv-pt" onclose={() => send({ type: "cancelProtected" })}>
+    <h2 id="rv-pt">{$tr("series.ack.title")}</h2>
+    <p>{$tr("series.ack.body")}</p>
+    <div class="actions">
+      <Button onclick={() => send({ type: "cancelProtected" })}>{$tr("series.ack.cancel")}</Button>
+      <Button variant="danger" onclick={() => { send({ type: "confirmProtected" }); void run(); }}>{$tr("series.ack.go")}</Button>
     </div>
   </dialog>
 </section>

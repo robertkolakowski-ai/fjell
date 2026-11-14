@@ -1,7 +1,8 @@
 <!-- V2-komponenter i galleriet (dev): merke, tomme tilstander, skjelett, knapper på scene, bannere. All tekst via $tr (finnes fra før). -->
 <script lang="ts">
-  import { Banner, Button, EmptyState, Icon, Logo, Skeleton } from "./lib/index.ts";
+  import { Banner, Button, EmptyState, Icon, Logo, ProtectToggle, Skeleton } from "./lib/index.ts";
   import { tr } from "./lib/i18n";
+  let protectedOn = $state(false);
 </script>
 
 <section class="v2" aria-label={$tr("ui.empty.title")}>
@@ -24,6 +25,7 @@
     <Button onStage variant="danger">{$tr("trash.empty.button")}</Button>
   </div>
   <p class="row"><Button variant="ok">{$tr("group.keep.all")}</Button><Button variant="danger">{$tr("trash.empty.button")}</Button><Button variant="quiet">{$tr("common.dismiss")}</Button></p>
+  <p class="row"><ProtectToggle scope={{ scope: "asset", target: "1" }} protected={protectedOn} onchange={(v) => (protectedOn = v)} label={$tr("protect.add.button")} /></p>
   <Banner tone="warn" title={$tr("review.empty.title")}><p>{$tr("review.empty.body")}</p></Banner>
   <Banner tone="ok" title={$tr("trash.empty.title")} headingLevel={3}><p>{$tr("review.empty.body")}</p></Banner>
 </section>

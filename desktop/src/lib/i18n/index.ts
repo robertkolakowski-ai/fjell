@@ -185,7 +185,7 @@ export const fmt = {
 };
 
 /** Kjernekode (snake_case) -> begrunnelsesmerke. Ukjent kode gir nøytral «Forslag» og logges. */
-export function reasonLabel(code: string, params: { pct?: string } = {}): string {
+export function reasonLabel(code: string, params: { pct?: string; index?: number; of?: number; name?: string } = {}): string {
   const key = `reason.${code}` as MessageKey;
   if (!(key in nb)) {
     warnOnce(`ukjent ReasonCode «${code}»`);

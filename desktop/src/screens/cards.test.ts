@@ -5,7 +5,7 @@ import { CardsSession, loadDeck } from "./cardsFlow";
 import { ariaKeys, CARD_KEYS, cardKey, dragIntent, initialCards, reduceCards } from "./cardsState";
 
 const card = (id: number, protectFlags = 0): Card => ({
-  id, kind: "blurry", asset: id, group: null, keeper: null, reason: "Blurry", confidence: 0.8, bytes: 10, protectFlags,
+  id, kind: "blurry", asset: id, group: null, keeper: null, reason: "Blurry", detail: { kind: "none" }, confidence: 0.8, bytes: 10, protectFlags,
 });
 const loaded = (n: number) => reduceCards(initialCards, { type: "loaded", cards: Array.from({ length: n }, (_, i) => card(i + 1)) });
 
@@ -137,13 +137,13 @@ describe("kortmodus mot MockBridge", () => {
     expect(await a.getState()).toEqual(await k.getState());
     expect(sa.state.queue).toEqual(sk.state.queue);
   });
-  it("alle fire kategorier når kind er null; hele bunken til deckEmpty med oppsummering", async () => {
+  it("alle seks kategorier når kind er null; hele bunken til deckEmpty med oppsummering", async () => {
     const b = new MockBridge();
     const s = new CardsSession(b, null);
     await s.load();
-    expect(s.state.queue).toHaveLength(24);
-    for (let i = 0; i < 24; i++) await s.act(i % 2 ? "keep" : "trash");
-    expect(s.state).toMatchObject({ phase: "deckEmpty", trashed: 12, kept: 12 });
+    expect(s.state.queue).toHaveLength(36);
+    for (let i = 0; i < 36; i++) await s.act(i % 2 ? "keep" : "trash");
+    expect(s.state).toMatchObject({ phase: "deckEmpty", trashed: 18, kept: 18 });
     await s.undo();
     expect(s.state.phase).toBe("card");
   });

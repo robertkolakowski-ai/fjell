@@ -33,6 +33,8 @@ export interface MessageParams {
   "common.shortcuts": Record<never, never>;
   "common.dismiss": Record<never, never>;
   "common.count.photos": { count: number };
+  "common.count.people": { count: number };
+  "common.count.rules": { count: number };
   "onb.welcome.title": Record<never, never>;
   "onb.welcome.body": Record<never, never>;
   "onb.folders.title": Record<never, never>;
@@ -252,6 +254,8 @@ export interface MessageParams {
   "help.action.best": Record<never, never>;
   "help.action.tab": Record<never, never>;
   "help.action.activate": Record<never, never>;
+  "help.action.zoom": Record<never, never>;
+  "help.action.zoom_reset": Record<never, never>;
   "a11y.photo.label": { date: string | number; n: string | number; size: string | number; total: string | number };
   "a11y.photo.best": Record<never, never>;
   "a11y.photo.reason": { reason: string | number };
@@ -411,6 +415,212 @@ export interface MessageParams {
   "suggestion.kind.screenshot": Record<never, never>;
   "suggestion.kind.series": Record<never, never>;
   "suggestion.kind.rule": Record<never, never>;
+  "home.cat.series": Record<never, never>;
+  "home.cat.rule": Record<never, never>;
+  "review.kind.series.help": Record<never, never>;
+  "review.kind.rule.help": Record<never, never>;
+  "review.series.open": Record<never, never>;
+  "nav.people": Record<never, never>;
+  "nav.rules": Record<never, never>;
+  "help.screen.series": Record<never, never>;
+  "card.explain.title": Record<never, never>;
+  "settings.faces.title": Record<never, never>;
+  "settings.sensitivity.title": Record<never, never>;
+  "settings.protections.title": Record<never, never>;
+  "protect.toggle.on": Record<never, never>;
+  "protect.toggle.off": Record<never, never>;
+  "protect.toggle.hint": { scope: string | number };
+  "rules.name.unnamed": Record<never, never>;
+  "dashboard.used.label": Record<never, never>;
+  "dashboard.kinds.label": Record<never, never>;
+  "dashboard.progress.title": Record<never, never>;
+  "dashboard.next.review.action": Record<never, never>;
+  "dashboard.next.empty_trash.action": Record<never, never>;
+  "dashboard.freed.note": Record<never, never>;
+  "dashboard.freedmonths.label": Record<never, never>;
+  "dashboard.col.month": Record<never, never>;
+  "dashboard.col.count": Record<never, never>;
+  "dashboard.col.size": Record<never, never>;
+  "dashboard.counters.label": Record<never, never>;
+  "dashboard.empty.title": Record<never, never>;
+  "dashboard.empty.body": Record<never, never>;
+  "dashboard.error.body": Record<never, never>;
+  "series.compare.lead": Record<never, never>;
+  "series.member.name": { n: string | number; total: string | number };
+  "series.info.rank": Record<never, never>;
+  "series.info.score": Record<never, never>;
+  "series.info.reason": Record<never, never>;
+  "series.mark.move": Record<never, never>;
+  "series.protect.label": { n: string | number };
+  "series.protect.changed.on": { n: string | number };
+  "series.protect.changed.off": { n: string | number };
+  "series.zoom.reset": Record<never, never>;
+  "series.zoom.level": { pct: string | number };
+  "series.zoom.hint": Record<never, never>;
+  "series.move.primary": { count: number };
+  "series.committed": { count: number };
+  "series.kept": Record<never, never>;
+  "series.error.body": Record<never, never>;
+  "series.live.keeper": { n: string | number };
+  "series.live.marked": { count: number };
+  "series.ack.title": Record<never, never>;
+  "series.ack.body": Record<never, never>;
+  "series.ack.go": Record<never, never>;
+  "series.ack.cancel": Record<never, never>;
+  "card.explain.note": Record<never, never>;
+  "card.explain.fact.blur": Record<never, never>;
+  "card.explain.fact.percent": Record<never, never>;
+  "card.explain.fact.count": Record<never, never>;
+  "card.explain.fact.position": Record<never, never>;
+  "card.explain.fact.rule": Record<never, never>;
+  "card.explain.fact.person": Record<never, never>;
+  "card.explain.value.position": { index: string | number; of: string | number };
+  "card.explain.value.person": Record<never, never>;
+  "card.explain.exact_copy": Record<never, never>;
+  "card.explain.visual_duplicate": Record<never, never>;
+  "card.explain.blurry": { pct: string | number };
+  "card.explain.screenshot": Record<never, never>;
+  "card.explain.higher_resolution": Record<never, never>;
+  "card.explain.less_compressed": Record<never, never>;
+  "card.explain.sharper": Record<never, never>;
+  "card.explain.older": Record<never, never>;
+  "card.explain.shot_platform_flag": Record<never, never>;
+  "card.explain.shot_screen_size": Record<never, never>;
+  "card.explain.shot_no_camera_exif": Record<never, never>;
+  "card.explain.shot_png": Record<never, never>;
+  "card.explain.series_member": { index: string | number; of: string | number };
+  "card.explain.keeper_best_overall": Record<never, never>;
+  "card.explain.keeper_eyes_open": Record<never, never>;
+  "card.explain.closed_eyes": { count: number };
+  "card.explain.rule": { name: string | number };
+  "card.explain.protected_person": Record<never, never>;
+  "people.description": Record<never, never>;
+  "people.off.title": Record<never, never>;
+  "people.off.body": Record<never, never>;
+  "people.enable.button": Record<never, never>;
+  "people.on.empty.title": Record<never, never>;
+  "people.on.empty.body": Record<never, never>;
+  "people.unnamed": Record<never, never>;
+  "people.person.pick": { name: string | number; photos: string | number };
+  "people.list.label": Record<never, never>;
+  "people.name.button": Record<never, never>;
+  "people.name.change": Record<never, never>;
+  "people.name.add.aria": { person: string | number };
+  "people.name.change.aria": { person: string | number };
+  "people.name.label": Record<never, never>;
+  "people.name.help": Record<never, never>;
+  "people.name.save": Record<never, never>;
+  "people.name.changed": { person: string | number };
+  "people.merge.aria": { person: string | number };
+  "people.merge.title": Record<never, never>;
+  "people.merge.body": { person: string | number };
+  "people.merge.other": Record<never, never>;
+  "people.merge.keep": Record<never, never>;
+  "people.merge.summary": { absorbed: string | number; target: string | number };
+  "people.merge.none": Record<never, never>;
+  "people.merge.done": { absorbed: string | number; target: string | number };
+  "people.protect.label": { person: string | number };
+  "people.protect.on.done": { person: string | number };
+  "people.protect.off.done": { person: string | number };
+  "people.undo.done": Record<never, never>;
+  "people.index.on.done": Record<never, never>;
+  "people.consent.title": Record<never, never>;
+  "people.consent.lead": Record<never, never>;
+  "people.consent.stores.title": Record<never, never>;
+  "people.consent.stores.body": Record<never, never>;
+  "people.consent.local.title": Record<never, never>;
+  "people.consent.local.body": Record<never, never>;
+  "people.consent.originals.title": Record<never, never>;
+  "people.consent.originals.body": Record<never, never>;
+  "people.consent.off.title": Record<never, never>;
+  "people.consent.off.body": Record<never, never>;
+  "people.consent.confirm": Record<never, never>;
+  "settings.faces.description": Record<never, never>;
+  "settings.faces.on.note": Record<never, never>;
+  "settings.faces.state.on": Record<never, never>;
+  "settings.faces.state.off": Record<never, never>;
+  "settings.faces.wipe.title": Record<never, never>;
+  "settings.faces.wipe.desc": Record<never, never>;
+  "settings.faces.wipe.irreversible": Record<never, never>;
+  "settings.faces.wipe.loses": Record<never, never>;
+  "settings.faces.wipe.done": { count: number };
+  "rules.note.never": Record<never, never>;
+  "rules.sentence": { conditions: string | number };
+  "rules.hits.label": { count: number };
+  "rules.enabled.named": { name: string | number };
+  "rules.edit.button": Record<never, never>;
+  "rules.edit.named": { name: string | number };
+  "rules.delete.named": { name: string | number };
+  "rules.editor.new.title": Record<never, never>;
+  "rules.editor.edit.title": Record<never, never>;
+  "rules.name.label": Record<never, never>;
+  "rules.cond.heading": Record<never, never>;
+  "rules.cond.all": Record<never, never>;
+  "rules.cond.add": Record<never, never>;
+  "rules.cond.remove": Record<never, never>;
+  "rules.cond.remove.named": { n: string | number };
+  "rules.cond.kind.label": { n: string | number };
+  "rules.kind.is_screenshot": Record<never, never>;
+  "rules.kind.is_blurry": Record<never, never>;
+  "rules.kind.is_exact_duplicate": Record<never, never>;
+  "rules.kind.older_than_days": Record<never, never>;
+  "rules.kind.larger_than_bytes": Record<never, never>;
+  "rules.kind.smaller_than_bytes": Record<never, never>;
+  "rules.kind.in_album": Record<never, never>;
+  "rules.kind.in_folder": Record<never, never>;
+  "rules.kind.mime": Record<never, never>;
+  "rules.value.days": Record<never, never>;
+  "rules.value.size": Record<never, never>;
+  "rules.value.unit": Record<never, never>;
+  "rules.value.album": Record<never, never>;
+  "rules.value.folder": Record<never, never>;
+  "rules.value.mime": Record<never, never>;
+  "rules.unit.kb": Record<never, never>;
+  "rules.unit.mb": Record<never, never>;
+  "rules.unit.gb": Record<never, never>;
+  "rules.preview.button": Record<never, never>;
+  "rules.preview.running": Record<never, never>;
+  "rules.preview.stale": Record<never, never>;
+  "rules.preview.zero": Record<never, never>;
+  "rules.preview.note": Record<never, never>;
+  "rules.preview.samples": Record<never, never>;
+  "rules.save.button": Record<never, never>;
+  "rules.save.needpreview": Record<never, never>;
+  "rules.saved": { name: string | number };
+  "rules.toggled.on": { name: string | number };
+  "rules.toggled.off": { name: string | number };
+  "rules.deleted": { name: string | number };
+  "rules.restored": { name: string | number };
+  "rules.error.generic": Record<never, never>;
+  "rules.error.load": Record<never, never>;
+  "settings.sensitivity.note": Record<never, never>;
+  "settings.sensitivity.none": Record<never, never>;
+  "settings.sensitivity.help.visual_dup": Record<never, never>;
+  "settings.sensitivity.help.blurry": Record<never, never>;
+  "settings.sensitivity.help.series": Record<never, never>;
+  "settings.sensitivity.th.heading": Record<never, never>;
+  "settings.sensitivity.th.hamming": { value: string | number };
+  "settings.sensitivity.th.blur": { value: string | number };
+  "settings.sensitivity.th.gap": { value: string | number };
+  "settings.sensitivity.th.eyes": { value: string | number };
+  "settings.sensitivity.error": Record<never, never>;
+  "settings.protections.note": Record<never, never>;
+  "settings.protections.add": Record<never, never>;
+  "settings.protections.folder.title": Record<never, never>;
+  "settings.protections.folder.note": Record<never, never>;
+  "settings.protections.folder.submit": Record<never, never>;
+  "settings.protections.folder.error": Record<never, never>;
+  "settings.protections.added": { target: string | number };
+  "settings.protections.remove.named": { target: string | number };
+  "settings.protections.confirm.title": Record<never, never>;
+  "settings.protections.confirm.body": { target: string | number };
+  "settings.protections.removed": { target: string | number };
+  "settings.protections.restored": { target: string | number };
+  "settings.protections.since": { date: string | number };
+  "settings.protections.error": Record<never, never>;
+  "settings.protections.load.error": Record<never, never>;
+  "settings.protections.list.label": Record<never, never>;
+  "protect.target.id": { id: string | number };
 }
 
 export type MessageKey = keyof MessageParams;
@@ -542,4 +752,79 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "reason.closed_eyes",
   "reason.rule",
   "reason.protected_person",
+  "home.cat.series",
+  "home.cat.rule",
+  "review.series.open",
+  "nav.people",
+  "nav.rules",
+  "help.screen.series",
+  "protect.toggle.on",
+  "protect.toggle.off",
+  "rules.name.unnamed",
+  "dashboard.used.label",
+  "dashboard.progress.title",
+  "dashboard.next.review.action",
+  "dashboard.next.empty_trash.action",
+  "dashboard.freedmonths.label",
+  "dashboard.col.month",
+  "dashboard.col.count",
+  "dashboard.col.size",
+  "dashboard.counters.label",
+  "series.info.rank",
+  "series.info.score",
+  "series.info.reason",
+  "series.mark.move",
+  "series.protect.label",
+  "series.zoom.reset",
+  "series.zoom.level",
+  "series.move.primary",
+  "series.ack.go",
+  "series.ack.cancel",
+  "card.explain.fact.blur",
+  "card.explain.fact.percent",
+  "card.explain.fact.count",
+  "card.explain.fact.position",
+  "card.explain.fact.rule",
+  "card.explain.fact.person",
+  "card.explain.value.position",
+  "card.explain.value.person",
+  "people.enable.button",
+  "people.unnamed",
+  "people.list.label",
+  "people.name.button",
+  "people.name.change",
+  "people.name.label",
+  "people.name.save",
+  "people.merge.other",
+  "people.merge.keep",
+  "people.undo.done",
+  "people.consent.stores.title",
+  "people.consent.local.title",
+  "people.consent.originals.title",
+  "people.consent.off.title",
+  "people.consent.confirm",
+  "settings.faces.state.on",
+  "settings.faces.state.off",
+  "rules.hits.label",
+  "rules.edit.button",
+  "rules.editor.new.title",
+  "rules.editor.edit.title",
+  "rules.name.label",
+  "rules.cond.add",
+  "rules.cond.remove",
+  "rules.value.days",
+  "rules.value.size",
+  "rules.value.unit",
+  "rules.value.album",
+  "rules.value.folder",
+  "rules.unit.kb",
+  "rules.unit.mb",
+  "rules.unit.gb",
+  "rules.preview.button",
+  "rules.preview.running",
+  "rules.preview.samples",
+  "rules.save.button",
+  "settings.protections.add",
+  "settings.protections.folder.title",
+  "settings.protections.folder.submit",
 ]);

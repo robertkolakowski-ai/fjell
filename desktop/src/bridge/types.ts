@@ -1,6 +1,20 @@
 // Typer som speiler fjell-shell::dto (camelCase). Kjernen sender koder, aldri tekst.
-export type KindCode = "exact_dup" | "visual_dup" | "blurry" | "screenshot";
-export const KIND_CODES: readonly KindCode[] = ["exact_dup", "visual_dup", "blurry", "screenshot"];
+/** Forslagstyper (speiler `kind_code` i dto.rs). `series` og `rule` kom med V1; kjernen sender alle seks. */
+export type KindCode = "exact_dup" | "visual_dup" | "blurry" | "screenshot" | "series" | "rule";
+export const KIND_CODES: readonly KindCode[] = ["exact_dup", "visual_dup", "blurry", "screenshot", "series", "rule"];
+/** Typene som var med i MVP (de fire første). */
+export const MVP_KIND_CODES: readonly KindCode[] = ["exact_dup", "visual_dup", "blurry", "screenshot"];
+/** Typer som vises som grupper med en foreslått behold-kandidat (`group` og `keeper` er satt på kortene). */
+export const GROUPED_KINDS: readonly KindCode[] = ["exact_dup", "visual_dup", "series"];
+
+/** Tall/ID bak et begrunnelsesmerke (speiler `DetailDto`). */
+export type Detail =
+  | { kind: "none" }
+  | { kind: "percent"; value: number }
+  | { kind: "count"; value: number }
+  | { kind: "position"; index: number; of: number }
+  | { kind: "rule"; id: number }
+  | { kind: "person"; id: number };
 
 /** Speiler fjell-core `ScanPhase` (phase_code i dto.rs). */
 export type ScanPhase = "idle" | "listing" | "exact" | "exact_ready" | "analyzing" | "done";
@@ -9,7 +23,8 @@ export type ScanPhase = "idle" | "listing" | "exact" | "exact_ready" | "analyzin
 export type ReasonCode =
   | "ExactCopy" | "VisualDuplicate" | "Blurry" | "Screenshot"
   | "HigherResolution" | "LessCompressed" | "Sharper" | "Older"
-  | "ShotPlatformFlag" | "ShotScreenSize" | "ShotNoCameraExif" | "ShotPng";
+  | "ShotPlatformFlag" | "ShotScreenSize" | "ShotNoCameraExif" | "ShotPng"
+  | "SeriesMember" | "KeeperBestOverall" | "KeeperEyesOpen" | "ClosedEyes" | "Rule" | "ProtectedPerson";
 
 export interface KindSummary {
   kind: KindCode;
@@ -108,6 +123,8 @@ export interface Card {
   group: number | null;
   keeper: number | null;
   reason: ReasonCode;
+  /** Tall/ID bak begrunnelsesmerket (serieposisjon, regel, antall lukkede øyne). */
+  detail: Detail;
   confidence: number;
   bytes: number;
   protectFlags: number;
@@ -132,6 +149,9 @@ export type BridgeErrorCode =
   | "ack_required" | "unknown_card" | "unknown_asset" | "nothing_to_undo" | "not_undoable"
   | "already_purged" | "purge_stale" | "plan_stale" | "not_trashed" | "core_error"
   | "bad_request" | "unsupported" | "cloud_synced_readonly"
+  // V1 (V1-PLAN del 7): beskyttelse, regler, personer, serier.
+  | "empty_folder" | "unknown_target" | "empty_rule" | "empty_name" | "name_too_long" | "invalid_condition"
+  | "rule_not_found" | "unknown_person" | "not_merged" | "unknown_series"
   // Flere mapper: overlapp (detail = forklaring), bilder i «Nylig slettet» (detail = antall),
   // første mappe kan ikke fjernes, mappen har en Fjell-karantene fra et annet bibliotek (detail = sti).
   | "root_overlap" | "root_has_trash" | "root_is_primary" | "root_has_quarantine" | "not_a_folder"

@@ -1,7 +1,7 @@
 <!-- Dekorative ikoner (aria-hidden). Meningen står alltid i tekst ved siden av. Ingen eksterne ikonfonter. -->
 <script module lang="ts">
   export type IconName = "home" | "review" | "trash" | "settings" | "keyboard" | "info" | "warn" | "ok" | "danger" | "check" | "chevron" | "logo"
-    | "duplicate" | "similar" | "blurry" | "screenshot" | "best" | "restore" | "cloud-off" | "folder" | "zoom" | "compare" | "image" | "undo" | "plus";
+    | "duplicate" | "similar" | "blurry" | "screenshot" | "best" | "restore" | "cloud-off" | "folder" | "zoom" | "compare" | "image" | "undo" | "plus" | "shield" | "people" | "rules";
 </script>
 
 <script lang="ts">
@@ -37,6 +37,9 @@
   {:else if name === "image"}<rect x="3.5" y="5" width="17" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m4 17 5-4.5 3.5 3 3-2.5 4.5 4" />
   {:else if name === "undo"}<path d="M9 7 4.5 11.5 9 16" /><path d="M5 11.5h9.5a4.5 4.5 0 0 1 0 9H11" />
   {:else if name === "plus"}<path d="M12 5v14M5 12h14" />
+  {:else if name === "shield"}<path d="M12 3.5 19 6v5.5c0 4.2-2.9 7.3-7 9-4.1-1.7-7-4.8-7-9V6z" />
+  {:else if name === "people"}<circle cx="9" cy="8.5" r="3" /><path d="M3.5 19c.5-3.2 2.6-5 5.5-5s5 1.8 5.5 5" /><circle cx="17" cy="9.5" r="2.4" /><path d="M16.5 14.2c2.4.2 3.7 1.7 4 4.3" />
+  {:else if name === "rules"}<path d="M4 7h16M4 12h16M4 17h9" /><path d="m16.5 17 1.6 1.6 3-3.2" />
   {/if}
 </svg>
 

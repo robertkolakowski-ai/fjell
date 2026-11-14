@@ -8,6 +8,7 @@ const SCREENS = Object.keys(SCREEN_KEYS) as HelpScreen[];
 const ROUTES: Route[] = [
   { name: "onboarding" }, HOME, { name: "review", kind: null }, { name: "group", id: 1 },
   { name: "cards", kind: null }, { name: "trash" }, { name: "settings" },
+  { name: "people" }, { name: "rules" }, { name: "series", id: 1 },
 ];
 
 describe("F1-hjelp", () => {
@@ -26,6 +27,9 @@ describe("F1-hjelp", () => {
     expect(SCREEN_KEYS.review.map((r) => r.keys)).toEqual(["Space", "Ctrl+A", "Delete"]);
     expect(SCREEN_KEYS.group.map((r) => r.keys)).toEqual(["1–9"]);
     expect(SCREEN_KEYS.trash.map((r) => r.keys)).toEqual(["Space"]);
+    expect(SCREEN_KEYS.series.map((r) => r.keys)).toEqual(["1–9", "+ / −", "0"]);
+    expect(SCREEN_KEYS.people).toEqual([]);
+    expect(SCREEN_KEYS.rules).toEqual([]);
     expect(SCREEN_KEYS.home).toEqual([]);
     expect(SCREEN_KEYS.settings).toEqual([]);
     expect(SCREEN_KEYS.onboarding).toEqual([]);

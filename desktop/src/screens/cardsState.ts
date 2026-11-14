@@ -2,6 +2,7 @@
 // Kalleren gjør bridge-kall (seriell kø) og sender utfall som events. Beslutninger er optimistiske: kortet
 // går av bunken umiddelbart (< 100 ms), og rulles tilbake hvis kjernen avviser.
 import type { BridgeError, Card, Decision } from "../bridge/types";
+import { isProtectedAck } from "./protectAck";
 import { isProtected } from "./reviewState";
 
 export type CardsPhase = "loading" | "card" | "deckEmpty" | "error";
@@ -25,6 +26,8 @@ export interface CardsState {
   zoom: boolean;
   live: { kind: LiveKind; seq: number } | null;
   error: BridgeError | null;
+  /** Kjernen ba om bekreftelse fordi kortets bilde er beskyttet (`protected_by_scope`). Kortet ligger tilbake øverst. */
+  askProtected: boolean;
 }
 
 export type CardsEvent =
@@ -36,10 +39,11 @@ export type CardsEvent =
   | { type: "undo" }
   | { type: "toggleZoom" }
   | { type: "closeZoom" }
+  | { type: "dismissAsk" }
   | { type: "reload" };
 
 export const initialCards: CardsState = {
-  phase: "loading", queue: [], history: [], trashed: 0, kept: 0, zoom: false, live: null, error: null,
+  phase: "loading", queue: [], history: [], trashed: 0, kept: 0, zoom: false, live: null, error: null, askProtected: false,
 };
 
 /** Kort som kan foreslås i kortmodus: beskyttede bilder (keeper, beskyttet) kan aldri flyttes til papirkurv. */
@@ -58,6 +62,8 @@ export function reduceCards(s: CardsState, e: CardsEvent): CardsState {
       return { ...s, phase: "error", error: e.error };
     case "toggleZoom":
       return s.phase === "card" ? { ...s, zoom: !s.zoom } : s;
+    case "dismissAsk":
+      return s.askProtected ? { ...s, askProtected: false } : s;
     case "closeZoom":
       return s.zoom ? { ...s, zoom: false } : s;
     case "act": {
@@ -84,8 +90,9 @@ export function reduceCards(s: CardsState, e: CardsEvent): CardsState {
       const i = s.history.map((h) => h.card.id).lastIndexOf(e.card.id);
       if (i < 0) return { ...s, error: e.error };
       const h = s.history[i];
+      const ask = isProtectedAck(e.error); // spørsmål, ikke feil: ingenting er flyttet
       return {
-        ...s, phase: "card", queue: [e.card, ...s.queue], error: e.error,
+        ...s, phase: "card", queue: [e.card, ...s.queue], error: ask ? null : e.error, askProtected: ask,
         history: s.history.filter((_, j) => j !== i),
         trashed: s.trashed - (h.decision === "trash" ? 1 : 0),
         kept: s.kept - (h.decision === "keep" ? 1 : 0),

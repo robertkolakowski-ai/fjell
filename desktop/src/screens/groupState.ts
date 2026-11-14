@@ -2,7 +2,7 @@
 // foreslår bare det som kan flyttes), så den vises først og er aldri med i trash-kall. Beskyttede forslag flyttes aldri.
 import type { CoreBridge } from "../bridge/core-bridge";
 import { groupCards } from "../bridge/groups";
-import type { BridgeError, Card, Group } from "../bridge/types";
+import type { BridgeError, Card, Detail, Group, ReasonCode } from "../bridge/types";
 
 export type GroupPhase = "loading" | "ready" | "working" | "committed" | "error";
 
@@ -13,6 +13,8 @@ export interface GroupState {
   moved: number;
   batch: number | null;
   error: BridgeError | null;
+  /** Kjernen ba om bekreftelse for beskyttede bilder (`protected_by_scope`); dialogen venter på svar. */
+  askProtected: boolean;
 }
 
 export type GroupEvent =
@@ -22,9 +24,11 @@ export type GroupEvent =
   | { type: "keeperSet"; group: Group }
   | { type: "committed"; batch: number; moved: number }
   | { type: "actionFailed"; error: BridgeError }
+  | { type: "askProtected" }
+  | { type: "dismissAsk" }
   | { type: "reload" };
 
-export const initialGroup: GroupState = { phase: "loading", group: null, moved: 0, batch: null, error: null };
+export const initialGroup: GroupState = { phase: "loading", group: null, moved: 0, batch: null, error: null, askProtected: false };
 
 export function reduceGroup(s: GroupState, e: GroupEvent): GroupState {
   switch (e.type) {
@@ -40,6 +44,10 @@ export function reduceGroup(s: GroupState, e: GroupEvent): GroupState {
       return s.phase === "working" ? { ...s, phase: "committed", batch: e.batch, moved: e.moved } : s;
     case "actionFailed":
       return s.phase === "working" ? { ...s, phase: "ready", error: e.error } : s;
+    case "askProtected":
+      return s.phase === "working" ? { ...s, phase: "ready", askProtected: true, error: null } : s;
+    case "dismissAsk":
+      return s.askProtected ? { ...s, askProtected: false } : s;
     case "reload":
       return { ...initialGroup };
   }
@@ -55,14 +63,18 @@ export interface GroupItem {
   protected: boolean;
   /** Ukjent for keeper (kortet bærer bare forslagets bytes). */
   bytes: number | null;
+  /** Begrunnelse og tall bak den (til forklaringen). Keeper er ikke et forslag og har ingen. */
+  reason: ReasonCode | null;
+  detail: Detail;
+  confidence: number | null;
 }
 
 /** Keeper først (forhåndsmerket «Beste»), så forslagene. Tom liste hvis gruppen mangler keeper. */
 export function groupItems(g: Group): GroupItem[] {
   const items: GroupItem[] = [];
-  if (g.keeper !== null) items.push({ n: 1, asset: g.keeper, cardId: null, best: true, protected: false, bytes: null });
+  if (g.keeper !== null) items.push({ n: 1, asset: g.keeper, cardId: null, best: true, protected: false, bytes: null, reason: null, detail: { kind: "none" }, confidence: null });
   for (const c of g.cards) {
-    items.push({ n: items.length + 1, asset: c.asset, cardId: c.id, best: false, protected: c.protectFlags !== 0, bytes: c.bytes });
+    items.push({ n: items.length + 1, asset: c.asset, cardId: c.id, best: false, protected: c.protectFlags !== 0, bytes: c.bytes, reason: c.reason, detail: c.detail, confidence: c.confidence });
   }
   return items;
 }

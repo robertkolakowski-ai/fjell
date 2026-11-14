@@ -29,6 +29,7 @@ async function tour(page: Page, lang: Lang, scheme: "light" | "dark", only?: str
   const stops: [string, string][] = [
     ["gjennomgang", "#/review"], ["gjennomgang-uskarpe", "#/review/blurry"], ["gjennomgang-eksakte", "#/review/exact_dup"],
     ["gruppe", "#/group/1"], ["kortmodus", "#/cards"],
+    ["serie", "#/series/41"], ["regler", "#/rules"], ["personer-av", "#/people"],
   ];
   for (const [n, h] of stops) {
     await go(page, h);

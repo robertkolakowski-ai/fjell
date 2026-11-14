@@ -3,7 +3,7 @@
 import type { MessageKey } from "../lib/i18n";
 import type { Route } from "../router";
 
-export type HelpScreen = "onboarding" | "home" | "review" | "group" | "cards" | "trash" | "settings";
+export type HelpScreen = "onboarding" | "home" | "review" | "group" | "cards" | "trash" | "settings" | "people" | "rules" | "series";
 
 export interface HelpRow {
   /** Tastenavn slik de vises (Ctrl+A, Delete, 1–9). Mellomrom oversettes i visningen. */
@@ -40,6 +40,15 @@ export const SCREEN_KEYS: Readonly<Record<HelpScreen, readonly HelpRow[]>> = {
   ],
   trash: [{ keys: "Space", action: "help.action.toggle" }],
   settings: [],
+  // Personer og Regler har ingen egne taster (Esc avbryter navnefeltet; alt annet er knapper).
+  people: [],
+  rules: [],
+  // Serie: tastene gjelder bare når bildeområdet har fokus; hver har en knapp (Gjør dette til beste, zoomknappene).
+  series: [
+    { keys: "1–9", action: "help.action.best" },
+    { keys: "+ / −", action: "help.action.zoom" },
+    { keys: "0", action: "help.action.zoom_reset" },
+  ],
 };
 
 export function helpScreenOf(r: Route): HelpScreen {
@@ -55,6 +64,9 @@ export const SCREEN_LABEL: Readonly<Record<HelpScreen, MessageKey>> = {
   cards: "help.screen.cards",
   trash: "nav.trash",
   settings: "nav.settings",
+  people: "nav.people",
+  rules: "nav.rules",
+  series: "help.screen.series",
 };
 
 /** F1 uten modifikatorer åpner/lukker hjelpen. Kortmodus har egen dialog og er unntatt. */
