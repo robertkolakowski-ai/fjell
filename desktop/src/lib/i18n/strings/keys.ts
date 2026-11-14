@@ -541,6 +541,83 @@ export interface MessageParams {
   "settings.faces.wipe.irreversible": Record<never, never>;
   "settings.faces.wipe.loses": Record<never, never>;
   "settings.faces.wipe.done": { count: number };
+  "rules.note.never": Record<never, never>;
+  "rules.sentence": { conditions: string | number };
+  "rules.hits.label": { count: number };
+  "rules.enabled.named": { name: string | number };
+  "rules.edit.button": Record<never, never>;
+  "rules.edit.named": { name: string | number };
+  "rules.delete.named": { name: string | number };
+  "rules.editor.new.title": Record<never, never>;
+  "rules.editor.edit.title": Record<never, never>;
+  "rules.name.label": Record<never, never>;
+  "rules.cond.heading": Record<never, never>;
+  "rules.cond.all": Record<never, never>;
+  "rules.cond.add": Record<never, never>;
+  "rules.cond.remove": Record<never, never>;
+  "rules.cond.remove.named": { n: string | number };
+  "rules.cond.kind.label": { n: string | number };
+  "rules.kind.is_screenshot": Record<never, never>;
+  "rules.kind.is_blurry": Record<never, never>;
+  "rules.kind.is_exact_duplicate": Record<never, never>;
+  "rules.kind.older_than_days": Record<never, never>;
+  "rules.kind.larger_than_bytes": Record<never, never>;
+  "rules.kind.smaller_than_bytes": Record<never, never>;
+  "rules.kind.in_album": Record<never, never>;
+  "rules.kind.in_folder": Record<never, never>;
+  "rules.kind.mime": Record<never, never>;
+  "rules.value.days": Record<never, never>;
+  "rules.value.size": Record<never, never>;
+  "rules.value.unit": Record<never, never>;
+  "rules.value.album": Record<never, never>;
+  "rules.value.folder": Record<never, never>;
+  "rules.value.mime": Record<never, never>;
+  "rules.unit.kb": Record<never, never>;
+  "rules.unit.mb": Record<never, never>;
+  "rules.unit.gb": Record<never, never>;
+  "rules.preview.button": Record<never, never>;
+  "rules.preview.running": Record<never, never>;
+  "rules.preview.stale": Record<never, never>;
+  "rules.preview.zero": Record<never, never>;
+  "rules.preview.note": Record<never, never>;
+  "rules.preview.samples": Record<never, never>;
+  "rules.save.button": Record<never, never>;
+  "rules.save.needpreview": Record<never, never>;
+  "rules.saved": { name: string | number };
+  "rules.toggled.on": { name: string | number };
+  "rules.toggled.off": { name: string | number };
+  "rules.deleted": { name: string | number };
+  "rules.restored": { name: string | number };
+  "rules.error.generic": Record<never, never>;
+  "rules.error.load": Record<never, never>;
+  "settings.sensitivity.note": Record<never, never>;
+  "settings.sensitivity.none": Record<never, never>;
+  "settings.sensitivity.help.visual_dup": Record<never, never>;
+  "settings.sensitivity.help.blurry": Record<never, never>;
+  "settings.sensitivity.help.series": Record<never, never>;
+  "settings.sensitivity.th.heading": Record<never, never>;
+  "settings.sensitivity.th.hamming": { value: string | number };
+  "settings.sensitivity.th.blur": { value: string | number };
+  "settings.sensitivity.th.gap": { value: string | number };
+  "settings.sensitivity.th.eyes": { value: string | number };
+  "settings.sensitivity.error": Record<never, never>;
+  "settings.protections.note": Record<never, never>;
+  "settings.protections.add": Record<never, never>;
+  "settings.protections.folder.title": Record<never, never>;
+  "settings.protections.folder.note": Record<never, never>;
+  "settings.protections.folder.submit": Record<never, never>;
+  "settings.protections.folder.error": Record<never, never>;
+  "settings.protections.added": { target: string | number };
+  "settings.protections.remove.named": { target: string | number };
+  "settings.protections.confirm.title": Record<never, never>;
+  "settings.protections.confirm.body": { target: string | number };
+  "settings.protections.removed": { target: string | number };
+  "settings.protections.restored": { target: string | number };
+  "settings.protections.since": { date: string | number };
+  "settings.protections.error": Record<never, never>;
+  "settings.protections.load.error": Record<never, never>;
+  "settings.protections.list.label": Record<never, never>;
+  "protect.target.id": { id: string | number };
 }
 
 export type MessageKey = keyof MessageParams;
@@ -725,4 +802,26 @@ export const SHORT_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
   "people.consent.confirm",
   "settings.faces.state.on",
   "settings.faces.state.off",
+  "rules.hits.label",
+  "rules.edit.button",
+  "rules.editor.new.title",
+  "rules.editor.edit.title",
+  "rules.name.label",
+  "rules.cond.add",
+  "rules.cond.remove",
+  "rules.value.days",
+  "rules.value.size",
+  "rules.value.unit",
+  "rules.value.album",
+  "rules.value.folder",
+  "rules.unit.kb",
+  "rules.unit.mb",
+  "rules.unit.gb",
+  "rules.preview.button",
+  "rules.preview.running",
+  "rules.preview.samples",
+  "rules.save.button",
+  "settings.protections.add",
+  "settings.protections.folder.title",
+  "settings.protections.folder.submit",
 ]);
