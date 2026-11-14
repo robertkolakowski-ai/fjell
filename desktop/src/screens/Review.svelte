@@ -16,6 +16,7 @@
     initialReview, isProtected, PAGE_SIZE, reduceReview, summarize, type ReviewEvent, type ReviewState,
   } from "./reviewState";
   import { cardReason, loadRuleNames, type RuleNames } from "./reason";
+  import { PROTECTED_ACK } from "./protectAck";
 
   interface Props {
     bridge?: CoreBridge;
@@ -41,6 +42,7 @@
   let cloud: string | null = $state(null);
   let keyNote = $state(false);
   let dialog: HTMLDialogElement | undefined = $state();
+  let protDialog: HTMLDialogElement | undefined = $state();
   let sentinel: HTMLElement | undefined = $state();
   let shift = false;
   let gone = false;
@@ -74,7 +76,7 @@
     if (view.phase !== "committing") return;
     const ids = view.items.filter((c) => view.selected.has(c.id) && !isProtected(c)).map((c) => c.id);
     try {
-      send({ type: "committed", batch: await b.decide(ids, "trash") });
+      send({ type: "committed", batch: await b.decide(ids, "trash", view.protectedOk ? [PROTECTED_ACK] : []) });
     } catch (e) {
       send({ type: "commitFailed", error: e as BridgeError });
       cloud = cloudFromError(e as BridgeError) ?? cloud;
@@ -100,6 +102,12 @@
     if (!dialog) return;
     if (view.confirming && !dialog.open) dialog.showModal();
     else if (!view.confirming && dialog.open) dialog.close();
+  });
+  // Beskyttede bilder: kjernen ber om bekreftelse (`protected_by_scope`) før noe flyttes. Ingenting er flyttet før brukeren sier ja.
+  $effect(() => {
+    if (!protDialog) return;
+    if (view.askProtected && !protDialog.open) protDialog.showModal();
+    else if (!view.askProtected && protDialog.open) protDialog.close();
   });
   // Infinite list: neste side når bunnen synes. Uten IntersectionObserver (test/gamle visninger) hentes resten med én gang.
   $effect(() => {
@@ -185,7 +193,7 @@
             {@const on = ids.every((id) => view.selected.has(id))}
             <li class="row" class:on>
               <button type="button" class="pick" aria-pressed={on} disabled={busy}
-                aria-label="{$tr('review.group.row', { count: g.cards.length })}, {fmt.bytes(g.bytes)}, {$tr('review.group.best')}"
+                aria-label="{$tr('review.group.row', { count: g.cards.length })}, {fmt.bytes(g.bytes)}, {$tr('review.group.best')}{g.cards.some((c) => c.reason === 'ClosedEyes') ? `, ${$tr('reason.closed_eyes')}` : ''}"
                 onclick={() => send({ type: "toggleMany", ids })}>
                 <span class="thumbs" aria-hidden="true">
                   {#each g.cards.slice(0, 3) as c, n (c.id)}<span class="thumb" style:--n={n}><Thumb id={c.asset} size="sm" /></span>{/each}
@@ -194,6 +202,7 @@
                   <span class="cnt">{$tr("review.group.row", { count: g.cards.length })}</span>
                   <span class="muted size">{fmt.bytes(g.bytes)}</span>
                   <span class="best"><Badge label={$tr("review.group.best")} /></span>
+                  {#if g.cards.some((c) => c.reason === "ClosedEyes")}<span class="best"><Badge tone="warn" label={$tr("reason.closed_eyes")} /></span>{/if}
                 </span>
                 <span class="mark" aria-hidden="true">{on ? "✓" : ""}</span>
               </button>
@@ -254,6 +263,14 @@
     <div class="actions">
       <Button onclick={() => send({ type: "cancelConfirm" })}>{$tr("common.cancel")}</Button>
       <Button variant="primary" disabled={!view.ack} onclick={confirm}>{$tr("review.confirm.go")}</Button>
+    </div>
+  </dialog>
+  <dialog bind:this={protDialog} aria-labelledby="rv-pt" onclose={() => send({ type: "cancelProtected" })}>
+    <h2 id="rv-pt">{$tr("series.ack.title")}</h2>
+    <p>{$tr("series.ack.body")}</p>
+    <div class="actions">
+      <Button onclick={() => send({ type: "cancelProtected" })}>{$tr("series.ack.cancel")}</Button>
+      <Button variant="danger" onclick={() => { send({ type: "confirmProtected" }); void run(); }}>{$tr("series.ack.go")}</Button>
     </div>
   </dialog>
 </section>

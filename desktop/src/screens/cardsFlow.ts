@@ -47,13 +47,13 @@ export class CardsSession {
   }
 
   /** Behold/papirkurv/hopp over. Returnerer når kjernekallet er ferdig (UI er allerede oppdatert). */
-  act(action: CardAction): Promise<void> {
+  act(action: CardAction, confirmed: string[] = []): Promise<void> {
     const top = this.state.phase === "card" ? this.state.queue[0] : undefined;
     this.send({ type: "act", action });
     if (!top || action === "skip") return this.chain.then(() => undefined);
     return this.enqueue(async () => {
       try {
-        await this.b.decide([top.id], action);
+        await this.b.decide([top.id], action, confirmed);
       } catch (e) {
         this.send({ type: "rollback", card: top, error: e as BridgeError });
       }
