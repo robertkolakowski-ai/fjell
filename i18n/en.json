@@ -425,5 +425,19 @@
   "protect.toggle.on": {"t": "On", "ctx": "State word in the protection switch when protection is on", "len": "short"},
   "protect.toggle.off": {"t": "Off", "ctx": "State word in the protection switch when protection is off", "len": "short"},
   "protect.toggle.hint": {"t": "{scope}: protected photos always need your own confirmation before they are moved to the trash.", "ctx": "Screen reader description of the protection switch. {scope} = scope (Photo, Folder, Album, Person)"},
-  "rules.name.unnamed": {"t": "unnamed", "ctx": "Name in the reason badge \"Rule: …\" when the rule name is not known yet", "len": "short"}
+  "rules.name.unnamed": {"t": "unnamed", "ctx": "Name in the reason badge \"Rule: …\" when the rule name is not known yet", "len": "short"},
+  "dashboard.used.label": {"t": "Space used", "ctx": "Plass bilder i biblioteket bruker nå (ikke i papirkurven)", "len": "short"},
+  "dashboard.kinds.label": {"t": "Can be cleaned up by type", "ctx": "Overskrift for flisene per forslagstype. Beskyttede bilder er ikke med"},
+  "dashboard.progress.title": {"t": "Progress", "ctx": "Overskrift for fremdriftsringen", "len": "short"},
+  "dashboard.next.review.action": {"t": "Review the suggestions", "ctx": "Knapp for neste steg «review». Åpner Gjennomgang; ingenting flyttes av seg selv", "len": "short"},
+  "dashboard.next.empty_trash.action": {"t": "Open the trash", "ctx": "Knapp for neste steg «empty_trash». Åpner Papirkurv; ingenting tømmes av seg selv", "len": "short"},
+  "dashboard.freed.note": {"t": "The figure shows what Fjell has emptied. The files go to the Windows Recycle Bin, and space is freed only when you empty that too.", "ctx": "Forklaring under «Tømt» når noe er tømt. Påstår ikke frigjort plass"},
+  "dashboard.freedmonths.label": {"t": "Emptied per month", "ctx": "Tabelloverskrift (kun tabell, ingen ren graf)", "len": "short"},
+  "dashboard.col.month": {"t": "Month", "ctx": "Kolonneoverskrift i «Tømt per måned»", "len": "short"},
+  "dashboard.col.count": {"t": "Photos", "ctx": "Kolonneoverskrift: antall bilder", "len": "short"},
+  "dashboard.col.size": {"t": "Size", "ctx": "Kolonneoverskrift: filstørrelse", "len": "short"},
+  "dashboard.counters.label": {"t": "More in Fjell", "ctx": "Overskrift for små tellere (beskyttede, serier, personer, regler)", "len": "short"},
+  "dashboard.empty.title": {"t": "Nothing to clean up right now", "ctx": "Tomtilstand i oversikten"},
+  "dashboard.empty.body": {"t": "When Fjell finds suggestions, the figures show up here.", "ctx": "Tomtilstand i oversikten, forklaring"},
+  "dashboard.error.body": {"t": "Could not load the overview. Nothing has changed.", "ctx": "Feiltilstand i oversikten"}
 }
