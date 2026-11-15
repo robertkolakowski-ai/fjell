@@ -4,7 +4,7 @@
 // koder og tall. Feilkodene er de samme som kjernen sender (`ROBUST_ERROR_CODES`).
 import type { BridgeError, ScanPhase } from "./types";
 import type {
-  Backup, DiagMetric, DiagReport, IndexingSettings, IndexingState, IndexingStatus, IntegrityCode, RestoreReport,
+  Backup, DiagMetric, DiagReport, RebuildResult, IndexingSettings, IndexingState, IndexingStatus, IntegrityCode, RestoreReport,
 } from "./types-robust";
 import { INDEXING_PRIORITIES, MAX_INDEX_THREADS } from "./types-robust";
 
@@ -64,6 +64,13 @@ export class MockRobust {
     // En ødelagt indeks kopieres ikke som en vanlig kopi (den ville bare lage en ubrukelig kopi).
     if (this.integrity !== "ok") throw err("backup_failed", this.integrity);
     return { ...this.add("manual") };
+  }
+
+  /** «Bygg på nytt» (trygg modus): en hel indeks avvises, som i skallet; ellers er indeksen frisk etterpå. */
+  rebuild(): RebuildResult {
+    if (this.integrity === "ok") throw err("bad_request", "indeksen er hel");
+    this.integrity = "ok";
+    return { corruptKept: true, scanning: true, trashStateReset: true };
   }
 
   /** `scanning`: skanning pågår, og indeksen kan ikke byttes midt i (`index_busy`). */

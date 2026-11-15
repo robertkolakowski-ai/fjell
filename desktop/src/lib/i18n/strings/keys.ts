@@ -717,6 +717,10 @@ export interface MessageParams {
   "backup.privacy": Record<never, never>;
   "backup.newpc": Record<never, never>;
   "backup.restored.noundo": Record<never, never>;
+  "backup.rebuild.title": Record<never, never>;
+  "backup.rebuild.body": Record<never, never>;
+  "backup.rebuild.check": Record<never, never>;
+  "backup.rebuild.button": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;

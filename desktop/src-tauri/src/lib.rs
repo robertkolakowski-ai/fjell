@@ -431,8 +431,19 @@ async fn diag_preview(shell: State<'_, Arc<Shell>>) -> Res<DiagDto> {
 }
 
 #[tauri::command]
-async fn diag_export(shell: State<'_, Arc<Shell>>) -> Res<DiagDto> {
-    shell.diag_export()
+async fn diag_export(shell: State<'_, Arc<Shell>>) -> Res<fjell_shell::diag::DiagSavedDto> {
+    shell.diag_export_with(fjell_shell::diag::DiagOptions::default())
+}
+
+/// «Bygg på nytt» i trygg modus: den ødelagte indeksen legges til siden (aldri slettet), en ny bygges.
+#[tauri::command]
+async fn backup_rebuild_index(
+    shell: State<'_, Arc<Shell>>,
+) -> Res<fjell_shell::backup::RebuildDto> {
+    let sh = shell.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || sh.rebuild_index())
+        .await
+        .map_err(|e| ErrorDto::new("internal", e.to_string()))?
 }
 
 pub fn run() {
@@ -444,7 +455,13 @@ pub fn run() {
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
             let dir = app.path().app_data_dir()?;
-            app.manage(Arc::new(Shell::with_data_dir(dir, default_recycle_bin())));
+            fjell_shell::diag::install_panic_hook(&dir);
+            let shell = Arc::new(Shell::with_data_dir(dir, default_recycle_bin()));
+            app.manage(shell.clone());
+            // Ukentlig sikkerhetskopi av indeksen i bakgrunnen, aldri fra en UI-handling. Feil ignoreres.
+            std::thread::spawn(move || {
+                let _ = shell.backup_auto("weekly");
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -510,7 +527,8 @@ pub fn run() {
             get_indexing_settings,
             set_indexing_settings,
             diag_preview,
-            diag_export
+            diag_export,
+            backup_rebuild_index
         ])
         .run(tauri::generate_context!())
         .expect("kunne ikke starte Fjell");

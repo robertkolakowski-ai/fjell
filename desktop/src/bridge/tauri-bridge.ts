@@ -8,7 +8,7 @@ import type {
   Condition, Dashboard, Person, Protection, Rule, RuleDraft, RulePreview, Scope, SeriesCompare, SuggestionSettings, Thresholds,
 } from "./types-v1";
 import type {
-  Backup, DiagReport, IndexingSettings, IndexingStatus, IntegrityCode, RestoreReport,
+  Backup, DiagReport, RebuildResult, IndexingSettings, IndexingStatus, IntegrityCode, RestoreReport,
 } from "./types-robust";
 import { ROBUST_ERROR_CODES } from "./types-robust";
 import { thumbFromDto, thumbError } from "./thumbs";
@@ -323,6 +323,9 @@ export class TauriBridge implements CoreBridge {
   checkIntegrity(): Promise<IntegrityCode> {
     return this.call<IntegrityCode>("integrity_check");
   }
+  rebuildIndex(): Promise<RebuildResult> {
+    return this.call<RebuildResult>("backup_rebuild_index");
+  }
   getIndexingStatus(): Promise<IndexingStatus> {
     return this.call<IndexingStatus>("indexing_status");
   }
@@ -344,7 +347,8 @@ export class TauriBridge implements CoreBridge {
   previewDiagnostics(): Promise<DiagReport> {
     return this.call<DiagReport>("diag_preview");
   }
-  exportDiagnostics(): Promise<DiagReport> {
-    return this.call<DiagReport>("diag_export");
+  async exportDiagnostics(): Promise<DiagReport> {
+    const saved = await this.call<{ report: DiagReport; savedPath: string }>("diag_export");
+    return { ...saved.report, savedPath: saved.savedPath };
   }
 }

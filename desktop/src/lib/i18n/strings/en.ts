@@ -718,4 +718,8 @@ export const en: Readonly<Record<MessageKey, string>> = {
   "backup.privacy": "The backup contains only Fjell's index, never your pictures. The index can contain folder paths and people's names. Backups stay on this PC and never leave it.",
   "backup.newpc": "If you move to a new PC, the backup remembers folders by their current path. If the folders exist at the same path, everything works as before. Otherwise pick the folders again and Fjell scans them again.",
   "backup.restored.noundo": "The previous index could not be opened. It was set aside in the app's data folder and not deleted.",
+  "backup.rebuild.title": "Rebuild the index",
+  "backup.rebuild.body": "If no copy fits, Fjell can build a new index from your folders. The damaged index is set aside in the app's data folder and is not deleted. \"Recently deleted\" and undo history are reset, but files that were in quarantine are put back, and no pictures are deleted. Fjell then scans your folders again.",
+  "backup.rebuild.check": "I understand that \"Recently deleted\" and undo history are reset",
+  "backup.rebuild.button": "Rebuild",
 };

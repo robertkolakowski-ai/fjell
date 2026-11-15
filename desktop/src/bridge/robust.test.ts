@@ -14,7 +14,7 @@ const code = async (p: Promise<unknown>): Promise<string> => {
 
 describe("TauriBridge: robusthetskommandoer", () => {
   it("hver metode kaller kommandoen med samme navn og argumenter som skallet forventer", async () => {
-    const call = vi.fn().mockResolvedValue(undefined);
+    const call = vi.fn((cmd: string) => Promise.resolve(cmd === "diag_export" ? { report: {}, savedPath: "/x" } : undefined)) as unknown as ConstructorParameters<typeof TauriBridge>[0] & ReturnType<typeof vi.fn>;
     const b = new TauriBridge(call);
     const settings: IndexingSettings = { threads: 2, priority: "normal", pauseOnBattery: false };
     await b.listBackups();
@@ -29,11 +29,12 @@ describe("TauriBridge: robusthetskommandoer", () => {
     await b.getIndexingSettings();
     await b.setIndexingSettings(settings);
     await b.previewDiagnostics();
-    await b.exportDiagnostics();
+    expect(await b.exportDiagnostics()).toMatchObject({ savedPath: "/x" });
+    await b.rebuildIndex();
     expect(call.mock.calls).toEqual([
       ["backup_list"], ["backup_create"], ["backup_restore", { id: 2, acknowledged: true }], ["backup_restore_undo", { safety: 5 }],
       ["integrity_check"], ["indexing_status"], ["indexing_pause"], ["indexing_resume"], ["indexing_cancel"],
-      ["get_indexing_settings"], ["set_indexing_settings", { settings }], ["diag_preview"], ["diag_export"],
+      ["get_indexing_settings"], ["set_indexing_settings", { settings }], ["diag_preview"], ["diag_export"], ["backup_rebuild_index"],
     ]);
   });
 
@@ -135,5 +136,14 @@ describe("MockBridge: diagnose", () => {
     for (const line of r.text.trim().split("\n")) expect(line).toMatch(/^[a-z_]+=[a-z0-9_]+$/);
     expect(r.text).not.toMatch(/[\\/:]|ola|Bilder/);
     expect(await b.exportDiagnostics()).toEqual(r);
+  });
+});
+
+describe("MockBridge: bygg indeksen på nytt (trygg modus)", () => {
+  it("avviser en hel indeks og gjør en ødelagt hel igjen", async () => {
+    expect(await code(mock().rebuildIndex())).toBe("bad_request");
+    const b = mock({ integrity: "corrupt" });
+    expect(await b.rebuildIndex()).toEqual({ corruptKept: true, scanning: true, trashStateReset: true });
+    expect(await b.checkIntegrity()).toBe("ok");
   });
 });

@@ -13,10 +13,6 @@
 //! Ingenting sendes noe sted: ingen opplasting, ingen e-postklient. Eksporten er en tekstfil i appens egen
 //! diagnosemappe (`<app-data>/diagnose/`), og stien vises så brukeren selv kan sende den.
 
-// Modulen er privat i `lib.rs` (delt fil), og logg, hook og valg kalles først fra Tauri-limet i `fjell-desktop`
-// (se integrasjonsnotatene i docs/v1/DIAGNOSE.md). Til da brukes de bare av testene.
-#![allow(dead_code)]
-
 use crate::dto::ErrorDto;
 use crate::dto_robust::DiagDto;
 use crate::Shell;

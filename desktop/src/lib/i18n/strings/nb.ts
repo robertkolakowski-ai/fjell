@@ -718,4 +718,8 @@ export const nb: Readonly<Record<MessageKey, string>> = {
   "backup.privacy": "Kopien inneholder bare Fjells indeks, aldri bildene dine. Indeksen kan inneholde mappestier og personnavn. Kopiene ligger bare på denne PC-en og forlater den aldri.",
   "backup.newpc": "Flytter du til en ny PC: kopien husker mappene med stien de har nå. Finnes mappene på samme sti, fungerer alt som før. Ellers må du velge mappene på nytt, og Fjell skanner dem igjen.",
   "backup.restored.noundo": "Den forrige indeksen kunne ikke åpnes. Den er lagt til side i appens datamappe og ikke slettet.",
+  "backup.rebuild.title": "Bygg indeksen på nytt",
+  "backup.rebuild.body": "Hvis ingen kopi passer, kan Fjell bygge en ny indeks fra mappene dine. Den ødelagte indeksen legges til side i appens datamappe og slettes ikke. «Nylig slettet» og angrehistorikk nullstilles, men filer som lå i karantenen legges tilbake, og ingen bilder slettes. Fjell skanner mappene på nytt.",
+  "backup.rebuild.check": "Jeg forstår at «Nylig slettet» og angrehistorikk nullstilles",
+  "backup.rebuild.button": "Bygg på nytt",
 };

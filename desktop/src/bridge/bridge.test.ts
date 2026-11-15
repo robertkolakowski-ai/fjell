@@ -27,7 +27,7 @@ describe("identisk grensesnitt", () => {
       "setSuggestionSettings", "toggleRule", "unmergePerson", "wipeFaceIndex",
       // Robusthet (docs/v1/ROBUSTHET-KONTRAKT.md)
       "cancelIndexing", "checkIntegrity", "createBackup", "exportDiagnostics", "getIndexingSettings", "getIndexingStatus", "listBackups",
-      "pauseIndexing", "previewDiagnostics", "restoreBackup", "resumeIndexing", "setIndexingSettings", "undoRestoreBackup",
+      "pauseIndexing", "previewDiagnostics", "rebuildIndex", "restoreBackup", "resumeIndexing", "setIndexingSettings", "undoRestoreBackup",
     ].sort();
     expect(names(new TauriBridge())).toEqual(pub);
     expect(names(new MockBridge()).filter((n) => pub.includes(n))).toEqual(pub);

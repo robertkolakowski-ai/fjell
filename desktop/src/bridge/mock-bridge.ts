@@ -15,7 +15,7 @@ import {
   SCOPE_FLAG, previewHasNoMatches, scopeKey, seedPeople, seedRules, thresholdsFor, TOP_FOLDERS, validateConditions, yearMonthOf, type MockPerson, type MockRule,
 } from "./mock-v1";
 import { MockRobust, type MockRobustOptions } from "./mock-robust";
-import type { Backup, DiagReport, IndexingSettings, IndexingStatus, IntegrityCode, RestoreReport } from "./types-robust";
+import type { Backup, DiagReport, RebuildResult, IndexingSettings, IndexingStatus, IntegrityCode, RestoreReport } from "./types-robust";
 
 export interface MockOptions {
   /** Simulert latens per kall i ms. 0 = av (tester). */
@@ -873,6 +873,11 @@ export class MockBridge implements CoreBridge {
   async checkIntegrity(): Promise<IntegrityCode> {
     await this.wait();
     return this.robust.integrity;
+  }
+
+  async rebuildIndex(): Promise<RebuildResult> {
+    await this.wait();
+    return this.robust.rebuild();
   }
 
   async getIndexingStatus(): Promise<IndexingStatus> {

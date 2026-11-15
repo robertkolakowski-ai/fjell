@@ -11,6 +11,7 @@
 //! - `backups()`, `backup_restore()` og `backup_restore_undo()` virker uten åpen kjerne og åpner biblioteket
 //!   igjen etterpå (karantenen avstemmes da som ved all åpning, beslutning 20);
 //! - `rebuild_index()` flytter den ødelagte indeksen til siden (slettes aldri), åpner en ny og starter skanning.
+//!
 //! Gjenoppretting av en indeks som ikke kunne åpnes har ingen «før»-kopi å angre til; den ødelagte filen
 //! ligger igjen som `<indeks>.corrupt-<tid>` i app-data-mappen (`safety` = 0 i svaret).
 

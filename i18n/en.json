@@ -714,5 +714,9 @@
   "backup.restore.for": {"t": "Restore backup: {kind}, {date}", "ctx": "Tilgjengelig navn på Gjenopprett-knappen i listen, slik at knappene kan skilles. {kind} = type, {date} = dato"},
   "backup.privacy": {"t": "The backup contains only Fjell's index, never your pictures. The index can contain folder paths and people's names. Backups stay on this PC and never leave it.", "ctx": "Privacy note under the backup section"},
   "backup.newpc": {"t": "If you move to a new PC, the backup remembers folders by their current path. If the folders exist at the same path, everything works as before. Otherwise pick the folders again and Fjell scans them again.", "ctx": "Note about moving a backup to a new PC"},
-  "backup.restored.noundo": {"t": "The previous index could not be opened. It was set aside in the app's data folder and not deleted.", "ctx": "Shown after a restore in safe mode when there is no copy to undo to"}
+  "backup.restored.noundo": {"t": "The previous index could not be opened. It was set aside in the app's data folder and not deleted.", "ctx": "Shown after a restore in safe mode when there is no copy to undo to"},
+  "backup.rebuild.title": {"t": "Rebuild the index", "ctx": "Overskrift for valget i trygg modus"},
+  "backup.rebuild.body": {"t": "If no copy fits, Fjell can build a new index from your folders. The damaged index is set aside in the app's data folder and is not deleted. \"Recently deleted\" and undo history are reset, but files that were in quarantine are put back, and no pictures are deleted. Fjell then scans your folders again.", "ctx": "Forklaring av hva som skjer når indeksen bygges på nytt"},
+  "backup.rebuild.check": {"t": "I understand that \"Recently deleted\" and undo history are reset", "ctx": "Avkrysning som må være på før Bygg på nytt virker"},
+  "backup.rebuild.button": {"t": "Rebuild", "ctx": "Knapp som bygger indeksen på nytt"}
 }

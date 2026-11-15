@@ -16,10 +16,10 @@
 //! Sletting (beslutning 17): trash flytter til karantene med angre; «Tøm» går via Papirkurv
 //! (standard) og permanent bare med `PermanentAckDto`. Frontend kaller aldri filsystemet.
 
-mod backup;
+pub mod backup;
 mod config;
 mod core;
-mod diag;
+pub mod diag;
 pub mod dto;
 pub mod dto_robust;
 pub mod dto_v1;
@@ -398,6 +398,8 @@ impl Shell {
             config::adopt_legacy_index(dir, &lib, saved.as_deref(), in_use.as_deref(), &|a, b| {
                 std::fs::rename(a, b)
             });
+        // Krasjgjenoppretting og migreringskopi før indeksen åpnes (feil her stopper ikke oppstarten).
+        let _ = self.prepare_index(&db);
         let core = Core::open_roots(roots, &db, source, self.clock.clone(), probe)?;
         let n = core.trashed_in(dropped);
         if n > 0 {
@@ -708,6 +710,8 @@ impl Shell {
     ) -> Result<EmptyDto, ErrorDto> {
         let (_, core) = self.parts()?;
         let core = core.ok_or_else(|| ErrorDto::new("unsupported", "mock"))?;
+        // Sikkerhetskopi av indeksen før «Tøm» (hoppes over hvis en nylig finnes; feil stopper ikke «Tøm»).
+        let _ = self.backup_auto("before_purge");
         core.empty(self.bin.clone(), parse_codes(confirmed)?, permanent)
     }
 }

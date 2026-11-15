@@ -3,7 +3,7 @@
 Lokal feillogg og «Eksporter diagnose» uten bilder eller stier. Kontrakten står i [ROBUSTHET-KONTRAKT.md](ROBUSTHET-KONTRAKT.md).
 
 Status: skallet (`desktop/src-tauri/shell/src/diag.rs`) og skjermen (`SettingsDiagnostics.svelte`) er bygget og testet på Linux.
-Tilkoblingen i Tauri-limet er ikke gjort (delte filer; se «Må kobles av integratøren»). Ingenting er verifisert på Windows.
+Tilkoblingen i Tauri-limet er delvis gjort (se «Koblet av integratøren»). Kjørt og grønt kun på Linux; ingenting er verifisert på Windows.
 
 ## Regler (CLAUDE.md og docs/PERSONVERN.md)
 
@@ -48,7 +48,11 @@ Teksten på skjermen sier at mappenavn ikke er med. Se «Må kobles av integrat�
 Begge krever en Tauri-tillatelse (`opener`/`shell` eller `dialog:allow-save`) som ikke er gitt, og som frontend ikke skal ha. Valgt løsning er alternativ (d) i kontrakten: skallet skriver i appens egen diagnosemappe og stien vises som tekst.
 Alternativ ved behov: en Rust-kommando som viser mappen i Utforsker. Det krever beslutning fra eier om tillatelse.
 
-## Må kobles av integratøren (delte filer)
+## Koblet av integratøren
+
+Punkt 1 og 2 under er gjort (`pub mod diag`, panikkhook i `setup`, `diag_export` returnerer `DiagSavedDto`, `TauriBridge` legger `savedPath` på rapporten). Punkt 3 (bryter for mappenavn), `set_env` (OS-versjon og skalering på Windows) og punkt 4 (`perf_observe` i Tauri-limet) er **ikke** gjort. Ikke verifisert på Windows.
+
+## Opprinnelig liste fra diag-grenen
 
 1. `shell/src/lib.rs`: `pub mod diag;` (nå `mod diag;`; modulen har `#![allow(dead_code)]` til dette er gjort), og kall `diag::install_panic_hook(&data_dir)` og `diag::set_env(..)` ved oppstart i `fjell-desktop`.
 2. `dto_robust.rs`/Tauri-kommando `diag_export`: returner `DiagSavedDto` (`report` + `savedPath`), og la `TauriBridge.exportDiagnostics` legge `savedPath` på `DiagReport` (`types-robust.ts`). Frontend leser allerede `savedPath` hvis den finnes.

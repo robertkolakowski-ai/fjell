@@ -97,12 +97,12 @@ Indeksen husker bilder med stien de har (`source_id`). En kopi flyttet til en ny
 | Skall | `shell/src/backup.rs`: `backup_create`, `backups`, `backup_restore`, `backup_restore_undo`, `integrity`, `backup_auto`, `prepare_index`, `rebuild_index` |
 | Frontend | `SettingsBackup.svelte` (liste, «Ta kopi nå», gjenoppretting med avkrysning, angre bare når en kopi av «før» finnes, personvern- og flyttenotat) |
 
-## Ikke koblet inn ennå (delte filer, se `integration_notes` i PR)
+## Koblet inn (integrasjon)
 
-- `prepare_index` må kalles før `Core::open_roots` åpner indeksen (`open_roots_probe`), ellers kjører ikke krasjgjenopprettingen og migreringskopien.
-- `rebuild_index` mangler Tauri-kommando, `CoreBridge`-metode og knapp i `RecoveryMode.svelte` («bygg på nytt»). Uten dem har trygg modus i UI bare valg 1.
-- `backup_auto("weekly")` må kalles fra en bakgrunnstråd etter åpning, og `backup_auto("before_purge")` før en stor «Tøm».
-- Antall automatiske kopier har ingen UI (setting `backup_keep_auto` finnes i kjernen).
+- `prepare_index` kalles i `open_roots_probe` før `Core::open_roots` (krasjgjenoppretting og migreringskopi).
+- `rebuild_index`: Tauri-kommando `backup_rebuild_index`, `CoreBridge.rebuildIndex` og «Bygg på nytt» i `RecoveryMode.svelte`, med avkrysning om at «Nylig slettet» og angrehistorikk nullstilles.
+- `backup_auto("weekly")` kjøres i en bakgrunnstråd ved oppstart (`setup` i `fjell-desktop`, ikke bygget her: GTK mangler). `backup_auto("before_purge")` kalles i `Shell::empty` før «Tøm».
+- Ikke gjort: UI for antall automatiske kopier (setting `backup_keep_auto`); egne feilkoder for full disk og låst fil.
 
 ## Status
 

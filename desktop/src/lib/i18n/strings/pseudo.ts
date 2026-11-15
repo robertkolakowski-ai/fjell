@@ -718,4 +718,8 @@ export const pseudo: Readonly<Record<MessageKey, string>> = {
   "backup.privacy": "[Køpiæn innæhøldær båræ Fjælls indæks, åldri bildænæ dinæ. Indæksæn kån innæhøldæ måppæstiær øg pærsønnåvn. Køpiænæ liggær båræ på dænnæ PC-æn øg førlåtær dæn åldri.··················································]",
   "backup.newpc": "[Flyttær dü til æn ny PC: køpiæn hüskær måppænæ mæd stiæn dæ hår nå. Finnæs måppænæ på såmmæ sti, füngærær ålt søm før. Ællærs må dü vælgæ måppænæ på nytt, øg Fjæll skånnær dæm igjæn.·······················································]",
   "backup.restored.noundo": "[Dæn førrigæ indæksæn künnæ ikkæ åpnæs. Dæn ær lågt til sidæ i åppæns dåtåmåppæ øg ikkæ slættæt.·····························]",
+  "backup.rebuild.title": "[Bygg indæksæn på nytt·······]",
+  "backup.rebuild.body": "[Hvis ingæn køpi påssær, kån Fjæll byggæ æn ny indæks frå måppænæ dinæ. Dæn ødælågtæ indæksæn læggæs til sidæ i åppæns dåtåmåppæ øg slættæs ikkæ. «Nylig slættæt» øg ångræhistørikk nüllstillæs, mæn filær søm lå i kåråntænæn læggæs tilbåkæ, øg ingæn bildær slættæs. Fjæll skånnær måppænæ på nytt.························································································]",
+  "backup.rebuild.check": "[Jæg førstår åt «Nylig slættæt» øg ångræhistørikk nüllstillæs··················]",
+  "backup.rebuild.button": "[Bygg på nytt····]",
 };

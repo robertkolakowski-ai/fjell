@@ -6,7 +6,7 @@ import type {
   Condition, Dashboard, Person, Protection, Rule, RuleDraft, RulePreview, Scope, SeriesCompare, SuggestionSettings, Thresholds,
 } from "./types-v1";
 import type {
-  Backup, DiagReport, IndexingSettings, IndexingStatus, IntegrityCode, RestoreReport,
+  Backup, DiagReport, RebuildResult, IndexingSettings, IndexingStatus, IntegrityCode, RestoreReport,
 } from "./types-robust";
 
 export interface CoreBridge {
@@ -142,6 +142,8 @@ export interface CoreBridge {
   /** Sjekker at indeksen er hel. Alt annet enn `ok` gir trygg modus. Uten bibliotek: `ok`. */
   checkIntegrity(): Promise<IntegrityCode>;
 
+  /** Trygg modus: legger den ødelagte indeksen til side (aldri slettet) og bygger en ny. Bildene røres ikke. */
+  rebuildIndex(): Promise<RebuildResult>;
   /** Status for indeksering (bakgrunnsskann). */
   getIndexingStatus(): Promise<IndexingStatus>;
   /** Avvises med `indexing_not_running` når ingenting indekseres. */

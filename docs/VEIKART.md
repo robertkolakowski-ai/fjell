@@ -27,6 +27,7 @@ Detaljer og åpne spørsmål: `v1/V1-PLAN.md`.
 | Kalibrering og golden-tester per forslagstype | Verktøy og tester ferdig (`core/testdata`, `v1/KALIBRERING-V1.md`), kjørt på syntetisk korpus |
 | UniFFI-speil av V1-flaten (`fjell-ffi`) | Ferdig med paritetstest mot `FjellApi` (`v1/FFI.md`). Ingen iOS-/Android-kode (etter MVP) |
 | Windows-verifiseringssett for V1 | Skrevet (`v1/WINDOWS-V1.md`, e2e-jobbene `v1-mock` og `v1-shell`), **ikke kjørt på Windows** |
+| Robusthet (backup, diagnose, styrt indeksering, personvern) | Kjerne, skall og skjermer integrert 2026-11-15: indeksbackup og trygg modus med «Bygg på nytt» (`v1/BACKUP.md`), diagnoserapport og feillogg (`v1/DIAGNOSE.md`), pause/prioritet/batteri (`v1/INDEKSERING.md`), behandlingsoversikt og GDPR-notat (`juridisk/`). Kjørt og grønt kun på Linux. **Ikke koblet:** `set_env`/`perf_observe` i Tauri-limet, mappenavn-bryter i diagnose, `IndexState::Offline`, Hjem-pause mot ekte pause. Manuelle Windows-punkter: `v1/WINDOWS-V1.md` 7b, `BETA.md` 8b |
 | V2 | Plan skrevet: `v2/V2-PLAN.md` (Raw og par, mobil, eksport). Ingen kode |
 
 ### Hva som gjenstår før V1 er ferdig

@@ -76,6 +76,16 @@ export interface DiagReport {
   indexing: IndexingState;
   metrics: DiagMetric[];
   text: string;
+  /** Hvor eksportfilen ble lagret (bare etter eksport, bare ekte modus). Stien vises som tekst; ingenting sendes. */
+  savedPath?: string;
+}
+
+/** Resultat av «Bygg på nytt»: den ødelagte indeksen er lagt til side (ikke slettet), en ny bygges. */
+export interface RebuildResult {
+  corruptKept: boolean;
+  scanning: boolean;
+  /** «Nylig slettet» og angrehistorikk er nullstilt; filer fra karantenen er lagt tilbake, ingen er slettet. */
+  trashStateReset: boolean;
 }
 
 /** Feilkodene skallet sender som `{ code: "core_error", detail: <kode> }` for denne flaten (speiler `ROBUST_ERROR_CODES`). */
