@@ -199,7 +199,7 @@ fn precision_recall(rule: Option<bool>) -> (f32, f32, usize, usize) {
 /// og dokumenterer hvorfor standarden er streng (presisjon under porten).
 #[test]
 fn k4_2_screenshot_precision() {
-    assert!(fjell_core::screenshot::DEFAULT_REQUIRE_STRONG);
+    const { assert!(fjell_core::screenshot::DEFAULT_REQUIRE_STRONG) };
     let (p_raw, r_raw, _, fp_raw) = precision_recall(Some(false));
     let (p, r, tp, fp) = precision_recall(None);
     eprintln!(
