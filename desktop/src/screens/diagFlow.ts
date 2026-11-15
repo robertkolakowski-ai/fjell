@@ -1,5 +1,6 @@
-// Diagnose: forhåndsvisning av rapporten og «Lag rapport». Skall i kontraktfasen (docs/v1/ROBUSTHET-KONTRAKT.md): grenen
-// «diagnose» eier filen. Rapporten har bare tall og koder; appen sender den aldri noe sted. Hvor eksporten havner er et åpent spørsmål.
+// Diagnose: forhåndsvisning av rapporten og «Lagre rapport» (docs/v1/DIAGNOSE.md). Rapporten har bare tall og koder; appen
+// sender den aldri noe sted. Eksporten lagres av skallet i appens diagnosemappe; hvis svaret har med stien (`savedPath`),
+// vises den så brukeren selv kan sende filen. Forhåndsvisningen er nøyaktig teksten som lagres.
 import type { CoreBridge } from "../bridge/core-bridge";
 import type { BridgeError } from "../bridge/types";
 import type { DiagReport } from "../bridge/types-robust";
@@ -10,10 +11,12 @@ export interface DiagView {
   busy: boolean;
   /** Rapporten er laget (eksportert) i denne økten. */
   exported: boolean;
+  /** Hvor filen ble lagret, hvis skallet sa det. Bare vist til brukeren. */
+  savedPath: string | null;
   error: string | null;
 }
 
-export const initialDiag: DiagView = { phase: "loading", report: null, busy: false, exported: false, error: null };
+export const initialDiag: DiagView = { phase: "loading", report: null, busy: false, exported: false, savedPath: null, error: null };
 
 export class DiagSession {
   state: DiagView = initialDiag;
@@ -38,9 +41,11 @@ export class DiagSession {
 
   async exportReport(): Promise<void> {
     if (this.state.busy) return;
-    this.set({ busy: true, error: null, exported: false });
+    this.set({ busy: true, error: null, exported: false, savedPath: null });
     try {
-      this.set({ busy: false, exported: true, report: await this.b.exportDiagnostics() });
+      const r: DiagReport & { savedPath?: unknown } = await this.b.exportDiagnostics();
+      const savedPath = typeof r.savedPath === "string" && r.savedPath !== "" ? r.savedPath : null;
+      this.set({ busy: false, exported: true, savedPath, report: r });
     } catch (e) {
       this.set({ busy: false, error: (e as BridgeError)?.code ?? "core_error" });
     }

@@ -1,5 +1,5 @@
-<!-- Innstillinger: diagnose (plassholder i kontraktfasen; grenen «diagnose» eier filen, docs/v1/ROBUSTHET-KONTRAKT.md).
-     Brukeren ser rapporten (tall og koder, aldri stier, filnavn eller bilder) før noe lages, og appen sender den aldri noe sted.
+<!-- Innstillinger: diagnose (docs/v1/DIAGNOSE.md). Brukeren ser hva som er og ikke er med, og rapporten (tall og koder,
+     aldri stier, filnavn eller bilder) før noe lagres. Filen lagres i appens diagnosemappe; appen sender den aldri noe sted.
      Personvernnotatet bruker nøklene i privacy.*. Tilstand og flyt i diagFlow.ts. -->
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
@@ -34,6 +34,11 @@
   <div class="body">
     <p class="muted">{$tr("diag.description")}</p>
     <p class="muted">{$tr("privacy.local")} {$tr("privacy.diag.note")}</p>
+    <div class="scope">
+      <p><strong>{$tr("diag.included.title")}</strong> {$tr("diag.included.body")}</p>
+      <p><strong>{$tr("diag.excluded.title")}</strong> {$tr("diag.excluded.body")}</p>
+      <p class="muted">{$tr("diag.folders.off")}</p>
+    </div>
     {#if view.phase === "loading"}
       <p role="status">{$tr("common.loading")}</p>
     {:else if view.phase === "error" || !view.report}
@@ -53,10 +58,17 @@
         </dl>
       {/if}
       <label class="lbl" for="diag-text">{$tr("diag.preview.label")}</label>
-      <textarea id="diag-text" readonly rows="6" value={view.report.text}></textarea>
+      <textarea id="diag-text" readonly rows="10" value={view.report.text}></textarea>
+      <p class="muted">{$tr("diag.preview.hint")}</p>
       <div><Button disabled={view.busy} onclick={() => void session.exportReport()}>{$tr("diag.export.button")}</Button></div>
       {#if view.exported}
-        <Banner tone="ok" role="status"><p>{$tr("diag.export.done")}</p></Banner>
+        <Banner tone="ok" role="status">
+          <p>{$tr("diag.export.done")}</p>
+          {#if view.savedPath}
+            <p>{$tr("diag.saved.path")} <code class="path">{view.savedPath}</code></p>
+          {/if}
+          <p>{$tr("diag.saved.hint")}</p>
+        </Banner>
       {/if}
       {#if view.error}
         <Banner tone="danger" role="alert"><p>{$tr(robustErrorKey(view.error))}</p></Banner>
@@ -70,6 +82,8 @@
   .body { display: grid; gap: var(--space-3); }
   .body p { margin: 0; }
   .muted { color: var(--c-text-muted); font-size: var(--fs-sm); }
+  .scope { display: grid; gap: var(--space-2); }
+  .path { overflow-wrap: anywhere; font-family: var(--font-mono, monospace); }
   .lbl { font-weight: var(--fw-medium); }
   .metrics { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-1) var(--space-4); margin: 0; }
   .metrics dd { margin: 0; text-align: end; font-variant-numeric: tabular-nums; }

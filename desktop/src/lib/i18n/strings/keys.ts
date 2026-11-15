@@ -636,6 +636,14 @@ export interface MessageParams {
   "diag.metric.rules": Record<never, never>;
   "diag.metric.protections": Record<never, never>;
   "diag.metric.backups": Record<never, never>;
+  "diag.included.title": Record<never, never>;
+  "diag.included.body": Record<never, never>;
+  "diag.excluded.title": Record<never, never>;
+  "diag.excluded.body": Record<never, never>;
+  "diag.folders.off": Record<never, never>;
+  "diag.preview.hint": Record<never, never>;
+  "diag.saved.path": Record<never, never>;
+  "diag.saved.hint": Record<never, never>;
   "diag.metrics.empty": Record<never, never>;
   "privacy.title": Record<never, never>;
   "privacy.local": Record<never, never>;
