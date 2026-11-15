@@ -12,17 +12,25 @@
 //! `ProtectScope`, `ReasonDetail`, `RuleSpec`, `DashboardData`) og `analyze` (`EyeAnalyzer`, `FaceAnalyzer`
 //! med Null-implementasjoner). `SuggestionKind` har `Series` og `Rule`; `ReasonCode` har flere koder.
 //!
+//! Robusthet (kontraktfasen, docs/v1/ROBUSTHET-KONTRAKT.md): undermodulen `robust` (`BackupId`, `BackupKind`,
+//! `IntegrityStatus`, `RestoreAck`, `IndexState`, `IndexPriority`, `DiagReport`).
+//!
 //! Kjernen returnerer koder, aldri tekst (beslutning 13).
 
 pub mod analyze;
 pub mod mem;
 pub mod plan;
+pub mod robust;
 pub mod traits;
 pub mod v1;
 
 pub use analyze::{
     AnalyzeError, Embedding, EyeAnalyzer, EyeReport, FaceAnalyzer, FaceBox, FaceObservation,
     NullEyeAnalyzer, NullFaceAnalyzer,
+};
+pub use robust::{
+    BackupId, BackupKind, DiagMetric, DiagReport, IndexPriority, IndexState, IntegrityStatus,
+    RestoreAck, ROBUST_ERROR_CODES,
 };
 pub use v1::{
     DashboardData, FolderStat, KindStat, MonthStat, PersonId, ProtectScope, ReasonDetail,

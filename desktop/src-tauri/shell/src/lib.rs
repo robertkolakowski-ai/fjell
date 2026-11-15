@@ -9,15 +9,21 @@
 //! (docs/mvp/FLERE-MAPPER.md; `set_library` er fortsatt «erstatt med én rot»).
 //! V1 (`v1`, `dto_v1`): beskyttelse, forslagsregler, personer og ansiktsindeks, dashboard,
 //! seriesammenligning, forslagsinnstillinger (`suggestion_settings`) og terskler.
+//! Robusthet (`backup`, `indexing`, `diag`, `dto_robust`; docs/v1/ROBUSTHET-KONTRAKT.md): sikkerhetskopi av indeksen og
+//! integritet, indeksering (status, pause, innstillinger) og diagnose.
 //! Tauri-kommandoene i `fjell-desktop` er tynne omslag rundt disse.
 //!
 //! Sletting (beslutning 17): trash flytter til karantene med angre; «Tøm» går via Papirkurv
 //! (standard) og permanent bare med `PermanentAckDto`. Frontend kaller aldri filsystemet.
 
+mod backup;
 mod config;
 mod core;
+mod diag;
 pub mod dto;
+pub mod dto_robust;
 pub mod dto_v1;
+mod indexing;
 #[cfg(test)]
 mod redteam_flere_mapper;
 #[cfg(test)]

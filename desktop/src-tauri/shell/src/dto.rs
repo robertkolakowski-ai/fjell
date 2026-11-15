@@ -36,7 +36,7 @@ pub fn parse_consequence(code: &str) -> Option<ConsequenceCode> {
     ConsequenceCode::ALL.into_iter().find(|c| c.key() == code)
 }
 
-fn phase_code(p: ScanPhase) -> &'static str {
+pub(crate) fn phase_code(p: ScanPhase) -> &'static str {
     match p {
         ScanPhase::Idle => "idle",
         ScanPhase::Listing => "listing",

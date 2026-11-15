@@ -14,6 +14,8 @@ import {
   cleanRuleName, folderMatches, MOCK_ALBUMS, MOCK_ASSETS, MOCK_BYTES, monthSeries, normalizeScope, PERSON_NAME_MAX, ruleCandidates, ruleHitBytes,
   SCOPE_FLAG, previewHasNoMatches, scopeKey, seedPeople, seedRules, thresholdsFor, TOP_FOLDERS, validateConditions, yearMonthOf, type MockPerson, type MockRule,
 } from "./mock-v1";
+import { MockRobust, type MockRobustOptions } from "./mock-robust";
+import type { Backup, DiagReport, IndexingSettings, IndexingStatus, IntegrityCode, RestoreReport } from "./types-robust";
 
 export interface MockOptions {
   /** Simulert latens per kall i ms. 0 = av (tester). */
@@ -43,6 +45,9 @@ export interface MockOptions {
   thumbErrors?: Record<number, ThumbErrorCode>;
   /** Simulert ventetid per miniatyr i ms. Standard: 40 når `delayMs` > 0, ellers 0 (e2e og ytelsesmåling). */
   thumbDelayMs?: number;
+  /** Robusthet (docs/v1/ROBUSTHET-KONTRAKT.md): indeksens integritet (`ok` standard; alt annet gir trygg modus) og batteri. */
+  integrity?: MockRobustOptions["integrity"];
+  onBattery?: MockRobustOptions["onBattery"];
 }
 
 /** Deterministisk, fotolignende SVG (himmelgradient, sol, to fjellrygger) varianter på id. Hver femte er stående. */
@@ -155,6 +160,8 @@ export class MockBridge implements CoreBridge {
   private paused = false;
   /** Sekunder siden epoch når bildet (`asset`) ble flyttet til «Nylig slettet». */
   private trashedAt = new Map<number, number>();
+  /** Robusthet: kopier av indeksen, integritet, indekseringsinnstillinger (mock-robust.ts). */
+  private readonly robust: MockRobust;
 
   readonly canPickFolder: boolean;
   private readonly pick: string | null;
@@ -175,6 +182,7 @@ export class MockBridge implements CoreBridge {
     this.language = opts.language ?? null;
     this.thumbErrors = opts.thumbErrors ?? {};
     this.thumbDelayMs = opts.thumbDelayMs ?? (this.delayMs > 0 ? 40 : 0);
+    this.robust = new MockRobust(this.now, MOCK_ASSETS, { integrity: opts.integrity, onBattery: opts.onBattery });
   }
 
 
@@ -184,7 +192,7 @@ export class MockBridge implements CoreBridge {
 
   async getState(): Promise<AppState> {
     await this.wait();
-    if (this.phase === "analyzing" && !this.paused && this.pollsLeft-- <= 0) this.phase = "done";
+    if (this.phase === "analyzing" && !this.paused && !this.robust.batteryPaused() && this.pollsLeft-- <= 0) this.phase = "done";
     const have = this.phase === "idle" ? [] : this.visible();
     const perKind = KIND_CODES.map((kind) => {
       const k = have.filter((c) => c.kind === kind);
@@ -834,5 +842,92 @@ export class MockBridge implements CoreBridge {
   async getThresholds(): Promise<Thresholds> {
     await this.wait();
     return thresholdsFor(this.sens);
+  }
+
+  // ---- Robusthet (docs/v1/ROBUSTHET-KONTRAKT.md); logikken ligger i mock-robust.ts ----
+
+  private get scanning(): boolean {
+    return this.phase === "analyzing";
+  }
+
+  async listBackups(): Promise<Backup[]> {
+    await this.wait();
+    return this.robust.list();
+  }
+
+  async createBackup(): Promise<Backup> {
+    await this.wait();
+    return this.robust.create();
+  }
+
+  async restoreBackup(id: number, acknowledged: boolean): Promise<RestoreReport> {
+    await this.wait();
+    return this.robust.restore(id, acknowledged, this.scanning);
+  }
+
+  async undoRestoreBackup(safety: number): Promise<RestoreReport> {
+    await this.wait();
+    return this.robust.undo(safety, this.scanning);
+  }
+
+  async checkIntegrity(): Promise<IntegrityCode> {
+    await this.wait();
+    return this.robust.integrity;
+  }
+
+  async getIndexingStatus(): Promise<IndexingStatus> {
+    await this.wait();
+    return this.robust.status(this.phase, this.paused);
+  }
+
+  async pauseIndexing(): Promise<void> {
+    await this.wait();
+    if (!this.scanning || this.paused) throw err("indexing_not_running");
+    this.paused = true;
+  }
+
+  async resumeIndexing(): Promise<void> {
+    await this.wait();
+    if (!this.scanning || !this.paused) throw err("indexing_not_running");
+    this.paused = false;
+  }
+
+  async cancelIndexing(): Promise<void> {
+    await this.wait();
+    if (!this.scanning) throw err("indexing_not_running");
+    this.paused = false;
+    this.phase = "done";
+  }
+
+  async getIndexingSettings(): Promise<IndexingSettings> {
+    await this.wait();
+    return { ...this.robust.settings };
+  }
+
+  async setIndexingSettings(settings: IndexingSettings): Promise<IndexingSettings> {
+    await this.wait();
+    return this.robust.setSettings(settings);
+  }
+
+  async previewDiagnostics(): Promise<DiagReport> {
+    await this.wait();
+    return this.diagnostics();
+  }
+
+  async exportDiagnostics(): Promise<DiagReport> {
+    await this.wait();
+    return this.diagnostics();
+  }
+
+  private diagnostics(): DiagReport {
+    const live = this.phase === "idle" ? [] : this.visible();
+    return this.robust.diag(
+      {
+        assetsActive: Math.max(0, MOCK_ASSETS - this.trashed.length), assetsTrashed: this.trashed.length,
+        groups: new Set(live.map((c) => c.group).filter((g) => g !== null)).size, suggestions: live.length,
+        rules: this.rules.filter((r) => !r.deleted).length, protections: this.protections.length,
+      },
+      this.robust.status(this.phase, this.paused).state,
+    );
   }
 }

@@ -21,6 +21,7 @@
 //! bortsett fra avstemming av fjernede kilder (I13).
 
 mod analyzers;
+mod control;
 mod fast;
 mod full;
 mod groups;

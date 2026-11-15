@@ -1,5 +1,6 @@
 //! Enhetstester for `api`.
 
+use super::super::{IndexingSettings, MAX_INDEX_THREADS};
 use super::*;
 use crate::model::{FakeClock, ProtectFlags, ReasonCode, ReasonDetail};
 
@@ -214,4 +215,43 @@ fn v1_settings_defaults_are_backward_compatible() {
     }
     assert_eq!(Sensitivity::parse("extreme"), None);
     assert_eq!(sensitivity_key(SuggestionKind::Rule), "sensitivity.rule");
+}
+
+// ---- Robusthet (kontraktfasen): standardimplementasjoner endrer ikke oppførselen til `MemApi` ----
+
+#[test]
+fn robust_defaults_are_empty_or_not_implemented() {
+    use crate::model::{BackupId, IndexState, IntegrityStatus, RestoreAck};
+    let a = api();
+    assert!(a.backup_list().unwrap().is_empty());
+    assert_eq!(a.integrity_check().unwrap(), IntegrityStatus::Ok);
+    assert_eq!(a.indexing_status().unwrap().state, IndexState::Idle);
+    assert_eq!(a.indexing_settings().unwrap(), IndexingSettings::default());
+    assert!(a.diag_preview().unwrap().text.contains("integrity=ok"));
+    let not_impl = ApiError::Internal("not_implemented".to_string());
+    assert_eq!(a.backup_create().unwrap_err(), not_impl);
+    assert_eq!(a.backup_restore_undo(BackupId(1)).unwrap_err(), not_impl);
+    let ack = RestoreAck::new(BackupId(1), true).unwrap();
+    assert_eq!(a.backup_restore(ack).unwrap_err(), not_impl);
+    assert_eq!(a.indexing_pause().unwrap_err(), not_impl);
+    assert_eq!(a.diag_export().unwrap_err(), not_impl);
+    // Den gamle flaten er uberørt.
+    assert_eq!(
+        a.cards(SuggestionKind::ExactDup, 10, None)
+            .unwrap()
+            .cards
+            .len(),
+        5
+    );
+}
+
+#[test]
+fn indexing_settings_validity() {
+    assert!(IndexingSettings::default().is_valid());
+    let too_many = IndexingSettings {
+        threads: MAX_INDEX_THREADS + 1,
+        ..IndexingSettings::default()
+    };
+    assert!(!too_many.is_valid());
+    assert!(IndexingSettings::default().pause_on_battery);
 }

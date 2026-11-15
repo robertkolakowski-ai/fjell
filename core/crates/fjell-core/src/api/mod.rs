@@ -17,6 +17,7 @@
 //! `Confirmed`/`PurgeTicket` lages bare her (`pub(crate)`-konstruktører i `model`).
 
 mod fjell;
+mod fjell_backup;
 mod fjell_ops;
 mod fjell_rules;
 #[cfg(test)]
@@ -30,21 +31,30 @@ pub mod mock;
 #[cfg(test)]
 mod rules_tests;
 pub mod types;
+mod types_robust;
 
 pub use fjell::Fjell;
 pub use fjell_rules::KeeperChange;
 pub use mock::MemApi;
 pub use types::*;
+pub use types_robust::*;
 
 use crate::dashboard::{Dashboard, Insights, NextStep, Progress};
 use crate::model::{
-    AssetId, BatchId, CardId, ConsequenceCode, DashboardData, DeleteOutcome, GroupId, PersonId,
-    ProtectScope, PurgeTicket, RuleId, RuleSpec, SeriesId, SuggestionKind,
+    AssetId, BackupId, BatchId, CardId, ConsequenceCode, DashboardData, DeleteOutcome, DiagReport,
+    GroupId, IntegrityStatus, PersonId, ProtectScope, PurgeTicket, RestoreAck, RuleId, RuleSpec,
+    SeriesId, SuggestionKind,
 };
 
 /// Standardsvar for V1-metoder som ennå ikke er koblet til `Fjell` (gjøres i integrasjonsfasen).
 fn not_implemented<T>() -> Result<T, ApiError> {
     Err(ApiError::Internal("ikke implementert".to_string()))
+}
+
+/// Standardsvar for robusthetsflaten (backup, indeksering, diagnose) som ennå ikke er koblet til `Fjell`.
+/// Koden er stabil (`ROBUST_ERROR_CODES`).
+fn robust_not_implemented<T>() -> Result<T, ApiError> {
+    Err(ApiError::Internal("not_implemented".to_string()))
 }
 
 /// Kontrakt som UI (via UniFFI), CLI og tester bygger på. Implementeres av ekte kjerne og `MemApi`.
@@ -197,5 +207,69 @@ pub trait FjellApi: Send + Sync {
     /// Effektive terskler for gjeldende `Settings::sensitivity`.
     fn thresholds(&self) -> Thresholds {
         Thresholds::default()
+    }
+
+    // ---- Robusthet (docs/v1/ROBUSTHET-KONTRAKT.md): standardimplementasjoner; grenene overstyrer i `Fjell` ----
+
+    /// Tar en sikkerhetskopi av indeksen (`BackupKind::Manual`). Bare metadata i Fjells egen indeks, aldri
+    /// bildefiler. Feilkoder: `backup_failed`.
+    fn backup_create(&self) -> Result<BackupEntry, ApiError> {
+        robust_not_implemented()
+    }
+    /// Alle kopier, nyeste først.
+    fn backup_list(&self) -> Result<Vec<BackupEntry>, ApiError> {
+        Ok(Vec::new())
+    }
+    /// Erstatter indeksen med kopien `ack.backup()`. Angrebar: kjernen tar først en `PreRestore`-kopi
+    /// (`RestoreReport::safety`). Originalbilder røres ikke. Feilkoder: `backup_not_found`, `backup_corrupt`,
+    /// `backup_failed`, `index_busy` (skanning pågår).
+    fn backup_restore(&self, ack: RestoreAck) -> Result<RestoreReport, ApiError> {
+        let _ = ack;
+        robust_not_implemented()
+    }
+    /// Angrer en gjenoppretting ved å sette `safety` tilbake. Krever ingen bekreftelse (det er selve angre).
+    fn backup_restore_undo(&self, safety: BackupId) -> Result<RestoreReport, ApiError> {
+        let _ = safety;
+        robust_not_implemented()
+    }
+    /// Sjekker at indeksen er hel. Standard: `Ok` (mocken har ingen ekte indeks).
+    fn integrity_check(&self) -> Result<IntegrityStatus, ApiError> {
+        Ok(IntegrityStatus::Ok)
+    }
+
+    /// Status for indeksering. Standard: ledig.
+    fn indexing_status(&self) -> Result<IndexingStatus, ApiError> {
+        Ok(IndexingStatus::default())
+    }
+    /// Pauser (brukervalg). Feilkode: `indexing_not_running`.
+    fn indexing_pause(&self) -> Result<(), ApiError> {
+        robust_not_implemented()
+    }
+    /// Fortsetter etter pause (ferdig analyserte bilder hoppes over).
+    fn indexing_resume(&self) -> Result<(), ApiError> {
+        robust_not_implemented()
+    }
+    /// Avbryter. Det som er funnet beholdes. Feilkode: `indexing_not_running`.
+    fn indexing_cancel(&self) -> Result<(), ApiError> {
+        robust_not_implemented()
+    }
+    fn indexing_settings(&self) -> Result<IndexingSettings, ApiError> {
+        Ok(IndexingSettings::default())
+    }
+    /// Lagrer innstillingene. Feilkode: `indexing_invalid_settings` (`threads > MAX_INDEX_THREADS`).
+    fn indexing_settings_set(&self, settings: IndexingSettings) -> Result<(), ApiError> {
+        let _ = settings;
+        robust_not_implemented()
+    }
+
+    /// Diagnose slik brukeren ser den før eksport: tall, koder og en redigert tekstblokk. Ingen stier, filnavn
+    /// eller bilder. Standard: tom rapport.
+    fn diag_preview(&self) -> Result<DiagReport, ApiError> {
+        Ok(DiagReport::empty())
+    }
+    /// Samme innhold som `diag_preview`, til eksport. Kjernen sender aldri noe av seg selv; hvor teksten
+    /// havner avgjør brukeren (åpent spørsmål i kontrakten). Feilkode: `diag_failed`.
+    fn diag_export(&self) -> Result<DiagReport, ApiError> {
+        robust_not_implemented()
     }
 }

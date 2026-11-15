@@ -3,6 +3,7 @@ import type { CoreBridge } from "./core-bridge";
 import { MOCK_UPDATES, MockBridge, type MockUpdate } from "./mock-bridge";
 import { TauriBridge } from "./tauri-bridge";
 import { THUMB_ERROR_CODES, type ThumbErrorCode } from "./types";
+import { INTEGRITY_CODES, type IntegrityCode } from "./types-robust";
 
 export function createBridge(): CoreBridge {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
@@ -16,6 +17,7 @@ export function createBridge(): CoreBridge {
       ...mockUnsupported(),
       ...mockLibrary(),
       ...mockThumbs(),
+      ...mockRobust(),
     });
 }
 
@@ -88,6 +90,18 @@ function mockThumbs(): { thumbErrors?: Record<number, ThumbErrorCode>; thumbDela
     if (Object.keys(errs).length > 0) out.thumbErrors = errs;
     const d = q.get("mockThumbDelay");
     if (d !== null && Number.isFinite(Number(d))) out.thumbDelayMs = Number(d);
+  }
+  return out;
+}
+
+/** Bare dev: `?mockIntegrity=corrupt|degraded|unreadable` gir trygg modus (RecoveryMode); `?mockBattery=1` simulerer batteri (indekseringen pauses). */
+function mockRobust(): { integrity?: IntegrityCode; onBattery?: boolean } {
+  const out: { integrity?: IntegrityCode; onBattery?: boolean } = {};
+  if (import.meta.env.DEV && typeof location !== "undefined") {
+    const q = new URLSearchParams(location.search);
+    const i = q.get("mockIntegrity");
+    if (INTEGRITY_CODES.includes(i as IntegrityCode)) out.integrity = i as IntegrityCode;
+    if (q.get("mockBattery") === "1") out.onBattery = true;
   }
   return out;
 }

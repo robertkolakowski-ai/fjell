@@ -16,6 +16,8 @@
 
 #![allow(unsafe_code)]
 
+pub mod power;
+
 use crate::delete::{RecycleBin, RecycleError};
 use crate::drives::{drive_status, volume_root_of, DriveStatus};
 use crate::path::extended_str;

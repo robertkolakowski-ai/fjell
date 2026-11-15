@@ -12,6 +12,7 @@
   import { pendingUpdate } from "./updateFlow";
   import DashboardPanel from "./DashboardPanel.svelte";
   import FolderDialog from "./FolderDialog.svelte";
+  import IndexingStatus from "./IndexingStatus.svelte";
   import { addFolder, controlScan, type ScanNote } from "./homeFlow";
   import { initialHome, kindOf, neverScanned, pendingCount, reduceHome, ringFraction, type HomeEvent, type HomeView } from "./homeState";
 
@@ -120,6 +121,7 @@
         </div>
       </div>
     {/if}
+    <IndexingStatus bridge={b} />
     {#if note === "cancelled"}<p class="muted" role="status">{$tr("home.scan.cancelled")}</p>{/if}
     {#if note === "error"}<p role="alert">{$tr("home.scan.error")}</p>{/if}
 

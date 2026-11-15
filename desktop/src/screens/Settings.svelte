@@ -7,7 +7,10 @@
   import { useBridge } from "../context";
   import { Banner, Button, Card, LiveRegion, PageHeader, SegmentedControl } from "../lib";
   import { getLanguage, setLanguage, tr } from "../lib/i18n";
+  import SettingsBackup from "./SettingsBackup.svelte";
+  import SettingsDiagnostics from "./SettingsDiagnostics.svelte";
   import SettingsFaces from "./SettingsFaces.svelte";
+  import SettingsIndexing from "./SettingsIndexing.svelte";
   import SettingsProtections from "./SettingsProtections.svelte";
   import SettingsSensitivity from "./SettingsSensitivity.svelte";
   import UpdateSection from "./UpdateSection.svelte";
@@ -96,6 +99,9 @@
     <SettingsSensitivity />
     <SettingsFaces />
     <div class="wide"><SettingsProtections /></div>
+    <SettingsIndexing />
+    <SettingsBackup />
+    <SettingsDiagnostics />
     <div class="wide"><UpdateSection bridge={b} /></div>
   </div>
 </section>

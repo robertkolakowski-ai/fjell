@@ -7,6 +7,10 @@ import type {
 import type {
   Condition, Dashboard, Person, Protection, Rule, RuleDraft, RulePreview, Scope, SeriesCompare, SuggestionSettings, Thresholds,
 } from "./types-v1";
+import type {
+  Backup, DiagReport, IndexingSettings, IndexingStatus, IntegrityCode, RestoreReport,
+} from "./types-robust";
+import { ROBUST_ERROR_CODES } from "./types-robust";
 import { thumbFromDto, thumbError } from "./thumbs";
 
 export type Invoke = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
@@ -49,10 +53,10 @@ export const V1_ERROR_CODES: readonly string[] = [
   "invalid_condition", "rule_not_found", "unknown_person", "not_merged", "unknown_series",
 ];
 
-/** Løfter en kjent V1-kode fra `detail` til `code`, slik mocken og feiltekstene (`error.<kode>`) forventer. Andre feil sendes uendret videre. */
+/** Løfter en kjent V1- eller robusthetskode fra `detail` til `code`, slik mocken og feiltekstene (`error.<kode>`) forventer. Andre feil sendes uendret videre. */
 export function normalizeError(e: unknown): unknown {
   const x = e as { code?: unknown; detail?: unknown } | null;
-  if (x && x.code === "core_error" && typeof x.detail === "string" && V1_ERROR_CODES.includes(x.detail)) {
+  if (x && x.code === "core_error" && typeof x.detail === "string" && (V1_ERROR_CODES.includes(x.detail) || ROBUST_ERROR_CODES.includes(x.detail))) {
     return { code: x.detail, detail: "" };
   }
   return e;
@@ -301,5 +305,46 @@ export class TauriBridge implements CoreBridge {
   }
   getThresholds(): Promise<Thresholds> {
     return this.call<Thresholds>("get_thresholds");
+  }
+
+  // ---- Robusthet (docs/v1/ROBUSTHET-KONTRAKT.md) ----
+  listBackups(): Promise<Backup[]> {
+    return this.call<Backup[]>("backup_list");
+  }
+  createBackup(): Promise<Backup> {
+    return this.call<Backup>("backup_create");
+  }
+  restoreBackup(id: number, acknowledged: boolean): Promise<RestoreReport> {
+    return this.call<RestoreReport>("backup_restore", { id, acknowledged });
+  }
+  undoRestoreBackup(safety: number): Promise<RestoreReport> {
+    return this.call<RestoreReport>("backup_restore_undo", { safety });
+  }
+  checkIntegrity(): Promise<IntegrityCode> {
+    return this.call<IntegrityCode>("integrity_check");
+  }
+  getIndexingStatus(): Promise<IndexingStatus> {
+    return this.call<IndexingStatus>("indexing_status");
+  }
+  pauseIndexing(): Promise<void> {
+    return this.call<void>("indexing_pause");
+  }
+  resumeIndexing(): Promise<void> {
+    return this.call<void>("indexing_resume");
+  }
+  cancelIndexing(): Promise<void> {
+    return this.call<void>("indexing_cancel");
+  }
+  getIndexingSettings(): Promise<IndexingSettings> {
+    return this.call<IndexingSettings>("get_indexing_settings");
+  }
+  setIndexingSettings(settings: IndexingSettings): Promise<IndexingSettings> {
+    return this.call<IndexingSettings>("set_indexing_settings", { settings });
+  }
+  previewDiagnostics(): Promise<DiagReport> {
+    return this.call<DiagReport>("diag_preview");
+  }
+  exportDiagnostics(): Promise<DiagReport> {
+    return this.call<DiagReport>("diag_export");
   }
 }
