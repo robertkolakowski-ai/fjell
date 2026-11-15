@@ -22,12 +22,26 @@ use crate::actions::{ActionError, Actions};
 use crate::model::{
     AssetSource, Clock, EyeAnalyzer, FaceAnalyzer, NullEyeAnalyzer, NullFaceAnalyzer,
 };
-use crate::pipeline::{self, GroupEngine, Phase, PipelineError, Progress, ScanReport, StoreHandle};
+use crate::pipeline::{
+    self, GroupEngine, GuardedSource, Phase, PipelineError, Progress, ScanControl, ScanReport,
+    StoreHandle,
+};
 use crate::store::Store;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::Duration;
+
+/// Flere hengende kall mot kilden enn dette samtidig, og nye kall nektes til noen er tilbake (frakoblet disk).
+const MAX_STUCK_SOURCE_CALLS: usize = 8;
+/// Tidsavbrudd per kall mot kilden (miniatyr/lesing). En treg nettverksstasjon gir `Unavailable`, ikke en hengende skanning.
+const DEFAULT_SOURCE_TIMEOUT: Duration = Duration::from_secs(60);
+
+fn default_control() -> ScanControl {
+    let c = ScanControl::new();
+    c.set_call_timeout(Some(DEFAULT_SOURCE_TIMEOUT));
+    c
+}
 
 /// Opptil så mange aktive bilder med fingeravtrykk regnes gruppene ut synkront etter en handling.
 const SYNC_REFRESH_MAX_ROWS: usize = 2_000;
@@ -38,8 +52,10 @@ pub(super) struct Shared {
     pub clock: Arc<dyn Clock>,
     pub eye: Arc<dyn EyeAnalyzer>,
     pub face: Arc<dyn FaceAnalyzer>,
-    pub cancel: AtomicBool,
+    pub cancel: Arc<AtomicBool>,
     pub progress: Progress,
+    /// Styring av indekseringen (pause, tråder, prioritet, batteri); se `pipeline::control`.
+    pub control: Arc<ScanControl>,
     pub report: Mutex<Option<Result<ScanReport, String>>>,
     /// Buffer for inkrementell klynging (deles av skanning og oppdatering etter handlinger).
     pub engine: Mutex<GroupEngine>,
@@ -117,8 +133,9 @@ impl Fjell {
                 clock,
                 eye,
                 face,
-                cancel: AtomicBool::new(false),
+                cancel: Arc::new(AtomicBool::new(false)),
                 progress: Progress::new(),
+                control: Arc::new(default_control()),
                 report: Mutex::new(None),
                 engine: Mutex::new(GroupEngine::new()),
                 dirty: AtomicBool::new(false),
@@ -312,20 +329,42 @@ impl Fjell {
         self.sh.cancel.store(false, Ordering::SeqCst);
         *self.sh.report.lock().unwrap_or_else(|e| e.into_inner()) = None;
         let sh = self.sh.clone();
+        // Merkes aktiv før tråden starter, så statusen aldri viser «ledig» mellom start og første fremdrift.
+        // `Done` i tråden avslutter kjøringen også ved panikk.
+        self.load_indexing_limits();
+        sh.control.start_run();
         *w = Some(std::thread::spawn(move || {
-            let r = pipeline::scan(
-                sh.src.as_ref(),
+            struct Done(Arc<ScanControl>);
+            impl Drop for Done {
+                fn drop(&mut self) {
+                    self.0.finish();
+                }
+            }
+            let _done = Done(sh.control.clone());
+            // Kall mot kilden får tidsavbrudd, så en hengende nettverksstasjon ikke henger skanningen.
+            let guarded = GuardedSource::new(
+                sh.src.clone(),
+                sh.control.clone(),
+                sh.cancel.clone(),
+                MAX_STUCK_SOURCE_CALLS,
+            );
+            let r = pipeline::scan_controlled(
+                &guarded,
                 &Handle(&sh),
                 sh.clock.as_ref(),
                 &cfg,
                 &sh.progress,
                 &sh.cancel,
+                &sh.control,
             );
             // Øyne og ansikter etter selve skanningen; avbrutt skanning hopper over steget.
             let r = r.and_then(|rep| {
                 if !rep.cancelled && !rep.deadline_hit {
+                    sh.control.wait_while_paused(&sh.cancel);
+                }
+                if !rep.cancelled && !rep.deadline_hit && !sh.cancel.load(Ordering::SeqCst) {
                     pipeline::run_analyzers(
-                        sh.src.as_ref(),
+                        &guarded,
                         &Handle(&sh),
                         sh.eye.as_ref(),
                         sh.face.as_ref(),

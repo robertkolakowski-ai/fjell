@@ -14,9 +14,10 @@
 use super::fjell::{act_err, internal, Fjell};
 use super::fjell_v1::{scoped_assets, with_scope_flag, RuleOp};
 use super::{
-    ApiError, Card, CardCursor, CardPage, Decision, FjellApi, HomeSummary, KindSummary, PersonView,
-    ProtectionEntry, PurgeIntent, PurgeReport, RuleDraft, RulePreview, RuleView, ScanConfig,
-    SeriesCompare, Settings, Thresholds, TrashSummary, UndoReport,
+    ApiError, Card, CardCursor, CardPage, Decision, FjellApi, HomeSummary, IndexingSettings,
+    IndexingStatus, KindSummary, PersonView, ProtectionEntry, PurgeIntent, PurgeReport, RuleDraft,
+    RulePreview, RuleView, ScanConfig, SeriesCompare, Settings, Thresholds, TrashSummary,
+    UndoReport,
 };
 use crate::actions::{acks_covering, PlanRequest, Selection};
 use crate::dashboard::Dashboard;
@@ -178,6 +179,25 @@ impl FjellApi for Fjell {
         self.sh
             .cancel
             .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    fn indexing_status(&self) -> Result<IndexingStatus, ApiError> {
+        self.indexing_status_impl()
+    }
+    fn indexing_pause(&self) -> Result<(), ApiError> {
+        self.indexing_pause_impl()
+    }
+    fn indexing_resume(&self) -> Result<(), ApiError> {
+        self.indexing_resume_impl()
+    }
+    fn indexing_cancel(&self) -> Result<(), ApiError> {
+        self.indexing_cancel_impl()
+    }
+    fn indexing_settings(&self) -> Result<IndexingSettings, ApiError> {
+        self.indexing_settings_impl()
+    }
+    fn indexing_settings_set(&self, settings: IndexingSettings) -> Result<(), ApiError> {
+        self.indexing_settings_set_impl(settings)
     }
 
     fn cards(

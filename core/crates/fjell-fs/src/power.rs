@@ -31,6 +31,51 @@ pub trait PowerSource: Send + Sync {
     fn status(&self) -> PowerStatus;
 }
 
+/// Tolker `GetSystemPowerStatus` (`ACLineStatus`: 0 = frakoblet, 1 = tilkoblet, 255 = ukjent; `BatteryFlag`: 128 =
+/// ingen batteri i maskinen, 255 = ukjent). Ren funksjon, testet på Linux; selve Win32-kallet er det ikke.
+/// Bare sikker kunnskap om batteri gir `Battery`: stasjonær PC og ukjent gir aldri pause.
+pub fn classify_windows(ac_line_status: u8, battery_flag: u8) -> PowerStatus {
+    if battery_flag == 128 {
+        return PowerStatus::Unknown;
+    }
+    match ac_line_status {
+        0 => PowerStatus::Battery,
+        1 => PowerStatus::Ac,
+        _ => PowerStatus::Unknown,
+    }
+}
+
+/// Senker prioriteten til tråden som kaller (CPU, disk og minne), slik at indekseringen ikke tar fra annet arbeid.
+/// Kalles først på hver indekseringstråd. Windows: `windows::power::WindowsBackgroundPriority`
+/// (ikke verifisert på Windows). Andre plattformer: `NoPriority` (ingen virkning; kontrakten, åpent spørsmål 7).
+pub trait BackgroundPriority: Send + Sync {
+    fn enter_current_thread(&self);
+}
+
+/// Ingen endring av trådprioritet (Linux/macOS og tester).
+#[derive(Debug, Default)]
+pub struct NoPriority;
+
+impl BackgroundPriority for NoPriority {
+    fn enter_current_thread(&self) {}
+}
+
+/// Teller kall (tester).
+#[derive(Debug, Default)]
+pub struct FakePriority(std::sync::atomic::AtomicUsize);
+
+impl FakePriority {
+    pub fn calls(&self) -> usize {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+impl BackgroundPriority for FakePriority {
+    fn enter_current_thread(&self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
 /// Fast eller styrbar strømstatus for tester og plattformer uten implementasjon.
 #[derive(Debug, Default)]
 pub struct FakePower(AtomicU8);
@@ -65,6 +110,29 @@ impl PowerSource for FakePower {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_status_is_only_battery_when_certain() {
+        assert_eq!(classify_windows(0, 1), PowerStatus::Battery);
+        assert_eq!(classify_windows(0, 0), PowerStatus::Battery);
+        assert_eq!(classify_windows(1, 8), PowerStatus::Ac);
+        assert_eq!(classify_windows(1, 0), PowerStatus::Ac);
+        // Stasjonær PC (ingen batteri) og ukjent pauser aldri, selv om ACLineStatus skulle si frakoblet.
+        assert_eq!(classify_windows(0, 128), PowerStatus::Unknown);
+        assert_eq!(classify_windows(255, 255), PowerStatus::Unknown);
+        assert_eq!(classify_windows(2, 0), PowerStatus::Unknown);
+        assert!(!classify_windows(255, 0).is_battery());
+    }
+
+    #[test]
+    fn priority_hooks_are_plain_traits() {
+        let p = FakePriority::default();
+        let h: &dyn BackgroundPriority = &p;
+        h.enter_current_thread();
+        h.enter_current_thread();
+        assert_eq!(p.calls(), 2);
+        NoPriority.enter_current_thread();
+    }
 
     #[test]
     fn fake_power_follows_set_and_unknown_is_not_battery() {

@@ -1,4 +1,4 @@
-<!-- Innstillinger: indeksering (plassholder i kontraktfasen; grenen «indeksering» eier filen, docs/v1/ROBUSTHET-KONTRAKT.md).
+<!-- Innstillinger: indeksering (docs/v1/INDEKSERING.md). Øverst vises pågående indeksering med fremdrift og knapper (IndexingStatus).
      Antall tråder (0 = automatisk), prioritet og «Pause på batteri». Lagres av kjernen; visningen følger det kjernen svarer.
      Tilstand og flyt i indexingFlow.ts (IndexingSettingsSession). -->
 <script lang="ts">
@@ -8,6 +8,7 @@
   import { useBridge } from "../context";
   import { Banner, Button, Card, SegmentedControl } from "../lib";
   import { tr, type MessageKey } from "../lib/i18n";
+  import IndexingStatus from "./IndexingStatus.svelte";
   import { IndexingSettingsSession, initialIndexingSettings, type IndexingSettingsView } from "./indexingFlow";
 
   interface Props {
@@ -36,6 +37,7 @@
 <Card heading={$tr("indexing.title")}>
   <div class="body">
     <p class="muted">{$tr("indexing.settings.description")}</p>
+    <IndexingStatus bridge={b} controls />
     {#if view.phase === "loading"}
       <p role="status">{$tr("common.loading")}</p>
     {:else if view.phase === "error" || !cur}
@@ -46,11 +48,12 @@
     {:else}
       <div class="block">
         <label class="lbl" for="idx-threads">{$tr("indexing.threads.label")}</label>
-        <select id="idx-threads" value={String(cur.threads)} disabled={view.saving} onchange={(e) => void session.update({ threads: Number(e.currentTarget.value) })}>
+        <select id="idx-threads" aria-describedby="idx-threads-hint" value={String(cur.threads)} disabled={view.saving} onchange={(e) => void session.update({ threads: Number(e.currentTarget.value) })}>
           {#each threadChoices as n (n)}
             <option value={String(n)}>{n === 0 ? $tr("indexing.threads.auto") : n}</option>
           {/each}
         </select>
+        <p id="idx-threads-hint" class="muted">{$tr("indexing.settings.hint")}</p>
       </div>
       <div class="block">
         <p id="idx-p" class="lbl">{$tr("indexing.priority.label")}</p>

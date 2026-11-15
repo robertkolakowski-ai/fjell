@@ -69,10 +69,7 @@ pub(super) fn run<H: StoreHandle>(
         return Ok(());
     }
     cx.progress.set_phase(super::Phase::Exact);
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(cx.threads())
-        .build()
-        .map_err(|e| PipelineError::Pool(e.to_string()))?;
+    let pool = cx.pool()?;
     for chunk in todo.chunks(CHUNK) {
         if cx.stop() {
             break;

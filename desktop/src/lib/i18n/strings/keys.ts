@@ -677,6 +677,14 @@ export interface MessageParams {
   "indexing.pause": Record<never, never>;
   "indexing.resume": Record<never, never>;
   "indexing.cancel": Record<never, never>;
+  "indexing.state.disk_offline": Record<never, never>;
+  "indexing.hint.disk_offline": Record<never, never>;
+  "indexing.hint.battery": Record<never, never>;
+  "indexing.note.live": Record<never, never>;
+  "indexing.progress.label": Record<never, never>;
+  "indexing.remaining": { remaining: string | number };
+  "indexing.live.done": Record<never, never>;
+  "indexing.settings.hint": Record<never, never>;
   "indexing.error": Record<never, never>;
   "indexing.settings.description": Record<never, never>;
   "indexing.threads.label": Record<never, never>;
