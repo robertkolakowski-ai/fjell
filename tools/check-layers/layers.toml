@@ -8,3 +8,16 @@ L3 = ["pipeline"]
 L2 = ["cluster", "suggest", "actions", "rules", "storage", "series", "people", "suggest_rules", "protect", "dashboard"]
 L1 = ["store", "hash", "quality", "screenshot"]
 L0 = ["model"]
+
+# Kratnivå (ARKITEKTUR del 2): hvilke interne krater en krate kan avhenge av.
+# `fjell-core` er nederst og kjenner ingen av de andre. `fjell-models` (V1-modelladapter) er adapter
+# på linje med `fjell-fs`: den bruker `fjell_core::model` og ingenting annet fra kjernen.
+[crates]
+fjell-core = []
+fjell-fs = ["fjell-core"]
+fjell-models = ["fjell-core"]
+fjell-ffi = ["fjell-core"]
+fjell-cli = ["fjell-core", "fjell-fs"]
+
+[crate_core_modules]
+fjell-models = ["model"]

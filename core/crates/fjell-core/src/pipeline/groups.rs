@@ -395,12 +395,36 @@ pub fn refresh_groups<H: StoreHandle>(
     store: &H,
     clock: &dyn Clock,
 ) -> Result<GroupingStats, PipelineError> {
+    refresh_groups_with(store, clock, true).map(|s| s.unwrap_or_default())
+}
+
+/// Som `refresh_groups`, men uten utregning under skrivelåsen: er indeksen skrevet imens (for
+/// eksempel av en pågående skanning) i alle `TRIES` forsøk, gis det opp og `None` returneres.
+/// Kalleren prøver igjen når skrivingen er over. Brukes av bakgrunnsoppdateringen, slik at en
+/// handling aldri venter på en utregning som er O(biblioteket) (budsjett < 100 ms, CLAUDE.md).
+pub fn refresh_groups_nonblocking<H: StoreHandle>(
+    store: &H,
+    clock: &dyn Clock,
+) -> Result<Option<GroupingStats>, PipelineError> {
+    refresh_groups_with(store, clock, false)
+}
+
+fn refresh_groups_with<H: StoreHandle>(
+    store: &H,
+    clock: &dyn Clock,
+    lock_fallback: bool,
+) -> Result<Option<GroupingStats>, PipelineError> {
     const TRIES: usize = 3;
+    let mut lock_ok = lock_fallback;
     let local = Mutex::new(GroupEngine::new());
     let engine = store.engine().unwrap_or(&local);
     for _ in 0..TRIES {
         let (reader, stamp) = store.with_store(|s| (s.reader(), s.change_counter()));
-        let Some(conn) = reader? else { break };
+        let Some(conn) = reader? else {
+            // Minnedatabase: ingen lesetilkobling, så utregningen må skje under låsen.
+            lock_ok = true;
+            break;
+        };
         let rows = index_rows_on(&conn)?;
         let rules = decode_rules(&setting_on(&conn, KEEPER_RULES_KEY)?.unwrap_or_default());
         let paths = if rules.is_empty() {
@@ -440,8 +464,11 @@ pub fn refresh_groups<H: StoreHandle>(
             Ok(Some(stats))
         })?;
         if let Some(stats) = applied {
-            return Ok(stats);
+            return Ok(Some(stats));
         }
+    }
+    if !lock_ok {
+        return Ok(None);
     }
     store.with_store(|s| {
         let rows = s.index_rows()?;
@@ -469,6 +496,6 @@ pub fn refresh_groups<H: StoreHandle>(
         let eyes = s.eye_results(&ids)?;
         let series = open_series(&rows, &g, &eyes, &tuning, &ctx);
         apply_v1(s, &series, &ctx, now)?;
-        Ok(stats)
+        Ok(Some(stats))
     })
 }

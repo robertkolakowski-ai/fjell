@@ -53,6 +53,7 @@ pub struct Card {
     pub group: Option<u64>,
     pub keeper: Option<u64>,
     pub reason: ReasonCode,
+    pub detail: crate::v1_types::ReasonDetail,
     pub confidence: f32,
     pub bytes: u64,
     pub protect_flags: u8,
@@ -67,6 +68,7 @@ impl From<a::Card> for Card {
             group: c.group.map(|g| g.0),
             keeper: c.keeper.map(|k| k.0),
             reason: c.reason.into(),
+            detail: c.detail.into(),
             confidence: c.confidence,
             bytes: c.bytes,
             protect_flags: c.protect_flags.0,
@@ -178,9 +180,53 @@ impl From<a::HomeSummary> for HomeSummary {
     }
 }
 
+mirror_enum!(Sensitivity <=> a::Sensitivity { Low, Normal, High });
+
+/// Sensitivitet for én forslagstype.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Record)]
+pub struct KindSensitivity {
+    pub kind: SuggestionKind,
+    pub level: Sensitivity,
+}
+
+/// Innstillinger. `sensitivity` har én oppføring per forslagstype ved lesing; ved skriving beholdes
+/// gjeldende verdi for typer som ikke er med.
+#[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]
 pub struct Settings {
     pub trash_days: u32,
+    pub sensitivity: Vec<KindSensitivity>,
+    pub face_index: bool,
+}
+
+impl From<a::Settings> for Settings {
+    fn from(s: a::Settings) -> Self {
+        Settings {
+            trash_days: s.trash_days,
+            sensitivity: m::SuggestionKind::ALL
+                .into_iter()
+                .map(|k| KindSensitivity {
+                    kind: k.into(),
+                    level: s.sensitivity.get(k).into(),
+                })
+                .collect(),
+            face_index: s.face_index,
+        }
+    }
+}
+
+impl Settings {
+    /// Legger innstillingene oppå `base` (kjernens gjeldende), slik at utelatte typer beholdes.
+    pub(crate) fn onto(self, base: a::Settings) -> a::Settings {
+        let mut sens = base.sensitivity;
+        for k in self.sensitivity {
+            sens.set(k.kind.into(), k.level.into());
+        }
+        a::Settings {
+            trash_days: self.trash_days,
+            sensitivity: sens,
+            face_index: self.face_index,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]

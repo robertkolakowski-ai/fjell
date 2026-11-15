@@ -255,14 +255,17 @@
   .stage { min-inline-size: 0; inline-size: 100%; max-inline-size: 32rem; margin-inline: auto; }
   .count { margin: 0; font-size: var(--fs-sm); font-variant-numeric: var(--num); }
   .hint { margin-block: 0; font-size: var(--fs-sm); text-align: center; }
-  .deck { position: relative; display: grid; min-block-size: 22rem; margin-block: var(--space-2) var(--space-3); touch-action: none; cursor: grab; border-radius: var(--radius-lg); }
+  .deck { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); min-block-size: 22rem; margin-block: var(--space-2) var(--space-3); touch-action: none; cursor: grab; border-radius: var(--radius-lg); }
   .deck.zoom { min-block-size: min(34rem, 70vh); }
-  .card { grid-area: 1 / 1; border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); background: var(--c-surface); box-shadow: var(--shadow-pop); }
+  .card { grid-area: 1 / 1; min-inline-size: 0; border: var(--border-width) solid var(--c-border-subtle); border-radius: var(--radius-lg); background: var(--c-surface); box-shadow: var(--shadow-pop); }
   .back { transform: translateY(calc(var(--depth) * 0.5rem)) scale(calc(1 - var(--depth) * 0.03)); background: var(--c-surface-sunken); box-shadow: none; border-color: var(--c-border); }
   .front { position: relative; display: flex; flex-direction: column; padding: var(--space-3); gap: var(--space-3); }
   .ph { display: block; position: relative; overflow: hidden; flex: 1; min-block-size: 14rem; border-radius: var(--radius-md); background: var(--c-surface-sunken); }
   .meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); margin: 0; }
   .size { font-variant-numeric: var(--num); }
+  /* Lange regelnavn (og pseudo-lokale) skal brytes, ikke skyve kortet ut av vinduet. */
+  .meta :global(.badge) { max-inline-size: 100%; }
+  .meta :global(.badge .txt) { white-space: normal; overflow-wrap: anywhere; }
   .overlay { position: absolute; inset-block-start: var(--space-3); inset-inline-start: var(--space-3); padding: var(--space-2) var(--space-3); border: 3px dashed var(--c-border-strong); border-radius: var(--radius-md); background: var(--c-surface); color: var(--c-text); font-weight: var(--fw-semibold); }
   .overlay.on { border-style: solid; border-color: var(--c-selected); }
   .side { display: flex; flex-direction: column; gap: var(--space-4); min-inline-size: 0; }

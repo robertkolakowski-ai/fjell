@@ -201,11 +201,14 @@ describe("MockBridge: regler", () => {
   it("feilkoder som i V1-PLAN", async () => {
     const b = mock();
     await expect(b.saveRule({ id: null, name: "A", conditions: [] })).rejects.toMatchObject({ code: "empty_rule" });
-    await expect(b.previewRule([])).rejects.toMatchObject({ code: "empty_rule" });
+    // Som kjernen: forhåndsvisning validerer ikke; en tom regel treffer ingenting (aldri alt).
+    await expect(b.previewRule([])).resolves.toMatchObject({ hits: 0 });
     await expect(b.saveRule({ id: null, name: "  ", conditions: [{ kind: "is_blurry" }] })).rejects.toMatchObject({ code: "empty_name" });
     await expect(b.saveRule({ id: null, name: "x".repeat(81), conditions: [{ kind: "is_blurry" }] })).rejects.toMatchObject({ code: "name_too_long" });
     await expect(b.saveRule({ id: null, name: "A", conditions: [{ kind: "in_folder", value: " " }] })).rejects.toMatchObject({ code: "invalid_condition" });
-    await expect(b.saveRule({ id: null, name: "A", conditions: [{ kind: "older_than_days", value: 0 }] })).rejects.toMatchObject({ code: "invalid_condition" });
+    // Kjernen tar imot tall fra 0 (skjermen krever mer, se `conditionsError`); negative og brøk er ikke gyldige tall for kjernen.
+    await expect(b.saveRule({ id: null, name: "A", conditions: [{ kind: "older_than_days", value: -1 }] })).rejects.toMatchObject({ code: "invalid_condition" });
+    await expect(b.saveRule({ id: null, name: "A0", conditions: [{ kind: "older_than_days", value: 0 }] })).resolves.toBeGreaterThan(0);
     await expect(b.saveRule({ id: 99, name: "A", conditions: [{ kind: "is_blurry" }] })).rejects.toMatchObject({ code: "rule_not_found" });
     await expect(b.toggleRule(99, true)).rejects.toMatchObject({ code: "rule_not_found" });
     await expect(b.deleteRule(99)).rejects.toMatchObject({ code: "rule_not_found" });
@@ -345,5 +348,17 @@ describe("MockBridge: dashboard, innstillinger og terskler", () => {
     const s = await b.getSuggestionSettings();
     await b.setSuggestionSettings({ ...s, sensitivity: { ...s.sensitivity, visual_dup: "high", blurry: "low", series: "high" } });
     expect(await b.getThresholds()).toEqual({ visualMaxHamming: 8, blurMaxScore: 0.0042, seriesGapSecs: 20, closedEyesMinConfidence: 0.7 });
+  });
+});
+
+describe("TauriBridge: feilkoder", () => {
+  it("løfter kjent V1-kode fra detail til code; andre feil går uendret videre", async () => {
+    const call = vi.fn().mockRejectedValueOnce({ code: "core_error", detail: "empty_rule" })
+      .mockRejectedValueOnce({ code: "core_error", detail: "noe_annet" })
+      .mockRejectedValueOnce({ code: "plan_stale", detail: "" });
+    const b = new TauriBridge(call);
+    await expect(b.listRules()).rejects.toEqual({ code: "empty_rule", detail: "" });
+    await expect(b.listRules()).rejects.toEqual({ code: "core_error", detail: "noe_annet" });
+    await expect(b.listRules()).rejects.toEqual({ code: "plan_stale", detail: "" });
   });
 });

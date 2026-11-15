@@ -5,6 +5,8 @@ Feiler (exit 1) på:
   - `crate::<modul>` / `use crate::{a, b}` mot modul i samme eller høyere lag
   - syklus i modulavhengighetene
   - modulfil som ikke finnes i layers.toml (og lag-modul uten fil)
+  - kratnivå (`[crates]` i layers.toml): krate som avhenger av annen intern krate enn tillatt
+    (f.eks. `fjell-core` mot `fjell-models`), eller `fjell-models` som bruker annet enn `fjell_core::model`
 
 Kun standardbibliotek. Bruk:
   check_layers.py [--src core/crates/fjell-core/src] [--config tools/check-layers/layers.toml]
@@ -124,12 +126,74 @@ def check(src, config):
     return errors
 
 
+CRATE_DEP_RE = re.compile(r"^\s*(fjell-[\w-]+)\s*=", re.M)
+
+
+def load_crates(config):
+    """Returnerer ({krate: tillatte interne avhengigheter}, {krate: tillatte fjell_core-moduler})."""
+    with open(config, "rb") as f:
+        raw = tomllib.load(f)
+    allowed = {k: set(v) for k, v in raw.get("crates", {}).items()}
+    core_uses = {k: set(v) for k, v in raw.get("crate_core_modules", {}).items()}
+    return allowed, core_uses
+
+
+def check_crates(crates_dir, config):
+    """Kratnivå: interne avhengigheter i Cargo.toml og `fjell_core::<modul>` i kildekoden."""
+    allowed, core_uses = load_crates(config)
+    errors = []
+    if not allowed:
+        return errors
+    found = {p.name for p in crates_dir.iterdir() if (p / "Cargo.toml").is_file()}
+    for c in sorted(found - set(allowed)):
+        errors.append(f"krate `{c}` finnes i {crates_dir} men ikke i [crates] i {config.name}")
+    for c in sorted(set(allowed) - found):
+        errors.append(f"krate `{c}` står i [crates] i {config.name} men mangler i {crates_dir}")
+    for c in sorted(found & set(allowed)):
+        manifest = crates_dir / c / "Cargo.toml"
+        text = manifest.read_text(encoding="utf-8")
+        # bare [dependencies]/[dev-dependencies]/[build-dependencies]-seksjoner
+        body = "\n".join(
+            part.split("\n", 1)[1] if "\n" in part else ""
+            for part in re.split(r"(?m)^(?=\[)", text)
+            if re.match(r"\[(dev-|build-)?dependencies\]", part)
+        )
+        for dep in sorted(set(CRATE_DEP_RE.findall(body))):
+            if dep not in allowed[c]:
+                errors.append(f"{manifest}: kratbrudd: `{c}` avhenger av `{dep}` (tillatt: {sorted(allowed[c]) or 'ingen'})")
+        if c in core_uses:
+            for f in sorted((crates_dir / c).rglob("*.rs")):
+                if "target" in f.parts:
+                    continue
+                code = strip_comments_and_strings(f.read_text(encoding="utf-8"))
+                for m in re.finditer(r"\bfjell_core::(\w+)", code):
+                    if m.group(1) not in core_uses[c]:
+                        line = code.count("\n", 0, m.start()) + 1
+                        errors.append(
+                            f"{f}:{line}: kratbrudd: `{c}` bruker `fjell_core::{m.group(1)}` (tillatt: {sorted(core_uses[c])})"
+                        )
+        # kjernen kjenner ikke krater som avhenger av den: ingen kildereferanse heller
+        if c == "fjell-core":
+            for other in sorted(set(allowed) - {"fjell-core"}):
+                ident = other.replace("-", "_")
+                for f in sorted((crates_dir / c / "src").rglob("*.rs")):
+                    code = strip_comments_and_strings(f.read_text(encoding="utf-8"))
+                    for m in re.finditer(rf"\b{ident}\b", code):
+                        line = code.count("\n", 0, m.start()) + 1
+                        errors.append(f"{f}:{line}: kratbrudd: `fjell-core` refererer `{ident}`")
+    return errors
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--src", type=Path, default=ROOT / "core/crates/fjell-core/src")
     ap.add_argument("--config", type=Path, default=HERE / "layers.toml")
+    ap.add_argument("--crates", type=Path, default=ROOT / "core/crates",
+                    help="katalog med krater (kratnivåsjekk hoppes over uten [crates] i konfig)")
     a = ap.parse_args(argv)
     errors = check(a.src, a.config)
+    if a.crates.is_dir():
+        errors += check_crates(a.crates, a.config)
     for e in errors:
         print(f"check-layers: {e}", file=sys.stderr)
     if errors:

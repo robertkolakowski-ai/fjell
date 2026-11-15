@@ -1,0 +1,5 @@
+[package]
+name = "fjell-models"
+
+[dependencies]
+fjell-core = { path = "../fjell-core" }

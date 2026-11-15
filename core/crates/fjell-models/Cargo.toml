@@ -1,0 +1,25 @@
+[package]
+name = "fjell-models"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+# Modelladapter (V1): implementerer `EyeAnalyzer`/`FaceAnalyzer` fra `fjell_core::model`.
+# Avhenger bare av `fjell-core` internt; `fjell-core` kjenner aldri denne krate-en (tools/check-layers).
+# Ingen modellfiler i repoet og ingen nettverkskode. ONNX-kjøring ligger bak featuren `onnx` (av som standard);
+# runtime-avhengigheten (ort/tract) er bevisst ikke lagt inn ennå, se docs/v1/MODELLER.md.
+[features]
+default = []
+onnx = []
+
+[dependencies]
+fjell-core = { path = "../fjell-core" }
+blake3 = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tempfile = "3"

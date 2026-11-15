@@ -1,0 +1,6 @@
+[crates]
+fjell-core = []
+fjell-models = ["fjell-core"]
+
+[crate_core_modules]
+fjell-models = ["model"]

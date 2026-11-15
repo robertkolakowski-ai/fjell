@@ -1,6 +1,6 @@
 # Personvernerklæring for Fjell
 
-Sist oppdatert: 2026-11-12 (versjon for Windows-beta). Dette er en åpen, teknisk erklæring: hvert punkt kan kontrolleres i kildekoden og i testene som er nevnt.
+Sist oppdatert: 2026-11-15 (V1: lagt til ansiktsindeks, serier, regler og beskyttelse). Dette er en åpen, teknisk erklæring: hvert punkt kan kontrolleres i kildekoden og i testene som er nevnt.
 
 ## Kort fortalt
 
@@ -9,6 +9,7 @@ Sist oppdatert: 2026-11-12 (versjon for Windows-beta). Dette er en åpen, teknis
 - **Ingen nettverkskall fra Fjell, bortsett fra oppdateringssjekken i beta-kanalen** (bare når du ber om den, eller har slått på «Sjekk automatisk ved oppstart», standard av; se «Oppdateringssjekk»). Bildene, stiene og filnavnene dine sendes aldri. Dette er testet automatisk (se «Slik kan du kontrollere det»).
 - **Originalene dine endres aldri.** Fjell flytter filer til en karantenemappe (som kan angres) og sletter ikke noe uten at du bekrefter.
 - Alt Fjell lagrer, ligger lokalt og kan slettes av deg.
+- **Ansiktsindeks er av som standard.** Fjell analyserer ingen ansikter før du selv slår det på og bekrefter. Se [Ansiktsindeks og personer](#ansiktsindeks-og-personer-valgfritt-av-som-standard).
 - **Unntak: oppdateringssjekk i beta-kanalen.** Bare når du trykker «Se etter oppdatering», eller hvis du selv har slått på «Sjekk automatisk ved oppstart» (standard: av), henter Fjell en liten tekstfil fra GitHub. Se [Oppdateringssjekk](#oppdateringssjekk-beta-kanalen).
 
 ## Hva Fjell leser
@@ -18,7 +19,7 @@ Bare mappene du selv velger (i oppstarten eller i Innstillinger), inkludert ekst
 - korte visuelle fingeravtrykk (64-bit hasher) for å finne like bilder,
 - en uskarphetsscore og noen signaler for å gjenkjenne skjermbilder.
 
-Dette skjer på maskinen din, med vanlig kode (ingen KI-modell lastes ned, ingen bilder sendes til en tjeneste). Skyfiler som bare er plassholdere (f.eks. OneDrive «bare på nett») lastes **ikke** ned.
+Dette skjer på maskinen din, med vanlig kode (ingen KI-modell lastes ned, ingen bilder sendes til en tjeneste). Ansikter analyseres bare hvis du har slått på ansiktsindeksen (neste avsnitt). Skyfiler som bare er plassholdere (f.eks. OneDrive «bare på nett») lastes **ikke** ned.
 
 **Skymapper (iCloud, OneDrive, Dropbox):** Fjell kjenner dem igjen på mappenavn og tillater skann og forslag, men flytter ikke filer til papirkurv der, så Fjell ikke utløser sletting i skyen. Fjell leser filene lokalt som i andre mapper; at synkprogrammet ditt laster dem opp eller ned er utenfor Fjell. Gjenkjenningen er en navneheuristikk, ikke bevis på synk, og er ikke testet mot ekte iCloud, OneDrive eller Dropbox.
 
@@ -26,12 +27,28 @@ Dette skjer på maskinen din, med vanlig kode (ingen KI-modell lastes ned, ingen
 
 | Hva | Hvor | Innhold | Slette |
 |---|---|---|---|
-| Indeks | `%LOCALAPPDATA%\Fjell\index.db` (SQLite) | Stier, filstørrelse, endringstid, hasher, scorer, tilstand (aktiv / i papirkurv / tømt), handlingslogg for Angre, innstillinger (språk, papirkurvfrist) | Slett filen (appen bygger opp igjen ved neste skann), eller avinstaller og slett mappen |
+| Indeks | `%LOCALAPPDATA%\Fjell\index.db` (SQLite) | Stier, filstørrelse, endringstid, hasher, scorer, tilstand (aktiv / i papirkurv / tømt), handlingslogg for Angre, innstillinger (språk, papirkurvfrist, sensitivitet, ansiktsindeks av/på), beskyttelser, forslagsregler, serier og, **bare hvis du har slått på ansiktsindeksen**, personer og ansikts-embeddings | Slett filen (appen bygger opp igjen ved neste skann), eller avinstaller og slett mappen |
 | Bildecache | `%LOCALAPPDATA%\Fjell\cache\` | Nedskalerte visningsbilder (miniatyrer) brukt av skjermen. Standard maks 1 GB, eldste fjernes først | Slett mappen uten tap |
 | Karantene | `<disk>\.fjell-karantene\<gruppe>\` på samme disk som bildet | Selve filene du har flyttet til «papirkurven» i Fjell (ikke kopier; samme innhold, bare flyttet), pluss `manifest.json` med opprinnelig sti, og en README som forklarer mappen | Gjenopprett i Fjell, eller tøm papirkurven i Fjell |
 | Språkvalg i grensesnittet | Skallets innstillingsfil (`shell.json`) når appen kjører i Tauri; reserve og eldre verdi i WebView-lagring (`localStorage`, nøkkel `fjell.language`) | «system», «nb» eller «en» | Avinstaller og slett `%LOCALAPPDATA%\Fjell\` / WebView2-data. (Skallets lagring er testet på Linux; Tauri-kommandoene er ikke kjørt.) |
 
-Det lagres **ikke**: bilder i indeksen (bare hasher og metadata), konto- eller enhets-ID-er, IP-adresser, posisjon, kontakter, passord eller innhold fra andre apper. Fjell skriver ikke loggfiler med filstier ut over det som står over.
+Det lagres **ikke**: bilder i indeksen (bare hasher og metadata; heller ingen ansiktsbilder), konto- eller enhets-ID-er, IP-adresser, posisjon, kontakter, passord eller innhold fra andre apper. Fjell skriver ikke loggfiler med filstier ut over det som står over.
+
+## Ansiktsindeks og personer (valgfritt, av som standard)
+
+V1 kan gruppere bilder etter hvem som er på dem («Personer»). Dette er det mest personfølsomme Fjell gjør, så det er styrt av deg.
+
+- **Av som standard.** Innstillingen `face_index_enabled` er `0` i nye og oppgraderte indekser. Så lenge den er av, kjøres ingen ansiktsanalyse og ingenting om ansikter lagres. Dekket av testene i `api/fjell_v1_tests.rs` og `store/migrate_tests.rs` (standard `0`).
+- **Samtykke.** Du slår den på i Innstillinger («Ansikter og personer») og må bekrefte en dialog som forklarer hva som lagres, at det ikke forlater enheten, at originalene ikke endres, og at du kan slå av og slette.
+- **Hva som lagres (bare når den er på):** for hvert ansikt et sett tall (embedding, et matematisk fingeravtrykk), hvilket bilde det kom fra, og navn du selv gir en person. **Ingen ansiktsbilder lagres**, og originalfilene endres ikke. Dette ligger i samme lokale indeksfil (`index.db`) som resten, i tabellene `person` og `face_embedding`.
+- **Kun på enheten.** Embeddings og navn forlater aldri maskinen. Ingen opplasting, ingen server, ingen sky. Det finnes ingen eksport av indeksen i V1; skulle en komme, skal navn og embeddings utelates som standard.
+- **Modell:** analysen krever en lokal ansiktsmodell som følger med installasjonsprogrammet; appen laster aldri ned modeller. **Per 2026-11-15 er ingen ansiktsmodell valgt eller inkludert**, så Personer er tom også med indeksen på til en modell er på plass. Dette dokumentet må leses på nytt når en modell kommer inn (lisens, hva modellen lagrer).
+- **Slå av:** å slå indeksen av stopper ny analyse. Eksisterende ansiktsdata blir liggende til du sletter dem.
+- **Slett ansiktsindeksen («wipe»):** knappen i Innstillinger fjerner alle embeddings og alle personer, inkludert navnene du har gitt. **Dette kan ikke angres**; det er et bevisst unntak fra «alt kan angres», og dialogen sier det. Begrunnelsen er personvern: dataene er avledet og kan bygges opp igjen ved å slå indeksen på igjen, men navn og beskyttelse av personer faller bort. Bildene beholdes. Bytes som slettes overskrives (`secure_delete`) og loggfilen (WAL) tømmes. Beskyttelse av en person gjøres om til beskyttelse av hvert enkelt bilde i samme operasjon, så ingen bilder mister beskyttelsen.
+- **Ikke krypteringsbeskyttet:** indeksfilen er ikke kryptert i V1. Den som har tilgang til brukerprofilen din kan lese navn og embeddings. Beskyttelsen er Windows-kontoen og diskkryptering (f.eks. BitLocker), ikke Fjell.
+- **Øyne i serier** (lukkede øyne) er et eget signal fra en eventuell øyemodell og lagrer ingen ansiktsindeks eller person. Heller ingen øyemodell er valgt per 2026-11-15; serier rangeres da på skarphet alene.
+
+Også nytt i V1, uten nye personopplysninger: **beskyttelser** (stier, mappe, album eller person du har merket), **forslagsregler** (navn og vilkår du selv skriver) og **dashboard** (tall regnet fra indeksen). Alt ligger lokalt i `index.db` og forlater ikke maskinen. Navn på regler og personer er fritekst du selv har skrevet.
 
 ## Tøm og sletting
 

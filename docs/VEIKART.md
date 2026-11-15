@@ -4,10 +4,10 @@
 |---|---|
 | MVP (ca. 3 mnd; anslag 13 uker, se `mvp/MVP-PLAN.md`) | **Windows-PC-app** (Tauri 2; avklart 2026-11-11). Eksakte og visuelle duplikater, uskarpe og skjermbilder, kortmodus (swipe), papirkurv, angre, norsk og engelsk. Rekkefølge M0–M8: `mvp/MVP-PLAN.md`; M9 «Windows-verifisering og ekte data» følger etter M8 (`mvp/PLAN-M9.md`), og MVP er ferdig først etter M9 |
 | V1 (3–6 mnd) | Serier med beste-valg, lukkede øyne, personer, lagringsdashboard, regelmotor |
-| V2 (6–12 mnd) | Culling for fotografer, RAW, sammenligning, iPhone og Android (SwiftUI/PhotoKit, Kotlin/MediaStore; UniFFI), Lightroom-eksport |
+| V2 (6–12 mnd; plan: `v2/V2-PLAN.md`) | Culling for fotografer, RAW, sammenligning, iPhone og Android (SwiftUI/PhotoKit, Kotlin/MediaStore; UniFFI), Lightroom-eksport |
 | V3 (12+ mnd) | Naturlig språk-søk, hendelsesforslag, familiedeling, valgfri sky-analyse, NAS |
 
-## V1-status (kjerne og skall, 2026-11-14)
+## V1-status (etter V1-fullføring, 2026-11-15)
 Detaljer og åpne spørsmål: `v1/V1-PLAN.md`.
 
 | Del | Status |
@@ -18,12 +18,22 @@ Detaljer og åpne spørsmål: `v1/V1-PLAN.md`.
 | Forslagsregler (`suggest_rules`) | Kjerne ferdig og koblet oppå keeper-reglene fra MVP (`docs/mvp/REGLER.md`, uendret): evalueres etter hver gruppering og ved endret beskyttelse; foreslår bare; keeper-reglenes beskyttede mapper får aldri forslag |
 | Personer og ansiktsindeks | Kjerne ferdig og koblet; indeksen er av som standard; ingen ansiktsmodell valgt ennå |
 | Dashboard | Kjerne ferdig og koblet |
-| Innstillinger og terskler (sensitivitet per forslagstype) | Lagres og styrer serier, visuelle duplikater og uskarphet; verdiene er ikke kalibrert mot golden-korpus |
+| Innstillinger og terskler (sensitivitet per forslagstype) | Lagres og styrer serier, visuelle duplikater og uskarphet. Kalibrert bare mot syntetisk korpus (`v1/KALIBRERING-V1.md`); standardene er uendret (se under) |
 | CLI (`protect`, `series`, `dashboard`, `people`, `rules`) | Ferdig, ingen sletting av bilder |
-| Tauri-skall (DTO-er, kommandoer, `bridge.ts`) | Ferdig |
-| Skjermer (`desktop/`, `docs/v1/SKJERMER.md`) | Ferdig mot MockBridge og integrert: Oversikt på Hjem, Serie (sammenlign), Kortforklaring for serie og regel, Regler, Personer (ansiktsindeks av som standard), Beskyttelser, Ansikter og Følsomhet i Innstillinger, F1-hjelp og navigasjonstellere. Dekket av vitest, axe, skalering 100–200 %, høykontrast, pseudo, ytelse og nonet. Skjermbilder i `screens/v1/`. Ikke verifisert på Windows med ekte kjerne (Narrator/NVDA for hånd) |
+| Tauri-skall (DTO-er, kommandoer, `bridge.ts`) | Ferdig. V1-feilkoder løftes fra `detail` til `code` i `TauriBridge` (`normalizeError`) |
+| Skjermer (`desktop/`, `docs/v1/SKJERMER.md`) | Ferdig mot MockBridge og integrert, med konformitetsfixtur mot både kjerne og mock. Dekket av vitest, axe, skalering 100–200 %, høykontrast, pseudo, ytelse og nonet. `listAlbums` mangler (utforming i SKJERMER del 9); til da bør «i album» skjules i regelbyggeren i den ekte appen |
 | Ende-til-ende-test (`api/fjell_v1_tests.rs`, `fjell-cli/tests/cli_v1.rs`) | Ferdig |
-| Gjenstår | Øyemodell og ansiktsmodell (lisens, ≤ 30 MB, ONNX), kalibrering av terskler, Windows-verifisering av V1-skjermene (som M9 for MVP), UniFFI-speil av V1-flaten i `fjell-ffi`, golden-tester per forslagstype i `testdata`, sluttreview |
+| Modellramme (`fjell-models`) | Ferdig: manifest, lisens- og størrelsesport, lasting, `Model*Analyzer` bak trekkene. Ingen modell er valgt, og kjøremotor (`ort`/`tract`) er ikke lagt inn; featuren `onnx` gir bare en feilende fabrikk. `Null*`-analysatorene gjelder fortsatt i appen (`v1/MODELLER.md`) |
+| Kalibrering og golden-tester per forslagstype | Verktøy og tester ferdig (`core/testdata`, `v1/KALIBRERING-V1.md`), kjørt på syntetisk korpus |
+| UniFFI-speil av V1-flaten (`fjell-ffi`) | Ferdig med paritetstest mot `FjellApi` (`v1/FFI.md`). Ingen iOS-/Android-kode (etter MVP) |
+| Windows-verifiseringssett for V1 | Skrevet (`v1/WINDOWS-V1.md`, e2e-jobbene `v1-mock` og `v1-shell`), **ikke kjørt på Windows** |
+| V2 | Plan skrevet: `v2/V2-PLAN.md` (Raw og par, mobil, eksport). Ingen kode |
+
+### Hva som gjenstår før V1 er ferdig
+1. **Ekte modell, valgt av Robert**: øyemodell og ansiktsmodell (lisens, ≤ 30 MB, ONNX), kjøremotor bak `onnx` (må passere `cargo deny` og `--locked`), per-modell-omformer, `THIRD_PARTY.md`, ev. økt `ALGO_VER`, og installasjonsløype for modellmappen. Ansiktsindeksen er av som standard og øyesignalet mangler til dette er gjort.
+2. **Ekte kalibrering** på Roberts eget testsett (`mvp/KALIBRERING.md`). Anbefalingen om High `blur_scale` 1,3 til 1,1 er ikke tatt inn: den bygger på syntetisk korpus uten ekte harde negativer, og et lite funn (presisjon 0,878 mot 0,901) er ikke nok til å endre en brukersynlig sensitivitet. Standardene (Low 0,7 / Normal 1,0 / High 1,3 for uskarphet) står til ekte data finnes. Øyesikkerhet er plassholder.
+3. **Manuell Windows-verifisering** av V1-skjermene (Narrator, NVDA, skalering, høykontrast, ytelse på ekte bibliotek) og kjøring av V1-jobbene på `windows-latest`.
+4. Kjernefunn å avgjøre (se `v1/V1-PLAN.md`, avklaringene og «Åpne funn etter integrasjon»): manuelt valgt keeper vs. øyeanalyse, ny gruppering ved endret sensitivitet, mappebeskyttelse på tegnnivå og Windows-skrivemåte, `older_than_days` 0, overføring av beskyttelse ved flytting, `listAlbums`.
 
 ## Forretningsmodell
 - **Gratis:** skann, eksakte duplikater, manuell kortsortering, månedlig grense

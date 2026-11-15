@@ -3,7 +3,7 @@
 import type { CoreBridge } from "../bridge/core-bridge";
 import type { BridgeError } from "../bridge/types";
 import type { Condition, Rule, RulePreview } from "../bridge/types-v1";
-import { conditionsKey, conditionsOf, newRow, rowFromCondition, type ConditionRow } from "./rulesState";
+import { conditionsError, conditionsKey, conditionsOf, newRow, rowFromCondition, type ConditionRow } from "./rulesState";
 
 export type RulesPhase = "loading" | "ready" | "error";
 
@@ -141,6 +141,8 @@ export const canSave = (e: EditorState): boolean => previewIsFresh(e) && !e.prev
 
 /** Kjører forhåndsvisning (teller bare; lagrer ingenting). Feil (for eksempel `invalid_condition`) havner i `error`. */
 export async function runPreview(b: CoreBridge, e: EditorState): Promise<EditorState> {
+  const local = conditionsError(e.rows);
+  if (local) return { ...e, preview: null, previewedKey: null, previewing: false, error: local };
   const conditions: Condition[] = conditionsOf(e.rows);
   const key = JSON.stringify(conditions);
   try {

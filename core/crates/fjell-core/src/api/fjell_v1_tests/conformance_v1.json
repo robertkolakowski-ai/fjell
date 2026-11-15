@@ -1,0 +1,148 @@
+{
+  "comment": "Konformitet mellom kjernen (Fjell) og MockBridge (desktop). Samme scenarier kjøres av core/.../fjell_v1_tests/conformance.rs mot ekte kjerne og av desktop/src/bridge/conformance.test.ts mot MockBridge; begge må gi lik utgang. Kjernen er sannheten. Feilkoder er slik UI ser dem (BridgeError.code; ack_required bærer konsekvenskodene i detail). Kort og bilder er symbolske (card 0 = første kort av typen). Endres dette, endres begge sidene i samme commit.",
+  "version": 1,
+  "scope_flag": 16,
+  "kinds": ["exact_dup", "visual_dup", "series", "rule", "blurry"],
+  "templates": [
+    {
+      "name": "ubeskyttet kort flyttes uten bekreftelse",
+      "scopes": ["asset"],
+      "steps": [
+        { "op": "expect_flag", "card": 0, "flagged": false },
+        { "op": "decide", "cards": [0], "decision": "trash", "confirmed": [], "expect": "ok" }
+      ]
+    },
+    {
+      "name": "beskyttet kort er merket og krever bekreftelse",
+      "kinds": ["exact_dup", "visual_dup", "series", "blurry"],
+      "scopes": ["asset", "folder"],
+      "steps": [
+        { "op": "protect", "card": 0, "on": true },
+        { "op": "expect_flag", "card": 0, "flagged": true },
+        { "op": "decide", "cards": [0], "decision": "trash", "confirmed": [], "expect": { "code": "ack_required", "detail": "protected_by_scope" } },
+        { "op": "expect_pending", "card": 0, "pending": true }
+      ]
+    },
+    {
+      "name": "beskyttet kort kan flyttes etter bekreftelse",
+      "kinds": ["exact_dup", "visual_dup", "series", "blurry"],
+      "scopes": ["asset", "folder"],
+      "steps": [
+        { "op": "protect", "card": 0, "on": true },
+        { "op": "decide", "cards": [0], "decision": "trash", "confirmed": ["protected_by_scope"], "expect": "ok" },
+        { "op": "expect_pending", "card": 0, "pending": false }
+      ]
+    },
+    {
+      "name": "beskyttet kort kan alltid beholdes",
+      "kinds": ["exact_dup", "visual_dup", "series", "blurry"],
+      "scopes": ["asset", "folder"],
+      "steps": [
+        { "op": "protect", "card": 0, "on": true },
+        { "op": "decide", "cards": [0], "decision": "keep", "confirmed": [], "expect": "ok" },
+        { "op": "expect_pending", "card": 0, "pending": false }
+      ]
+    },
+    {
+      "name": "fjernet beskyttelse gir fritt kort igjen",
+      "kinds": ["exact_dup", "visual_dup", "series", "blurry"],
+      "scopes": ["asset", "folder"],
+      "steps": [
+        { "op": "protect", "card": 0, "on": true },
+        { "op": "protect", "card": 0, "on": false },
+        { "op": "expect_flag", "card": 0, "flagged": false },
+        { "op": "decide", "cards": [0], "decision": "trash", "confirmed": [], "expect": "ok" }
+      ]
+    },
+    {
+      "name": "alt eller ingenting: ett beskyttet kort stopper hele runden",
+      "kinds": ["exact_dup", "visual_dup", "series", "blurry"],
+      "scopes": ["asset"],
+      "steps": [
+        { "op": "protect", "card": 0, "on": true },
+        { "op": "decide", "cards": [1, 0], "decision": "trash", "confirmed": [], "expect": { "code": "ack_required", "detail": "protected_by_scope" } },
+        { "op": "expect_pending", "card": 0, "pending": true },
+        { "op": "expect_pending", "card": 1, "pending": true }
+      ]
+    },
+    {
+      "name": "serie: medlemmene i sammenligningen bærer samme flagg som kortene",
+      "kinds": ["series"],
+      "scopes": ["asset"],
+      "steps": [
+        { "op": "protect", "card": 0, "on": true },
+        { "op": "expect_member_flags", "protected_card": 0 }
+      ]
+    },
+    {
+      "name": "serie: beskyttet behold-kandidat er merket i sammenligningen",
+      "kinds": ["series"],
+      "scopes": ["asset"],
+      "steps": [
+        { "op": "protect_keeper" },
+        { "op": "expect_keeper_flag", "flagged": true }
+      ]
+    },
+    {
+      "name": "regel: beskyttet bilde gir ingen treff, og treffet kommer tilbake",
+      "kinds": ["rule"],
+      "scopes": ["asset"],
+      "steps": [
+        { "op": "snapshot_rule_hits", "card": 0 },
+        { "op": "protect", "card": 0, "on": true },
+        { "op": "expect_pending", "card": 0, "pending": false },
+        { "op": "expect_rule_hits_delta", "card": 0, "delta": -1 },
+        { "op": "protect", "card": 0, "on": false },
+        { "op": "expect_rule_hits_delta", "card": 0, "delta": 0 }
+      ]
+    },
+    {
+      "name": "mappebeskyttelse gjelder hele mappenavn og eksakt skrivemåte (som i kjernen)",
+      "kinds": ["exact_dup", "series"],
+      "scopes": ["folder_truncated", "folder_upper"],
+      "steps": [
+        { "op": "protect", "card": 0, "on": true },
+        { "op": "expect_flag", "card": 0, "flagged": false },
+        { "op": "decide", "cards": [0], "decision": "trash", "confirmed": [], "expect": "ok" }
+      ]
+    },
+    {
+      "name": "samme bilde vises aldri i flere kort",
+      "scopes": ["asset"],
+      "steps": [
+        { "op": "expect_assets_unique_across_kinds" }
+      ]
+    }
+  ],
+  "wipe": [
+    { "op": "enable_faces" },
+    { "op": "expect_people_at_least", "n": 1 },
+    { "op": "protect_person", "index": 0, "expect": "ok" },
+    { "op": "expect_scope_counts", "person": 1 },
+    { "op": "wipe", "expect": "faces_total" },
+    { "op": "expect_people_count", "n": 0 },
+    { "op": "expect_scope_counts", "person": 0, "asset_equals_person_assets": true }
+  ],
+  "errors": [
+    { "name": "tom mappe", "op": "protect_target", "scope": "folder", "target": "", "expect": { "code": "empty_folder" } },
+    { "name": "bare blanke i mappe", "op": "protect_target", "scope": "folder", "target": "   ", "expect": { "code": "empty_folder" } },
+    { "name": "ukjent bilde", "op": "protect_target", "scope": "asset", "target": "missing", "expect": { "code": "unknown_target" } },
+    { "name": "ukjent album", "op": "protect_target", "scope": "album", "target": "missing", "expect": { "code": "unknown_target" } },
+    { "name": "ukjent person", "op": "protect_target", "scope": "person", "target": "missing", "expect": { "code": "unknown_target" } },
+    { "name": "ukjent kort", "op": "decide_missing", "decision": "trash", "expect": { "code": "unknown_card" } },
+    { "name": "ukjent serie", "op": "compare_missing_series", "expect": { "code": "unknown_series" } },
+    { "name": "tom regel", "op": "save_rule", "rule_name": "x", "conditions": [], "expect": { "code": "empty_rule" } },
+    { "name": "tomt regelnavn", "op": "save_rule", "rule_name": "  ", "conditions": [{ "kind": "is_screenshot" }], "expect": { "code": "empty_name" } },
+    { "name": "for langt regelnavn", "op": "save_rule", "name_len": 81, "conditions": [{ "kind": "is_screenshot" }], "expect": { "code": "name_too_long" } },
+    { "name": "regelnavn på grensen er greit", "op": "save_rule", "name_len": 80, "conditions": [{ "kind": "is_screenshot" }], "expect": "ok" },
+    { "name": "tomt mime-vilkår", "op": "save_rule", "rule_name": "x", "conditions": [{ "kind": "mime", "value": "  " }], "expect": { "code": "invalid_condition" } },
+    { "name": "tomt mappevilkår", "op": "save_rule", "rule_name": "x", "conditions": [{ "kind": "in_folder", "value": "" }], "expect": { "code": "invalid_condition" } },
+    { "name": "alder 0 dager godtas av kjernen (anbefaling: avvis, se V1-PLAN)", "op": "save_rule", "rule_name": "x", "conditions": [{ "kind": "older_than_days", "value": 0 }], "expect": "ok" },
+    { "name": "forhåndsvis tom regel gir ok (ingen treff, aldri alt)", "op": "preview_rule", "conditions": [], "expect": "ok", "expect_hits": 0 },
+    { "name": "forhåndsvis tomt mime-vilkår gir ok uten treff", "op": "preview_rule", "conditions": [{ "kind": "mime", "value": "" }], "expect": "ok", "expect_hits": 0 },
+    { "name": "veksle ukjent regel", "op": "toggle_missing_rule", "expect": { "code": "rule_not_found" } },
+    { "name": "slett ukjent regel", "op": "delete_missing_rule", "expect": { "code": "rule_not_found" } },
+    { "name": "gjenopprett ukjent regel", "op": "restore_missing_rule", "expect": { "code": "rule_not_found" } },
+    { "name": "navngi ukjent person", "op": "name_missing_person", "expect": { "code": "unknown_person" } }
+  ]
+}

@@ -33,8 +33,8 @@ mod tuning;
 pub use analyzers::{run_analyzers, AnalyzerReport, EYE_ALGO, FACE_ALGO};
 pub(crate) use groups::member;
 pub use groups::{
-    compute, compute_tuned, compute_with, compute_with_rules, refresh_groups, series_specs,
-    GroupEngine, Grouping, LOW_INFO_BIT,
+    compute, compute_tuned, compute_with, compute_with_rules, refresh_groups,
+    refresh_groups_nonblocking, series_specs, GroupEngine, Grouping, LOW_INFO_BIT,
 };
 pub use keeper::{is_protected, pick_group, pick_keeper, Pick, RuleCtx};
 pub use progress::{Phase, Progress, Snapshot, DEFAULT_INTERVAL};
