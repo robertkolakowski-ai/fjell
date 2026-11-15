@@ -8,7 +8,7 @@
   import { useBridge } from "../context";
   import { Banner, Button, Card, LiveRegion } from "../lib";
   import { fmt, tr, type MessageKey } from "../lib/i18n";
-  import { BackupSession, initialBackup, type BackupState } from "./backupFlow";
+  import { BackupSession, canUndo, initialBackup, type BackupState } from "./backupFlow";
   import { robustErrorKey } from "./robustErrors";
   import "./sheet.css";
 
@@ -46,6 +46,8 @@
 <Card heading={$tr("backup.title")}>
   <div class="body">
     <p class="muted">{$tr("backup.description")}</p>
+    <p class="muted">{$tr("backup.privacy")}</p>
+    <p class="muted">{$tr("backup.newpc")}</p>
 
     {#if view.phase === "loading"}
       <p role="status">{$tr("common.loading")}</p>
@@ -77,8 +79,8 @@
 
       {#if view.restored}
         <Banner tone="ok" role="status">
-          <p>{$tr("backup.restored")}</p>
-          {#snippet actions()}<Button disabled={view.busy} onclick={() => void session.undoRestore()}>{$tr("common.undo")}</Button>{/snippet}
+          <p>{$tr("backup.restored")}{#if !canUndo(view.restored)} {$tr("backup.restored.noundo")}{/if}</p>
+          {#snippet actions()}{#if canUndo(view.restored)}<Button disabled={view.busy} onclick={() => void session.undoRestore()}>{$tr("common.undo")}</Button>{/if}{/snippet}
         </Banner>
       {/if}
       {#if view.error}

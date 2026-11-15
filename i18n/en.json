@@ -703,5 +703,8 @@
   "error.indexing_invalid_settings": {"t": "The settings are not valid.", "ctx": "Feilkode indexing_invalid_settings"},
   "error.diag_failed": {"t": "Could not create the report.", "ctx": "Feilkode diag_failed"},
   "error.not_implemented": {"t": "This is not ready yet.", "ctx": "Feilkode not_implemented"},
-  "backup.restore.for": {"t": "Restore backup: {kind}, {date}", "ctx": "Tilgjengelig navn på Gjenopprett-knappen i listen, slik at knappene kan skilles. {kind} = type, {date} = dato"}
+  "backup.restore.for": {"t": "Restore backup: {kind}, {date}", "ctx": "Tilgjengelig navn på Gjenopprett-knappen i listen, slik at knappene kan skilles. {kind} = type, {date} = dato"},
+  "backup.privacy": {"t": "The backup contains only Fjell's index, never your pictures. The index can contain folder paths and people's names. Backups stay on this PC and never leave it.", "ctx": "Privacy note under the backup section"},
+  "backup.newpc": {"t": "If you move to a new PC, the backup remembers folders by their current path. If the folders exist at the same path, everything works as before. Otherwise pick the folders again and Fjell scans them again.", "ctx": "Note about moving a backup to a new PC"},
+  "backup.restored.noundo": {"t": "The previous index could not be opened. It was set aside in the app's data folder and not deleted.", "ctx": "Shown after a restore in safe mode when there is no copy to undo to"}
 }

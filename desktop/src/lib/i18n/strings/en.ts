@@ -707,4 +707,7 @@ export const en: Readonly<Record<MessageKey, string>> = {
   "error.diag_failed": "Could not create the report.",
   "error.not_implemented": "This is not ready yet.",
   "backup.restore.for": "Restore backup: {kind}, {date}",
+  "backup.privacy": "The backup contains only Fjell's index, never your pictures. The index can contain folder paths and people's names. Backups stay on this PC and never leave it.",
+  "backup.newpc": "If you move to a new PC, the backup remembers folders by their current path. If the folders exist at the same path, everything works as before. Otherwise pick the folders again and Fjell scans them again.",
+  "backup.restored.noundo": "The previous index could not be opened. It was set aside in the app's data folder and not deleted.",
 };

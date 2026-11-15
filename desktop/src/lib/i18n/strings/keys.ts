@@ -706,6 +706,9 @@ export interface MessageParams {
   "error.diag_failed": Record<never, never>;
   "error.not_implemented": Record<never, never>;
   "backup.restore.for": { date: string | number; kind: string | number };
+  "backup.privacy": Record<never, never>;
+  "backup.newpc": Record<never, never>;
+  "backup.restored.noundo": Record<never, never>;
 }
 
 export type MessageKey = keyof MessageParams;
