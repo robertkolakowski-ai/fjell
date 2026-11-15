@@ -1,6 +1,8 @@
 # Ekte-app-e2e på Windows: Playwright kobler til WebView2 over CDP og kjører mot den bygde Tauri-appen
 # (ekte IPC, ekte Rust-kjerne, ekte miniatyrer, ekte Windows Papirkurv). Trege tester: kun manuelt og nattlig, ikke på hver PR.
 # Se docs/mvp/E2E-WINDOWS.md. Ingen hemmeligheter kreves (oppdateringsartefakter slås av, som i desktop.yml).
+# V1-tillegg (jobbene v1-mock og v1-shell, docs/v1/WINDOWS-V1.md): V1-spesene (v1-win-*) kjører mot MockBridge i Chromium på windows-latest
+# (forced-colors, 200 % skalering, tastatur, axe), og skallets V1-kontraktstest kjører mot ekte kjerne. De er raske og uavhengige av `real`.
 name: e2e-windows
 on:
   workflow_dispatch:
@@ -58,3 +60,43 @@ jobs:
           name: real-e2e-resultater
           path: desktop/e2e-real/.results
           if-no-files-found: ignore
+  # V1: Playwright-spesene v1-win-* mot MockBridge i Chromium på Windows. Emulerer høykontrast, skalering og tastatur; erstatter
+  # ikke Narrator, NVDA eller ekte Windows-kontrasttemaer (manuell protokoll i docs/v1/WINDOWS-V1.md).
+  v1-mock:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Installer frontend-avhengigheter
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+      - name: Installer Chromium for Playwright
+        working-directory: desktop
+        run: npx playwright install chromium
+      - name: V1-spesene (axe i tre temaer, høykontrast, 200 % skalering, tastatur)
+        working-directory: desktop
+        run: npx playwright test e2e/v1-win-axe.spec.ts e2e/v1-win-hoykontrast.spec.ts e2e/v1-win-skalering.spec.ts e2e/v1-win-tastatur.spec.ts --trace off
+      - name: Last opp Playwright-resultater
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1-mock-resultater
+          path: desktop/e2e/.results
+          if-no-files-found: ignore
+  # V1: skallets kommandolag mot ekte Fjell-kjerne (JSON-koder, feilkoder, capabilities, CSP, kommandoflate). Bare Rust, ingen WebView2.
+  v1-shell:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - name: V1-kontraktstest i skallet
+        working-directory: desktop/src-tauri
+        run: cargo test -p fjell-shell --locked --test v1_kommandolag
