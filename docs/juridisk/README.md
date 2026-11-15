@@ -1,5 +1,9 @@
 # Juridisk
 
-**Status: under arbeid.** Mappen er reservert for juridiske tekster som hører til robusthets- og personvernarbeidet (f.eks. vilkår for diagnoserapporter og behandling av lokale data). Ingenting her er skrevet eller gjennomgått av jurist ennå, og ingenting her er rettslig rådgivning.
+**Status: utkast for juridisk gjennomgang.** Ingenting her er gjennomgått av jurist, og ingenting er rettslig rådgivning.
 
-Se i mellomtiden [../PERSONVERN.md](../PERSONVERN.md) (personvernerklæring) og [../v1/DIAGNOSE.md](../v1/DIAGNOSE.md).
+- [BEHANDLINGSOVERSIKT.md](BEHANDLINGSOVERSIKT.md): art. 30-stil oversikt per datatype, kontrollert mot koden.
+- [GDPR-ANSIKTSINDEKS.md](GDPR-ANSIKTSINDEKS.md): vurdering av ansiktsindeksen, spørsmål til jurist/DPO og beslutninger for eier.
+- [LISENSER.md](LISENSER.md): lisenskontroller, sjekkliste for avhengigheter og prosess for å legge inn en modell.
+
+Se også [../PERSONVERN.md](../PERSONVERN.md) (brukervendt) og [../v1/DIAGNOSE.md](../v1/DIAGNOSE.md).
