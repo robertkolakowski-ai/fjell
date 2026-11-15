@@ -737,3 +737,28 @@ fn backup_files_contain_only_the_index_never_image_bytes() {
         "originalen er urørt"
     );
 }
+
+#[test]
+fn concurrent_backups_get_distinct_ids_and_both_verify() {
+    for round in 0..5 {
+        let d = Dir::new("conc");
+        let _s = open_with(&d, 2000);
+        let db = d.db();
+        let handles: Vec<_> = (0..2)
+            .map(|i| {
+                let db = db.clone();
+                std::thread::spawn(move || {
+                    Store::backup_create_at(&db, BackupKind::Manual, "manual", 10 + i, 5)
+                })
+            })
+            .collect();
+        let ids: Vec<_> = handles
+            .into_iter()
+            .map(|h| h.join().unwrap().unwrap().meta.id)
+            .collect();
+        assert_ne!(ids[0], ids[1], "runde {round}: samme id");
+        for id in ids {
+            Store::backup_verify_at(&db, id).unwrap_or_else(|e| panic!("runde {round}: {e:?}"));
+        }
+    }
+}

@@ -22,6 +22,7 @@ use rusqlite::{Connection, ErrorCode, OpenFlags};
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::Duration;
 
 /// Format-versjon for `.meta`.
@@ -546,6 +547,10 @@ impl Store {
         if !db.exists() {
             return Err(BackupError::Failed(BackupCause::NoFile));
         }
+        // Én kopi om gangen: opprydding av `.tmp` og valg av id må ikke skje midt i en annen kopi (ellers mister den
+        // sin `.tmp` og begge velger samme id). Låsen er per prosess; appen kjører som én instans.
+        static CREATE_LOCK: Mutex<()> = Mutex::new(());
+        let _guard = CREATE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         let dir = backup_dir(db);
         fs::create_dir_all(&dir).map_err(io_err)?;
         // Rydd rester av avbrutte kopier (aldri ferdige: de har ikke `.meta`).

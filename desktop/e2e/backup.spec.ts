@@ -8,7 +8,8 @@ test("backupseksjonen forklarer hva kopien inneholder og hva som skjer ved flytt
   await open(page, "#/settings");
   const group = page.getByRole("group", { name: "Sikkerhetskopi av indeksen" });
   await expect(group).toContainText("aldri bildene dine");
-  await expect(group).toContainText("mappestier og personnavn");
+  await expect(group).toContainText("mappestier, personnavn og ansikts-embeddings");
+  await expect(group).toContainText("ikke kryptert");
   await expect(group).toContainText("forlater den aldri");
   await expect(group).toContainText("ny PC");
 });

@@ -134,6 +134,7 @@ Betatestere skal prøve dette (detaljer og forventet resultat: `v1/WINDOWS-V1.md
 
 - **Backup og gjenoppretting:** ta kopi, gjenopprett, angre. Les notatet om at kopier kan inneholde stier og navn og ikke er kryptert.
 - **Trygg modus:** bare med en bevisst ødelagt indeks på testmaskin. Gjenopprett en kopi, og prøv «Bygg på nytt».
+- **Trygg modus ved `degraded`:** i dag sperrer appen for alt annet enn `ok`, også når bare `foreign_key_check` avviker og indeksen er lesbar. Uten brukbar kopi er «Bygg på nytt» eneste vei, og den nullstiller «Nylig slettet» og angrehistorikk. Er dette riktig, eller skal `degraded` gi banner i stedet for sperring? Ikke avklart av eier (`v1/ROBUSTHET-KONTRAKT.md`, åpent spørsmål 3); vurder under beta.
 - **Diagnose:** eksporter, åpne filen og kontroller at den ikke har stier, filnavn eller navn. Sjekk at ingenting sendes.
 - **Indeksering på bærbar:** pause på batteri, «Fortsett», lav prioritet, antall tråder. Er appen responsiv under skanning?
 - **Narrator/NVDA:** dialoger og banner i disse flatene (manuell test kreves).
