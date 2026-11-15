@@ -136,10 +136,15 @@ fn redact_report_keeps_pairs_and_drops_everything_else() {
 
 #[test]
 fn folder_names_never_contain_separators() {
+    // På Windows er siste sti-ledd mappenavnet; på Linux er hele strengen ett
+    // filnavn og skilletegnene fjernes uansett.
+    #[cfg(windows)]
+    let forventet = "Ferie på Ørland";
+    #[cfg(not(windows))]
+    let forventet = "CUsersÅseBilderFerie på Ørland";
     assert_eq!(
         folder_label(Path::new("C:\\Users\\Åse\\Bilder\\Ferie på Ørland")),
-        // På Linux er hele strengen ett filnavn: skilletegnene fjernes uansett.
-        "C:UsersÅseBilderFerie på Ørland".replace(':', "").as_str()
+        forventet
     );
     let l = folder_label(Path::new("/a/b/Mappe=å\n:x"));
     assert!(!l.contains(['/', '\\', ':', '=', '\n']));
