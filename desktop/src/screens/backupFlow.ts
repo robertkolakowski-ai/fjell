@@ -20,6 +20,12 @@ export interface BackupState {
   error: string | null;
 }
 
+/** Kan siste gjenoppretting angres? Gjenoppretting uten åpen indeks (trygg modus) har ingen kopi av «før» (`safety` = 0):
+ * den ødelagte indeksen er lagt til side i datamappen, ikke slettet, men kan ikke settes tilbake fra appen. */
+export function canUndo(r: RestoreReport | null): boolean {
+  return r !== null && r.safety > 0;
+}
+
 export const initialBackup: BackupState = {
   phase: "loading", backups: [], integrity: "ok", busy: false, confirmId: null, ack: false, restored: null, created: false, error: null,
 };
@@ -97,7 +103,7 @@ export class BackupSession {
   /** Angrer siste gjenoppretting (setter `safety` tilbake). */
   async undoRestore(): Promise<void> {
     const r = this.state.restored;
-    if (!r || this.state.busy) return;
+    if (!r || !canUndo(r) || this.state.busy) return;
     this.set({ busy: true, error: null });
     try {
       await this.b.undoRestoreBackup(r.safety);

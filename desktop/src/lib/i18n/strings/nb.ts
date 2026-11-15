@@ -699,4 +699,7 @@ export const nb: Readonly<Record<MessageKey, string>> = {
   "error.diag_failed": "Kunne ikke lage rapporten.",
   "error.not_implemented": "Dette er ikke klart ennå.",
   "backup.restore.for": "Gjenopprett kopien: {kind}, {date}",
+  "backup.privacy": "Kopien inneholder bare Fjells indeks, aldri bildene dine. Indeksen kan inneholde mappestier og personnavn. Kopiene ligger bare på denne PC-en og forlater den aldri.",
+  "backup.newpc": "Flytter du til en ny PC: kopien husker mappene med stien de har nå. Finnes mappene på samme sti, fungerer alt som før. Ellers må du velge mappene på nytt, og Fjell skanner dem igjen.",
+  "backup.restored.noundo": "Den forrige indeksen kunne ikke åpnes. Den er lagt til side i appens datamappe og ikke slettet.",
 };

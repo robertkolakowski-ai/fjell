@@ -695,5 +695,8 @@
   "error.indexing_invalid_settings": {"t": "Innstillingene er ugyldige.", "ctx": "Feilkode indexing_invalid_settings"},
   "error.diag_failed": {"t": "Kunne ikke lage rapporten.", "ctx": "Feilkode diag_failed"},
   "error.not_implemented": {"t": "Dette er ikke klart ennå.", "ctx": "Feilkode not_implemented"},
-  "backup.restore.for": {"t": "Gjenopprett kopien: {kind}, {date}", "ctx": "Tilgjengelig navn på Gjenopprett-knappen i listen, slik at knappene kan skilles. {kind} = type, {date} = dato"}
+  "backup.restore.for": {"t": "Gjenopprett kopien: {kind}, {date}", "ctx": "Tilgjengelig navn på Gjenopprett-knappen i listen, slik at knappene kan skilles. {kind} = type, {date} = dato"},
+  "backup.privacy": {"t": "Kopien inneholder bare Fjells indeks, aldri bildene dine. Indeksen kan inneholde mappestier og personnavn. Kopiene ligger bare på denne PC-en og forlater den aldri.", "ctx": "Personvernnotat under backupseksjonen"},
+  "backup.newpc": {"t": "Flytter du til en ny PC: kopien husker mappene med stien de har nå. Finnes mappene på samme sti, fungerer alt som før. Ellers må du velge mappene på nytt, og Fjell skanner dem igjen.", "ctx": "Merknad om flytting av kopi til ny PC"},
+  "backup.restored.noundo": {"t": "Den forrige indeksen kunne ikke åpnes. Den er lagt til side i appens datamappe og ikke slettet.", "ctx": "Vises etter gjenoppretting i trygg modus når det ikke finnes noen kopi å angre til"}
 }

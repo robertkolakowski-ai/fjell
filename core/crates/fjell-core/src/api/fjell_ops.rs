@@ -420,4 +420,31 @@ impl FjellApi for Fjell {
     fn thresholds(&self) -> Thresholds {
         self.v1_thresholds()
     }
+
+    // Robusthet: sikkerhetskopi og integritet (grenen «backup», se `fjell_backup`).
+    fn backup_create(&self) -> Result<super::BackupEntry, ApiError> {
+        self.backup_make()
+    }
+
+    fn backup_list(&self) -> Result<Vec<super::BackupEntry>, ApiError> {
+        self.backup_entries()
+    }
+
+    fn backup_restore(
+        &self,
+        ack: crate::model::RestoreAck,
+    ) -> Result<super::RestoreReport, ApiError> {
+        self.backup_restore_ack(ack)
+    }
+
+    fn backup_restore_undo(
+        &self,
+        safety: crate::model::BackupId,
+    ) -> Result<super::RestoreReport, ApiError> {
+        self.backup_undo(safety)
+    }
+
+    fn integrity_check(&self) -> Result<crate::model::IntegrityStatus, ApiError> {
+        self.integrity_now()
+    }
 }

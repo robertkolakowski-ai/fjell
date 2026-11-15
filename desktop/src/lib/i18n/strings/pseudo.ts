@@ -699,4 +699,7 @@ export const pseudo: Readonly<Record<MessageKey, string>> = {
   "error.diag_failed": "[Künnæ ikkæ lågæ råppørtæn.········]",
   "error.not_implemented": "[Dættæ ær ikkæ klårt ænnå.········]",
   "backup.restore.for": "[Gjænøpprætt køpiæn: {kind}, {date}·······]",
+  "backup.privacy": "[Køpiæn innæhøldær båræ Fjælls indæks, åldri bildænæ dinæ. Indæksæn kån innæhøldæ måppæstiær øg pærsønnåvn. Køpiænæ liggær båræ på dænnæ PC-æn øg førlåtær dæn åldri.··················································]",
+  "backup.newpc": "[Flyttær dü til æn ny PC: køpiæn hüskær måppænæ mæd stiæn dæ hår nå. Finnæs måppænæ på såmmæ sti, füngærær ålt søm før. Ællærs må dü vælgæ måppænæ på nytt, øg Fjæll skånnær dæm igjæn.·······················································]",
+  "backup.restored.noundo": "[Dæn førrigæ indæksæn künnæ ikkæ åpnæs. Dæn ær lågt til sidæ i åppæns dåtåmåppæ øg ikkæ slættæt.·····························]",
 };
