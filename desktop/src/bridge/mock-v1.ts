@@ -60,17 +60,27 @@ const CONDITION_KINDS: readonly string[] = [
   "is_screenshot", "is_blurry", "is_exact_duplicate", "older_than_days", "larger_than_bytes", "smaller_than_bytes", "in_album", "in_folder", "mime",
 ];
 
-/** Som `suggest_rules::validate`: tom regel gir `empty_rule`; vilkår uten innhold gir `invalid_condition`. */
+/**
+ * Som `suggest_rules::validate` (kjernen er sannheten, se `conformance.test.ts`): tom regel gir `empty_rule`; bare vilkår med
+ * tom tekst (mappe, mime) gir `invalid_condition`. Tall godtas som kjernen tar dem (heltall fra 0; `older_than_days` 0 er
+ * gyldig og treffer alt: anbefaling i V1-PLAN er at kjernen avviser 0). Ukjent vilkårstype kan ikke skje mot kjernen (typene
+ * er lukkede) og gir `invalid_condition` her.
+ */
 export function validateConditions(conditions: readonly Condition[]): void {
   if (conditions.length === 0) throw err("empty_rule");
   for (const c of conditions) {
     if (!CONDITION_KINDS.includes(c.kind)) throw err("invalid_condition", c.kind);
     if ("value" in c) {
       const v = c.value;
-      const bad = typeof v === "string" ? v.trim() === "" : !Number.isFinite(v) || v <= 0;
+      const bad = typeof v === "string" ? v.trim() === "" : !Number.isInteger(v) || v < 0;
       if (bad) throw err("invalid_condition", c.kind);
     }
   }
+}
+
+/** Forhåndsvisning validerer ikke (som kjernen): en tom regel eller et vilkår med tom tekst treffer ingenting, aldri alt. */
+export function previewHasNoMatches(conditions: readonly Condition[]): boolean {
+  return conditions.length === 0 || conditions.some((c) => "value" in c && typeof c.value === "string" && c.value.trim() === "");
 }
 
 /** Første fritekst i indeksen: brukerens eget regelnavn (maks 80 tegn, ikke tomt). */
@@ -110,7 +120,8 @@ export function assetPath(library: string, asset: number): string {
   return `${base}${sep}${FOLDERS[(Math.abs(asset) - 1 + FOLDERS.length * 1000) % FOLDERS.length]}${sep}IMG_${String(asset).padStart(4, "0")}.jpg`;
 }
 
-const normPath = (p: string): string => p.trim().replace(/\\/g, "/").toLowerCase();
+// Som kjernen (`store/protection.rs`): sammenlignes tegn for tegn (store/små bokstaver og skråstrek-retning teller), uten omskriving.
+const normPath = (p: string): string => p.trim();
 
 /** Kanonisk beskyttelse: mappesti trimmes og mister avsluttende skråstrek; tom mappesti gir `empty_folder` (ville truffet alt). */
 export function normalizeScope(s: Scope): Scope {
@@ -126,9 +137,17 @@ export function normalizeScope(s: Scope): Scope {
 
 export const scopeKey = (s: Scope): string => `${s.scope}:${s.scope === "folder" ? normPath(s.target) : s.target}`;
 
-/** Folder-prefiks er rent prefiks på stien (V1-PLAN åpent spørsmål 18). */
+/**
+ * Mappebeskyttelse som i kjernen (`EFFECTIVE_SQL`): hele stikomponenter, ikke rent prefiks («Fer» beskytter ikke «Ferie»),
+ * og tegn for tegn (case-sensitivt; V1-PLAN åpent spørsmål 17 og 18). Bildet selv matcher også når stien er identisk.
+ */
 export function folderMatches(library: string, asset: number, prefix: string): boolean {
-  return normPath(assetPath(library, asset)).startsWith(normPath(prefix));
+  const path = assetPath(library, asset);
+  const p = normPath(prefix);
+  if (p === "") return false;
+  if (path === p) return true;
+  if (!path.startsWith(p)) return false;
+  return /[\\/]$/.test(p) || /[\\/]/.test(path.charAt(p.length));
 }
 
 // ---- Terskler (V1-PLAN del 7: sensitivitet flytter startverdiene) ----

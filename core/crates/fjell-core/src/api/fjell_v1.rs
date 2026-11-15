@@ -21,8 +21,8 @@ use super::{
 };
 use crate::dashboard::{self, Dashboard};
 use crate::model::{
-    AssetId, DashboardData, EyeReport, Hash64, Kind, PersonId, ProtectScope, ReasonCode,
-    ReasonDetail, RuleId, RuleSpec, SeriesId, SuggestionKind,
+    AssetId, DashboardData, EyeReport, Hash64, Kind, PersonId, ProtectFlags, ProtectScope,
+    ReasonCode, ReasonDetail, RuleId, RuleSpec, SeriesId, SuggestionKind,
 };
 use crate::people;
 use crate::pipeline::{tuning, Tuning};
@@ -46,6 +46,35 @@ pub const V1_ERROR_CODES: [&str; 10] = [
     "not_merged",
     "unknown_series",
 ];
+
+/// Bit i `Card.protect_flags` og `SeriesMemberView.protect_flags` for bilder brukeren selv har beskyttet
+/// (`protection`-tabellen: bilde, mappe, album eller person). Plattformflaggene er 1, 2, 4 og 8 (`ProtectFlags`);
+/// 16 er V1-flagget. Kjernen er sannheten: `MockBridge` bruker samme verdi (`SCOPE_FLAG` i `mock-v1.ts`), og
+/// konformitetstesten (`conformance_v1.json`) holder dem like. Flagget er bare visning (skjermene forhåndsvelger
+/// aldri beskyttede bilder); porten som faktisk stopper sletting er fortsatt `AckRequired` i `decide`.
+pub(super) const SCOPE_FLAG: u8 = 16;
+
+/// Bildene blant `ids` som brukeren har beskyttet (ett kall mot `protection`, ingen kall uten beskyttelser).
+pub(super) fn scoped_assets(
+    store: &Store,
+    ids: &[AssetId],
+) -> Result<std::collections::BTreeSet<AssetId>, ApiError> {
+    Ok(store
+        .protected_by_scope(ids)
+        .map_err(internal)?
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect())
+}
+
+/// Plattformflaggene pluss `SCOPE_FLAG` når bildet er beskyttet av brukeren.
+pub(super) fn with_scope_flag(flags: ProtectFlags, scoped: bool) -> ProtectFlags {
+    ProtectFlags(if scoped {
+        flags.0 | SCOPE_FLAG
+    } else {
+        flags.0
+    })
+}
 
 /// Keeper-reglene (docs/mvp/REGLER.md). Beskyttede mapper (`ProtectFolder`) sperrer forslagsreglene.
 fn keeper_rules_of(store: &Store) -> Result<Vec<KeeperRule>, ApiError> {
@@ -339,6 +368,7 @@ impl Fjell {
             return Err(code("unknown_series"));
         };
         let ids: Vec<AssetId> = rows.iter().map(|m| m.asset).collect();
+        let scoped = scoped_assets(store, &ids)?;
         let eyes = store.eye_results(&ids).map_err(internal)?;
         let items: Vec<SeriesItem> = store
             .index_rows_for(&ids)
@@ -368,7 +398,7 @@ impl Fjell {
                         reason: m.reason,
                         detail: m.detail,
                         bytes: row.bytes,
-                        protect_flags: row.protect,
+                        protect_flags: with_scope_flag(row.protect, scoped.contains(&m.id)),
                     })
                 })
                 .collect(),
@@ -394,7 +424,7 @@ impl Fjell {
                         }
                     },
                     bytes: m.bytes,
-                    protect_flags: m.protect,
+                    protect_flags: with_scope_flag(m.protect, scoped.contains(&m.asset)),
                 })
                 .collect(),
         };

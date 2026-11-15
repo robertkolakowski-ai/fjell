@@ -12,7 +12,7 @@
 //! - Samme bilde vises aldri i flere kort (prioritet exact_dup > visual_dup > screenshot > blurry).
 
 use super::fjell::{act_err, internal, Fjell};
-use super::fjell_v1::RuleOp;
+use super::fjell_v1::{scoped_assets, with_scope_flag, RuleOp};
 use super::{
     ApiError, Card, CardCursor, CardPage, Decision, FjellApi, HomeSummary, KindSummary, PersonView,
     ProtectionEntry, PurgeIntent, PurgeReport, RuleDraft, RulePreview, RuleView, ScanConfig,
@@ -199,6 +199,8 @@ impl FjellApi for Fjell {
             .then(|| rows.last().map(|r| encode(r.confidence, r.id)))
             .flatten();
         let a = self.actions();
+        let asset_ids: Vec<AssetId> = rows.iter().map(|r| r.asset).collect();
+        let scoped = scoped_assets(a.store(), &asset_ids)?;
         let cards = rows
             .into_iter()
             .map(|r| {
@@ -213,7 +215,7 @@ impl FjellApi for Fjell {
                     detail: self.v1_card_detail(a.store(), kind, reason, &r),
                     confidence: r.confidence,
                     bytes: r.bytes,
-                    protect_flags: r.protect,
+                    protect_flags: with_scope_flag(r.protect, scoped.contains(&r.asset)),
                 }
             })
             .collect();

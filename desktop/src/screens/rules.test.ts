@@ -210,3 +210,27 @@ describe("beskyttelser (ProtectionsSession)", () => {
     expect(describeTarget({ scope: "album", target: "2" }, t)).toBe("nr. 2");
   });
 });
+
+describe("skjermen fanger det kjernen slipper gjennom", () => {
+  it("tomt tallfelt og 0 gir invalid_condition lokalt, og bridgen kalles ikke", async () => {
+    const calls: string[] = [];
+    const b = new MockBridge();
+    const spy = new Proxy(b, {
+      get: (t, k, r) => (k === "previewRule" ? (c: Condition[]) => (calls.push("preview"), t.previewRule(c)) : Reflect.get(t, k, r)),
+    });
+    for (const kind of ["older_than_days", "larger_than_bytes", "in_album", "mime", "in_folder"] as const) {
+      const e = await runPreview(spy, { ...editorFor(null), rows: [newRow(kind)] });
+      expect(e.error?.code, kind).toBe("invalid_condition");
+      expect(canSave(e), kind).toBe(false);
+    }
+    const zero = { ...newRow("older_than_days"), text: "0" };
+    expect((await runPreview(spy, { ...editorFor(null), rows: [zero] })).error?.code).toBe("invalid_condition");
+    const frac = { ...newRow("older_than_days"), text: "1,5" };
+    expect((await runPreview(spy, { ...editorFor(null), rows: [frac] })).error?.code).toBe("invalid_condition");
+    expect((await runPreview(spy, { ...editorFor(null), rows: [] })).error?.code).toBe("empty_rule");
+    expect(calls).toEqual([]);
+    const ok = await runPreview(spy, { ...editorFor(null), rows: [{ ...newRow("older_than_days"), text: "90" }] });
+    expect(ok.error).toBeNull();
+    expect(calls).toEqual(["preview"]);
+  });
+});
