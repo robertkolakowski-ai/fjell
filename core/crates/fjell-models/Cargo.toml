@@ -1,0 +1,14 @@
+[package]
+name = "fjell-models"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+# Modelladapter (V1): implementerer `EyeAnalyzer`/`FaceAnalyzer` fra `fjell_core::model`.
+# Avhenger bare av `fjell-core`; `fjell-core` kjenner aldri denne krate-en (tools/check-layers).
+# Ingen modellfiler og ingen ML-runtime ennå (docs/v1/MODELLER.md er under arbeid).
+[dependencies]
+fjell-core = { path = "../fjell-core" }

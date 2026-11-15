@@ -22,6 +22,11 @@ Fjell gjør tusenvis av ukurerte bilder om til et bibliotek du faktisk vil åpne
 | [docs/mvp/ARKITEKTUR.md](docs/mvp/ARKITEKTUR.md) | Beslutninger, modulgraf, datamodell, teststrategi, CI |
 | [docs/mvp/MVP-PLAN.md](docs/mvp/MVP-PLAN.md) | Milepæler, faktisk status per milepæl, åpne spørsmål |
 | [docs/v1/V1-PLAN.md](docs/v1/V1-PLAN.md) | V1: serier, beskyttelse, personer, forslagsregler, dashboard |
+| [docs/v1/MODELLER.md](docs/v1/MODELLER.md) | V1: modeller (plassholder, under arbeid) |
+| [docs/v1/KALIBRERING-V1.md](docs/v1/KALIBRERING-V1.md) | V1: kalibrering (plassholder, under arbeid) |
+| [docs/v1/FFI.md](docs/v1/FFI.md) | V1: FFI (plassholder, under arbeid) |
+| [docs/v1/WINDOWS-V1.md](docs/v1/WINDOWS-V1.md) | V1: Windows-verifisering (plassholder, under arbeid) |
+| [docs/v2/README.md](docs/v2/README.md) | V2 (plassholder, under arbeid) |
 | [docs/BETA.md](docs/BETA.md) | Manuell testing: Narrator/NVDA, skalering, høykontrast, installasjon, brukbarhetstest |
 | [docs/RELEASE.md](docs/RELEASE.md) | NSIS mot MSIX, WebView2, kodesignering, versjonering |
 | [docs/RELEASE-PROSESS.md](docs/RELEASE-PROSESS.md) | Slik lages en utgivelse |
@@ -36,7 +41,7 @@ Fjell gjør tusenvis av ukurerte bilder om til et bibliotek du faktisk vil åpne
 | [THIRD_PARTY.md](THIRD_PARTY.md) | Lisenser for tredjepartskomponenter (generert) |
 
 ## Struktur
-- `core/` – Rust-kjernen (delt logikk): `fjell-core` (indeksering, hashing, gruppering, forslag, papirkurv og angre, pluss V1: serier, beskyttelse, personer, forslagsregler, dashboard), `fjell-fs` (filsystem- og Windows-adapter, karantene), `fjell-cli` (testsele og ytelsesmåler)
+- `core/` – Rust-kjernen (delt logikk): `fjell-core` (indeksering, hashing, gruppering, forslag, papirkurv og angre, pluss V1: serier, beskyttelse, personer, forslagsregler, dashboard), `fjell-fs` (filsystem- og Windows-adapter, karantene), `fjell-models` (V1-modelladapter, foreløpig tom), `fjell-cli` (testsele og ytelsesmåler)
 - `desktop/` – Windows-PC-app (Tauri 2, Svelte 5 + TypeScript) for filbaserte biblioteker, eksterne disker og nettverksstasjoner
 - `i18n/` – tekstkilder (`nb.json`, `en.json`)
 - `tools/` – generatorer og kontroller (i18n, lagregler, lisenser, versjon)

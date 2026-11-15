@@ -1,0 +1,4 @@
+[package]
+name = "fjell-core"
+
+[dependencies]
