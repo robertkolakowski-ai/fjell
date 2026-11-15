@@ -17,9 +17,12 @@ use crate::screenshot::signals;
 use crate::store::{FingerprintRow, WorkItem};
 use rayon::prelude::*;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::mpsc::{sync_channel, Receiver};
+use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError};
+use std::time::Duration;
 
 const WRITE_BATCH: usize = 100;
+/// Stille så lenge før halvfulle batcher skrives.
+const IDLE_FLUSH: Duration = Duration::from_millis(400);
 /// Første tidlige visning kommer etter så mange bilder; deretter vokser avstanden med en fjerdedel av det som er
 /// analysert (geometrisk), så den samlede gruppeutregningen i full fase er lineær i antall bilder, ikke kvadratisk.
 const EARLY_VIEW_EVERY: usize = 2_000;
@@ -83,7 +86,19 @@ fn writer<H: StoreHandle>(
         fails.clear();
         Ok::<_, PipelineError>(())
     };
-    for msg in rx {
+    loop {
+        // Står analysen stille (pause, treg kilde), skrives det som er mottatt, så en pause aldri holder igjen
+        // ferdig arbeid i minnet (gjenopptak starter da uten dobbeltarbeid selv om appen lukkes).
+        let msg = match rx.recv_timeout(IDLE_FLUSH) {
+            Ok(m) => m,
+            Err(RecvTimeoutError::Timeout) => {
+                if !(rows.is_empty() && fails.is_empty()) {
+                    flush(&mut rows, &mut fails)?;
+                }
+                continue;
+            }
+            Err(RecvTimeoutError::Disconnected) => break,
+        };
         match msg {
             Msg::Done(r) => {
                 rows.push(r);
@@ -118,10 +133,7 @@ pub(super) fn run<H: StoreHandle>(
         return Ok(());
     }
     let threads = cx.threads();
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .map_err(|e| PipelineError::Pool(e.to_string()))?;
+    let pool = cx.pool()?;
     let (tx, rx) = sync_channel::<Msg>(2 * threads);
     std::thread::scope(|sc| {
         let w = sc.spawn(|| {

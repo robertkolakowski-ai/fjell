@@ -119,8 +119,10 @@ impl Core {
             .iter()
             .map(|r| (r.key, Core::root_cloud(r)))
             .collect();
+        let fjell = Arc::new(Fjell::new(store, source.clone(), clock));
+        crate::indexing::wire_default_platform(&fjell);
         let core = Core {
-            fjell: Arc::new(Fjell::new(store, source.clone(), clock)),
+            fjell,
             library,
             db: db.to_path_buf(),
             roots: set,
