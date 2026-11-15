@@ -581,9 +581,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 2 (49 komponenter)
+### Tekst 2 (50 komponenter)
 
-Gjelder: anyhow 1.0.104, constant_time_eq 0.4.2, constant_time_eq 0.6.1, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.11, fdeflate 0.3.7, image 0.25.10, itoa 1.0.19, libc 0.2.191, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, proc-macro2 1.0.107, quote 1.0.47, raw-window-handle 0.6.2, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, semver 1.0.28, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.154, serde_repr 0.1.21, syn 2.0.119, syn 3.0.10, sync_wrapper 1.0.2, tauri 2.12.5, tauri-codegen 2.7.4, tauri-macros 2.7.4, tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1, tauri-plugin-process 2.4.0, tauri-plugin-updater 2.14.1, tauri-runtime 2.12.2, tauri-runtime-wry 2.12.3, tauri-utils 2.10.2, thiserror 2.0.21, thiserror-impl 2.0.21, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, typed-path 0.13.0, typeid 1.0.3, unicode-ident 1.0.27
+Gjelder: @tauri-apps/api 2.12.4, anyhow 1.0.104, constant_time_eq 0.4.2, constant_time_eq 0.6.1, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.11, fdeflate 0.3.7, image 0.25.10, itoa 1.0.19, libc 0.2.191, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, proc-macro2 1.0.107, quote 1.0.47, raw-window-handle 0.6.2, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, semver 1.0.28, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.154, serde_repr 0.1.21, syn 2.0.119, syn 3.0.10, sync_wrapper 1.0.2, tauri 2.12.5, tauri-codegen 2.7.4, tauri-macros 2.7.4, tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1, tauri-plugin-process 2.4.0, tauri-plugin-updater 2.14.1, tauri-runtime 2.12.2, tauri-runtime-wry 2.12.3, tauri-utils 2.10.2, thiserror 2.0.21, thiserror-impl 2.0.21, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, typed-path 0.13.0, typeid 1.0.3, unicode-ident 1.0.27
 
 ```text
                               Apache License
@@ -847,9 +847,9 @@ Portions of ICU4X may have been adapted from ICU4C and/or ICU4J.
 ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation and others.
 ```
 
-### Tekst 5 (14 komponenter)
+### Tekst 5 (15 komponenter)
 
-Gjelder: windows 0.62.2, windows-collections 0.3.2, windows-core 0.62.2, windows-future 0.3.2, windows-implement 0.60.2, windows-interface 0.59.3, windows-link 0.2.1, windows-numerics 0.3.1, windows-registry 0.6.1, windows-result 0.4.1, windows-strings 0.5.1, windows-sys 0.61.2, windows-threading 0.2.1, windows-version 0.1.7
+Gjelder: @types/estree 1.0.10, windows 0.62.2, windows-collections 0.3.2, windows-core 0.62.2, windows-future 0.3.2, windows-implement 0.60.2, windows-interface 0.59.3, windows-link 0.2.1, windows-numerics 0.3.1, windows-registry 0.6.1, windows-result 0.4.1, windows-strings 0.5.1, windows-sys 0.61.2, windows-threading 0.2.1, windows-version 0.1.7
 
 ```text
     MIT License
@@ -1114,19 +1114,9 @@ OTHER DEALINGS IN THE SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 ```
 
-### Tekst 8 (10 komponenter)
+### Tekst 8 (11 komponenter)
 
-Gjelder: aho-corasick 1.1.5, byteorder 1.5.0, jiff 0.2.43, jiff-core 0.1.5, jiff-tzdb 0.1.9, jiff-tzdb-platform 0.1.3, memchr 2.8.3, same-file 1.0.6, walkdir 2.5.0, winapi-util 0.1.11
-
-```text
-This project is dual-licensed under the Unlicense and MIT licenses.
-
-You may use this code under the terms of either license.
-```
-
-### Tekst 9 (10 komponenter)
-
-Gjelder: tauri 2.12.5, tauri-codegen 2.7.4, tauri-macros 2.7.4, tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1, tauri-plugin-process 2.4.0, tauri-plugin-updater 2.14.1, tauri-runtime 2.12.2, tauri-runtime-wry 2.12.3, tauri-utils 2.10.2
+Gjelder: @tauri-apps/api 2.12.4, tauri 2.12.5, tauri-codegen 2.7.4, tauri-macros 2.7.4, tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1, tauri-plugin-process 2.4.0, tauri-plugin-updater 2.14.1, tauri-runtime 2.12.2, tauri-runtime-wry 2.12.3, tauri-utils 2.10.2
 
 ```text
 MIT License
@@ -1150,6 +1140,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### Tekst 9 (10 komponenter)
+
+Gjelder: aho-corasick 1.1.5, byteorder 1.5.0, jiff 0.2.43, jiff-core 0.1.5, jiff-tzdb 0.1.9, jiff-tzdb-platform 0.1.3, memchr 2.8.3, same-file 1.0.6, walkdir 2.5.0, winapi-util 0.1.11
+
+```text
+This project is dual-licensed under the Unlicense and MIT licenses.
+
+You may use this code under the terms of either license.
 ```
 
 ### Tekst 10 (9 komponenter)
@@ -2172,7 +2172,33 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 23 (3 komponenter)
+### Tekst 23 (4 komponenter)
+
+Gjelder: @jridgewell/gen-mapping 0.3.13, @jridgewell/remapping 2.3.5, @jridgewell/sourcemap-codec 1.6.0, @jridgewell/trace-mapping 0.3.31
+
+```text
+Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Tekst 24 (3 komponenter)
 
 Gjelder: either 1.19.0, serde_with 3.24.0, serde_with_macros 3.24.0
 
@@ -2204,7 +2230,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 24 (3 komponenter)
+### Tekst 25 (3 komponenter)
 
 Gjelder: darling 0.24.1, darling_core 0.24.1, darling_macro 0.24.1
 
@@ -2232,7 +2258,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 25 (3 komponenter)
+### Tekst 26 (3 komponenter)
 
 Gjelder: fdeflate 0.3.7, ident_case 1.0.1, image 0.25.10
 
@@ -2264,7 +2290,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 26 (3 komponenter)
+### Tekst 27 (3 komponenter)
 
 Gjelder: tower 0.5.3, tower-layer 0.3.3, tower-service 0.3.3
 
@@ -2296,7 +2322,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 27 (3 komponenter)
+### Tekst 28 (3 komponenter)
 
 Gjelder: getrandom 0.2.17, getrandom 0.3.4, getrandom 0.4.3
 
@@ -2504,7 +2530,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 28 (3 komponenter)
+### Tekst 29 (3 komponenter)
 
 Gjelder: lock_api 0.4.14, parking_lot 0.12.5, parking_lot_core 0.9.12
 
@@ -2536,7 +2562,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 29 (3 komponenter)
+### Tekst 30 (3 komponenter)
 
 Gjelder: alloc-no-stdlib 3.0.0, brotli 9.1.1, brotli-decompressor 6.3.1
 
@@ -2555,7 +2581,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Tekst 30 (3 komponenter)
+### Tekst 31 (3 komponenter)
 
 Gjelder: html5ever 0.39.0, markup5ever 0.39.0, web_atoms 0.2.6
 
@@ -2587,7 +2613,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 31 (3 komponenter)
+### Tekst 32 (3 komponenter)
 
 Gjelder: time 0.3.55, time-core 0.1.9, time-macros 0.2.32
 
@@ -2613,7 +2639,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 32 (3 komponenter)
+### Tekst 33 (3 komponenter)
 
 Gjelder: idna 1.1.0, percent-encoding 2.3.2, url 2.5.8
 
@@ -2645,7 +2671,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 33 (3 komponenter)
+### Tekst 34 (3 komponenter)
 
 Gjelder: cssparser 0.37.0, cssparser-macros 0.7.1, dtoa-short 0.3.5
 
@@ -3025,7 +3051,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### Tekst 34 (2 komponenter)
+### Tekst 35 (2 komponenter)
 
 Gjelder: dirs 7.0.0, dirs-sys 0.5.0
 
@@ -3051,7 +3077,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 35 (2 komponenter)
+### Tekst 36 (2 komponenter)
 
 Gjelder: constant_time_eq 0.4.2, constant_time_eq 0.6.1
 
@@ -3072,7 +3098,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 36 (2 komponenter)
+### Tekst 37 (2 komponenter)
 
 Gjelder: heck 0.5.0, unicode-segmentation 1.13.3
 
@@ -3104,7 +3130,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 37 (2 komponenter)
+### Tekst 38 (2 komponenter)
 
 Gjelder: hyper-rustls 0.27.10, rustls 0.23.46
 
@@ -3126,7 +3152,7 @@ ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### Tekst 38 (2 komponenter)
+### Tekst 39 (2 komponenter)
 
 Gjelder: rayon 1.12.0, rayon-core 1.13.0
 
@@ -3158,7 +3184,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 39 (2 komponenter)
+### Tekst 40 (2 komponenter)
 
 Gjelder: indexmap 1.9.3, indexmap 2.14.2
 
@@ -3190,7 +3216,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 40 (2 komponenter)
+### Tekst 41 (2 komponenter)
 
 Gjelder: cfg-if 1.0.5, socket2 0.6.5
 
@@ -3222,7 +3248,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 41 (2 komponenter)
+### Tekst 42 (2 komponenter)
 
 Gjelder: tracing 0.1.44, tracing-core 0.1.36
 
@@ -3254,7 +3280,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 42 (2 komponenter)
+### Tekst 43 (2 komponenter)
 
 Gjelder: same-file 1.0.6, winapi-util 0.1.11
 
@@ -3282,7 +3308,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 43 (2 komponenter)
+### Tekst 44 (2 komponenter)
 
 Gjelder: muda 0.20.0, tray-icon 0.25.1
 
@@ -3310,7 +3336,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 44 (2 komponenter)
+### Tekst 45 (2 komponenter)
 
 Gjelder: utf8_iter 1.1.0, utf_types 1.0.0
 
@@ -3342,7 +3368,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 45 (2 komponenter)
+### Tekst 46 (2 komponenter)
 
 Gjelder: moxcms 0.8.1, pxfm 0.1.30
 
@@ -3375,7 +3401,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Tekst 46 (2 komponenter)
+### Tekst 47 (2 komponenter)
 
 Gjelder: bytemuck 1.25.2, tinyvec 1.13.3
 
@@ -3393,7 +3419,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Tekst 47 (2 komponenter)
+### Tekst 48 (2 komponenter)
 
 Gjelder: dirs 7.0.0, dirs-sys 0.5.0
 
@@ -3574,7 +3600,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
    of your accepting any such warranty or additional liability.
 ```
 
-### Tekst 48 (2 komponenter)
+### Tekst 49 (2 komponenter)
 
 Gjelder: hashbrown 0.12.3, hashbrown 0.17.1
 
@@ -3606,7 +3632,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 49 (2 komponenter)
+### Tekst 50 (2 komponenter)
 
 Gjelder: serialize-to-javascript 0.1.2, serialize-to-javascript-impl 0.1.2
 
@@ -3634,7 +3660,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 50 (2 komponenter)
+### Tekst 51 (2 komponenter)
 
 Gjelder: bit-set 0.8.0, bit-vec 0.8.0
 
@@ -3666,7 +3692,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 51 (2 komponenter)
+### Tekst 52 (2 komponenter)
 
 Gjelder: miniz_oxide 0.8.9, miniz_oxide 0.9.1
 
@@ -3687,7 +3713,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Tekst 52 (2 komponenter)
+### Tekst 53 (2 komponenter)
 
 Gjelder: hyper-rustls 0.27.10, rustls 0.23.46
 
@@ -3719,7 +3745,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 53 (2 komponenter)
+### Tekst 54 (2 komponenter)
 
 Gjelder: derive_more 2.1.1, derive_more-impl 2.1.1
 
@@ -3747,7 +3773,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 54 (2 komponenter)
+### Tekst 55 (2 komponenter)
 
 Gjelder: tokio 1.54.1, tokio-util 0.7.20
 
@@ -3775,7 +3801,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 55 (2 komponenter)
+### Tekst 56 (2 komponenter)
 
 Gjelder: zune-core 0.5.3, zune-jpeg 0.5.15
 
@@ -3801,7 +3827,215 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Tekst 56 (2 komponenter)
+### Tekst 57 (2 komponenter)
+
+Gjelder: aria-query 5.3.1, axobject-query 4.1.0
+
+```text
+Apache License
+Version 2.0, January 2004
+http://www.apache.org/licenses/
+
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+1. Definitions.
+
+"License" shall mean the terms and conditions for use, reproduction,
+and distribution as defined by Sections 1 through 9 of this document.
+
+"Licensor" shall mean the copyright owner or entity authorized by
+the copyright owner that is granting the License.
+
+"Legal Entity" shall mean the union of the acting entity and all
+other entities that control, are controlled by, or are under common
+control with that entity. For the purposes of this definition,
+"control" means (i) the power, direct or indirect, to cause the
+direction or management of such entity, whether by contract or
+otherwise, or (ii) ownership of fifty percent (50%) or more of the
+outstanding shares, or (iii) beneficial ownership of such entity.
+
+"You" (or "Your") shall mean an individual or Legal Entity
+exercising permissions granted by this License.
+
+"Source" form shall mean the preferred form for making modifications,
+including but not limited to software source code, documentation
+source, and configuration files.
+
+"Object" form shall mean any form resulting from mechanical
+transformation or translation of a Source form, including but
+not limited to compiled object code, generated documentation,
+and conversions to other media types.
+
+"Work" shall mean the work of authorship, whether in Source or
+Object form, made available under the License, as indicated by a
+copyright notice that is included in or attached to the work
+(an example is provided in the Appendix below).
+
+"Derivative Works" shall mean any work, whether in Source or Object
+form, that is based on (or derived from) the Work and for which the
+editorial revisions, annotations, elaborations, or other modifications
+represent, as a whole, an original work of authorship. For the purposes
+of this License, Derivative Works shall not include works that remain
+separable from, or merely link (or bind by name) to the interfaces of,
+the Work and Derivative Works thereof.
+
+"Contribution" shall mean any work of authorship, including
+the original version of the Work and any modifications or additions
+to that Work or Derivative Works thereof, that is intentionally
+submitted to Licensor for inclusion in the Work by the copyright owner
+or by an individual or Legal Entity authorized to submit on behalf of
+the copyright owner. For the purposes of this definition, "submitted"
+means any form of electronic, verbal, or written communication sent
+to the Licensor or its representatives, including but not limited to
+communication on electronic mailing lists, source code control systems,
+and issue tracking systems that are managed by, or on behalf of, the
+Licensor for the purpose of discussing and improving the Work, but
+excluding communication that is conspicuously marked or otherwise
+designated in writing by the copyright owner as "Not a Contribution."
+
+"Contributor" shall mean Licensor and any individual or Legal Entity
+on behalf of whom a Contribution has been received by Licensor and
+subsequently incorporated within the Work.
+
+2. Grant of Copyright License. Subject to the terms and conditions of
+this License, each Contributor hereby grants to You a perpetual,
+worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+copyright license to reproduce, prepare Derivative Works of,
+publicly display, publicly perform, sublicense, and distribute the
+Work and such Derivative Works in Source or Object form.
+
+3. Grant of Patent License. Subject to the terms and conditions of
+this License, each Contributor hereby grants to You a perpetual,
+worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+(except as stated in this section) patent license to make, have made,
+use, offer to sell, sell, import, and otherwise transfer the Work,
+where such license applies only to those patent claims licensable
+by such Contributor that are necessarily infringed by their
+Contribution(s) alone or by combination of their Contribution(s)
+with the Work to which such Contribution(s) was submitted. If You
+institute patent litigation against any entity (including a
+cross-claim or counterclaim in a lawsuit) alleging that the Work
+or a Contribution incorporated within the Work constitutes direct
+or contributory patent infringement, then any patent licenses
+granted to You under this License for that Work shall terminate
+as of the date such litigation is filed.
+
+4. Redistribution. You may reproduce and distribute copies of the
+Work or Derivative Works thereof in any medium, with or without
+modifications, and in Source or Object form, provided that You
+meet the following conditions:
+
+(a) You must give any other recipients of the Work or
+Derivative Works a copy of this License; and
+
+(b) You must cause any modified files to carry prominent notices
+stating that You changed the files; and
+
+(c) You must retain, in the Source form of any Derivative Works
+that You distribute, all copyright, patent, trademark, and
+attribution notices from the Source form of the Work,
+excluding those notices that do not pertain to any part of
+the Derivative Works; and
+
+(d) If the Work includes a "NOTICE" text file as part of its
+distribution, then any Derivative Works that You distribute must
+include a readable copy of the attribution notices contained
+within such NOTICE file, excluding those notices that do not
+pertain to any part of the Derivative Works, in at least one
+of the following places: within a NOTICE text file distributed
+as part of the Derivative Works; within the Source form or
+documentation, if provided along with the Derivative Works; or,
+within a display generated by the Derivative Works, if and
+wherever such third-party notices normally appear. The contents
+of the NOTICE file are for informational purposes only and
+do not modify the License. You may add Your own attribution
+notices within Derivative Works that You distribute, alongside
+or as an addendum to the NOTICE text from the Work, provided
+that such additional attribution notices cannot be construed
+as modifying the License.
+
+You may add Your own copyright statement to Your modifications and
+may provide additional or different license terms and conditions
+for use, reproduction, or distribution of Your modifications, or
+for any such Derivative Works as a whole, provided Your use,
+reproduction, and distribution of the Work otherwise complies with
+the conditions stated in this License.
+
+5. Submission of Contributions. Unless You explicitly state otherwise,
+any Contribution intentionally submitted for inclusion in the Work
+by You to the Licensor shall be under the terms and conditions of
+this License, without any additional terms or conditions.
+Notwithstanding the above, nothing herein shall supersede or modify
+the terms of any separate license agreement you may have executed
+with Licensor regarding such Contributions.
+
+6. Trademarks. This License does not grant permission to use the trade
+names, trademarks, service marks, or product names of the Licensor,
+except as required for reasonable and customary use in describing the
+origin of the Work and reproducing the content of the NOTICE file.
+
+7. Disclaimer of Warranty. Unless required by applicable law or
+agreed to in writing, Licensor provides the Work (and each
+Contributor provides its Contributions) on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+implied, including, without limitation, any warranties or conditions
+of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+PARTICULAR PURPOSE. You are solely responsible for determining the
+appropriateness of using or redistributing the Work and assume any
+risks associated with Your exercise of permissions under this License.
+
+8. Limitation of Liability. In no event and under no legal theory,
+whether in tort (including negligence), contract, or otherwise,
+unless required by applicable law (such as deliberate and grossly
+negligent acts) or agreed to in writing, shall any Contributor be
+liable to You for damages, including any direct, indirect, special,
+incidental, or consequential damages of any character arising as a
+result of this License or out of the use or inability to use the
+Work (including but not limited to damages for loss of goodwill,
+work stoppage, computer failure or malfunction, or any and all
+other commercial damages or losses), even if such Contributor
+has been advised of the possibility of such damages.
+
+9. Accepting Warranty or Additional Liability. While redistributing
+the Work or Derivative Works thereof, You may choose to offer,
+and charge a fee for, acceptance of support, warranty, indemnity,
+or other liability obligations and/or rights consistent with this
+License. However, in accepting such obligations, You may act only
+on Your own behalf and on Your sole responsibility, not on behalf
+of any other Contributor, and only if You agree to indemnify,
+defend, and hold each Contributor harmless for any liability
+incurred by, or claims asserted against, such Contributor by reason
+of your accepting any such warranty or additional liability.
+
+END OF TERMS AND CONDITIONS
+
+APPENDIX: How to apply the Apache License to your work.
+
+To apply the Apache License to your work, attach the following
+boilerplate notice, with the fields enclosed by brackets "{}"
+replaced with your own identifying information. (Don't include
+the brackets!)  The text should be enclosed in the appropriate
+comment syntax for the file format. We also recommend that a
+file or class name and description of purpose be included on the
+same "printed page" as the copyright notice for easier
+identification within third-party archives.
+
+Copyright 2020 A11yance
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
+### Tekst 58 (2 komponenter)
 
 Gjelder: zune-core 0.5.3, zune-jpeg 0.5.15
 
@@ -3829,7 +4063,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 57 (2 komponenter)
+### Tekst 59 (2 komponenter)
 
 Gjelder: http-body 1.1.0, http-body-util 0.1.5
 
@@ -3861,7 +4095,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 58 (2 komponenter)
+### Tekst 60 (2 komponenter)
 
 Gjelder: adler2 2.0.1, cargo-platform 0.1.9
 
@@ -4069,7 +4303,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 59 (2 komponenter)
+### Tekst 61 (2 komponenter)
 
 Gjelder: moxcms 0.8.1, pxfm 0.1.30
 
@@ -4277,7 +4511,7 @@ Gjelder: moxcms 0.8.1, pxfm 0.1.30
    limitations under the License.
 ```
 
-### Tekst 60 (2 komponenter)
+### Tekst 62 (2 komponenter)
 
 Gjelder: libsqlite3-sys 0.40.0, rusqlite 0.42.0
 
@@ -4303,7 +4537,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 61 (1 komponenter)
+### Tekst 63 (1 komponenter)
 
 Gjelder: cpufeatures 0.2.17
 
@@ -4335,7 +4569,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 62 (1 komponenter)
+### Tekst 64 (1 komponenter)
 
 Gjelder: dpi 0.1.2
 
@@ -4393,7 +4627,7 @@ have been licensed under extremely permissive terms.
 ------------------------------------------------------------------------------
 ```
 
-### Tekst 63 (1 komponenter)
+### Tekst 65 (1 komponenter)
 
 Gjelder: softbuffer 0.4.8
 
@@ -4601,7 +4835,7 @@ Apache License
    limitations under the License.
 ```
 
-### Tekst 64 (1 komponenter)
+### Tekst 66 (1 komponenter)
 
 Gjelder: hex 0.4.3
 
@@ -4628,7 +4862,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 65 (1 komponenter)
+### Tekst 67 (1 komponenter)
 
 Gjelder: cfb 0.14.0
 
@@ -4656,7 +4890,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 66 (1 komponenter)
+### Tekst 68 (1 komponenter)
 
 Gjelder: hyper 1.12.0
 
@@ -4682,7 +4916,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 67 (1 komponenter)
+### Tekst 69 (1 komponenter)
 
 Gjelder: cookie 0.18.2
 
@@ -4891,7 +5125,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 68 (1 komponenter)
+### Tekst 70 (1 komponenter)
 
 Gjelder: try-lock 0.2.5
 
@@ -4918,7 +5152,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 69 (1 komponenter)
+### Tekst 71 (1 komponenter)
 
 Gjelder: bytemuck 1.25.2
 
@@ -4934,7 +5168,7 @@ The above copyright notice and this permission notice (including the next paragr
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 70 (1 komponenter)
+### Tekst 72 (1 komponenter)
 
 Gjelder: typenum 1.20.1
 
@@ -5142,7 +5376,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 71 (1 komponenter)
+### Tekst 73 (1 komponenter)
 
 Gjelder: zlib-rs 0.6.8
 
@@ -5168,7 +5402,33 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Tekst 72 (1 komponenter)
+### Tekst 74 (1 komponenter)
+
+Gjelder: @jridgewell/resolve-uri 3.1.2
+
+```text
+Copyright 2019 Justin Ridgewell <jridgewell@google.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Tekst 75 (1 komponenter)
 
 Gjelder: foldhash 0.2.0
 
@@ -5194,7 +5454,7 @@ the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Tekst 73 (1 komponenter)
+### Tekst 76 (1 komponenter)
 
 Gjelder: zeroize 1.9.1
 
@@ -5226,7 +5486,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 74 (1 komponenter)
+### Tekst 77 (1 komponenter)
 
 Gjelder: rfd 0.17.2
 
@@ -5254,7 +5514,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 75 (1 komponenter)
+### Tekst 78 (1 komponenter)
 
 Gjelder: mio 1.2.4
 
@@ -5280,7 +5540,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 76 (1 komponenter)
+### Tekst 79 (1 komponenter)
 
 Gjelder: tendril 0.5.1
 
@@ -5312,7 +5572,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 77 (1 komponenter)
+### Tekst 80 (1 komponenter)
 
 Gjelder: httparse 1.10.1
 
@@ -5338,7 +5598,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 78 (1 komponenter)
+### Tekst 81 (1 komponenter)
 
 Gjelder: typenum 1.20.1
 
@@ -5366,7 +5626,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 79 (1 komponenter)
+### Tekst 82 (1 komponenter)
 
 Gjelder: reqwest 0.13.5
 
@@ -5574,7 +5834,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 80 (1 komponenter)
+### Tekst 83 (1 komponenter)
 
 Gjelder: rustls-webpki 0.103.17
 
@@ -5600,7 +5860,7 @@ The files under third-party/chromium are licensed as described in
 third-party/chromium/LICENSE.
 ```
 
-### Tekst 81 (1 komponenter)
+### Tekst 84 (1 komponenter)
 
 Gjelder: equivalent 1.0.3
 
@@ -5632,7 +5892,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 82 (1 komponenter)
+### Tekst 85 (1 komponenter)
 
 Gjelder: deranged 0.5.9
 
@@ -5658,7 +5918,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 83 (1 komponenter)
+### Tekst 86 (1 komponenter)
 
 Gjelder: keyboard-types 0.8.3
 
@@ -5684,7 +5944,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 84 (1 komponenter)
+### Tekst 87 (1 komponenter)
 
 Gjelder: json-patch 4.2.0
 
@@ -5712,7 +5972,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 85 (1 komponenter)
+### Tekst 88 (1 komponenter)
 
 Gjelder: cpufeatures 0.3.1
 
@@ -5744,7 +6004,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 86 (1 komponenter)
+### Tekst 89 (1 komponenter)
 
 Gjelder: cookie 0.18.2
 
@@ -5777,7 +6037,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 87 (1 komponenter)
+### Tekst 90 (1 komponenter)
 
 Gjelder: tower-http 0.6.11
 
@@ -5809,7 +6069,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 88 (1 komponenter)
+### Tekst 91 (1 komponenter)
 
 Gjelder: mime 0.3.18
 
@@ -5835,7 +6095,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 89 (1 komponenter)
+### Tekst 92 (1 komponenter)
 
 Gjelder: getrandom 0.3.4
 
@@ -5868,7 +6128,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 90 (1 komponenter)
+### Tekst 93 (1 komponenter)
 
 Gjelder: reqwest 0.13.5
 
@@ -5894,7 +6154,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 91 (1 komponenter)
+### Tekst 94 (1 komponenter)
 
 Gjelder: siphasher 1.0.4
 
@@ -5908,7 +6168,7 @@ http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 option.
 ```
 
-### Tekst 92 (1 komponenter)
+### Tekst 95 (1 komponenter)
 
 Gjelder: rustls-pki-types 1.16.0
 
@@ -6116,7 +6376,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 93 (1 komponenter)
+### Tekst 96 (1 komponenter)
 
 Gjelder: utf_types 1.0.0
 
@@ -6143,7 +6403,7 @@ Test code is dedicated to the Public Domain when so designated (see
 the individual files for PD/CC0-dedicated sections).
 ```
 
-### Tekst 94 (1 komponenter)
+### Tekst 97 (1 komponenter)
 
 Gjelder: getrandom 0.2.17
 
@@ -6176,7 +6436,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 95 (1 komponenter)
+### Tekst 98 (1 komponenter)
 
 Gjelder: unicode-segmentation 1.13.3
 
@@ -6190,7 +6450,7 @@ notice may not be copied, modified, or distributed except
 according to those terms.
 ```
 
-### Tekst 96 (1 komponenter)
+### Tekst 99 (1 komponenter)
 
 Gjelder: window-vibrancy 0.8.1
 
@@ -6216,7 +6476,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/window-vibrancy.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 97 (1 komponenter)
+### Tekst 100 (1 komponenter)
 
 Gjelder: blake3 1.8.7
 
@@ -6424,7 +6684,7 @@ Gjelder: blake3 1.8.7
    limitations under the License.
 ```
 
-### Tekst 98 (1 komponenter)
+### Tekst 101 (1 komponenter)
 
 Gjelder: plist 1.10.3
 
@@ -6450,7 +6710,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 99 (1 komponenter)
+### Tekst 102 (1 komponenter)
 
 Gjelder: quick-xml 0.42.0
 
@@ -6480,7 +6740,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 100 (1 komponenter)
+### Tekst 103 (1 komponenter)
 
 Gjelder: bs58 0.5.1
 
@@ -6507,7 +6767,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 101 (1 komponenter)
+### Tekst 104 (1 komponenter)
 
 Gjelder: fallible-iterator 0.3.0
 
@@ -6533,7 +6793,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 102 (1 komponenter)
+### Tekst 105 (1 komponenter)
 
 Gjelder: fallible-streaming-iterator 0.1.9
 
@@ -6559,7 +6819,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 103 (1 komponenter)
+### Tekst 106 (1 komponenter)
 
 Gjelder: smallvec 1.16.5
 
@@ -6591,7 +6851,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 104 (1 komponenter)
+### Tekst 107 (1 komponenter)
 
 Gjelder: base64 0.23.1
 
@@ -6619,7 +6879,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 105 (1 komponenter)
+### Tekst 108 (1 komponenter)
 
 Gjelder: adler2 2.0.1
 
@@ -6638,7 +6898,7 @@ AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
 OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Tekst 106 (1 komponenter)
+### Tekst 109 (1 komponenter)
 
 Gjelder: web-time 1.1.0
 
@@ -6846,7 +7106,7 @@ Gjelder: web-time 1.1.0
    limitations under the License.
 ```
 
-### Tekst 107 (1 komponenter)
+### Tekst 110 (1 komponenter)
 
 Gjelder: digest 0.10.7
 
@@ -6878,7 +7138,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 108 (1 komponenter)
+### Tekst 111 (1 komponenter)
 
 Gjelder: powerfmt 0.2.1
 
@@ -6904,7 +7164,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 109 (1 komponenter)
+### Tekst 112 (1 komponenter)
 
 Gjelder: tempfile 3.27.0
 
@@ -6936,7 +7196,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 110 (1 komponenter)
+### Tekst 113 (1 komponenter)
 
 Gjelder: stable_deref_trait 1.2.1
 
@@ -6968,7 +7228,36 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 111 (1 komponenter)
+### Tekst 114 (1 komponenter)
+
+Gjelder: @sveltejs/acorn-typescript 1.0.13
+
+```text
+MIT License
+
+Copyright (c) 2022 Tyreal Hu
+Copyright (c) 2025 The Svelte Team
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Tekst 115 (1 komponenter)
 
 Gjelder: softbuffer 0.4.8
 
@@ -6994,7 +7283,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 112 (1 komponenter)
+### Tekst 116 (1 komponenter)
 
 Gjelder: zip 9.5.1
 
@@ -7022,7 +7311,35 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 113 (1 komponenter)
+### Tekst 117 (1 komponenter)
+
+Gjelder: svelte 5.57.3
+
+```text
+Copyright (c) 2016-2025 [Svelte Contributors](https://github.com/sveltejs/svelte/graphs/contributors)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### Tekst 118 (1 komponenter)
+
+Gjelder: devalue 5.9.4
+
+```text
+Copyright (c) 2018-19 [these people](https://github.com/rich-harris/devalue/graphs/contributors)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### Tekst 119 (1 komponenter)
 
 Gjelder: tray-icon 0.25.1
 
@@ -7048,7 +7365,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tray-icon.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 114 (1 komponenter)
+### Tekst 120 (1 komponenter)
 
 Gjelder: subtle 2.6.1
 
@@ -7084,7 +7401,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 ```
 
-### Tekst 115 (1 komponenter)
+### Tekst 121 (1 komponenter)
 
 Gjelder: zeroize_derive 1.5.0
 
@@ -7116,7 +7433,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 116 (1 komponenter)
+### Tekst 122 (1 komponenter)
 
 Gjelder: urlpattern 0.6.0
 
@@ -7144,7 +7461,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 117 (1 komponenter)
+### Tekst 123 (1 komponenter)
 
 Gjelder: hashlink 0.12.2
 
@@ -7177,7 +7494,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 118 (1 komponenter)
+### Tekst 124 (1 komponenter)
 
 Gjelder: crypto-common 0.1.7
 
@@ -7209,7 +7526,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 119 (1 komponenter)
+### Tekst 125 (1 komponenter)
 
 Gjelder: flate2 1.1.11
 
@@ -7241,7 +7558,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 120 (1 komponenter)
+### Tekst 126 (1 komponenter)
 
 Gjelder: raw-window-handle 0.6.2
 
@@ -7269,7 +7586,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 121 (1 komponenter)
+### Tekst 127 (1 komponenter)
 
 Gjelder: minisign-verify 0.3.0
 
@@ -7335,7 +7652,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 122 (1 komponenter)
+### Tekst 128 (1 komponenter)
 
 Gjelder: jsonptr 0.7.1
 
@@ -7363,7 +7680,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 123 (1 komponenter)
+### Tekst 129 (1 komponenter)
 
 Gjelder: new_debug_unreachable 1.0.6
 
@@ -7395,7 +7712,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 124 (1 komponenter)
+### Tekst 130 (1 komponenter)
 
 Gjelder: wry 0.57.2
 
@@ -7422,7 +7739,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/wry.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 125 (1 komponenter)
+### Tekst 131 (1 komponenter)
 
 Gjelder: getrandom 0.4.3
 
@@ -7455,7 +7772,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 126 (1 komponenter)
+### Tekst 132 (1 komponenter)
 
 Gjelder: brotli 9.1.1
 
@@ -7481,7 +7798,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 127 (1 komponenter)
+### Tekst 133 (1 komponenter)
 
 Gjelder: unicode-ident 1.0.27
 
@@ -7527,7 +7844,7 @@ dealings in these Data Files or Software without prior written
 authorization of the copyright holder.
 ```
 
-### Tekst 128 (1 komponenter)
+### Tekst 134 (1 komponenter)
 
 Gjelder: atomic-waker 1.1.2
 
@@ -7579,7 +7896,21 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 129 (1 komponenter)
+### Tekst 135 (1 komponenter)
+
+Gjelder: magic-string 0.30.21
+
+```text
+Copyright 2018 Rich Harris
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### Tekst 136 (1 komponenter)
 
 Gjelder: Inter Variable (latin, latin-ext) 5.2.8
 
@@ -7679,7 +8010,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
 
-### Tekst 130 (1 komponenter)
+### Tekst 137 (1 komponenter)
 
 Gjelder: rustls-platform-verifier 0.7.1
 
@@ -7707,7 +8038,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 131 (1 komponenter)
+### Tekst 138 (1 komponenter)
 
 Gjelder: http 1.5.0
 
@@ -7739,7 +8070,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 132 (1 komponenter)
+### Tekst 139 (1 komponenter)
 
 Gjelder: ipnet 2.12.2
 
@@ -7947,7 +8278,7 @@ Gjelder: ipnet 2.12.2
    limitations under the License.
 ```
 
-### Tekst 133 (1 komponenter)
+### Tekst 140 (1 komponenter)
 
 Gjelder: deranged 0.5.9
 
@@ -8155,7 +8486,21 @@ Gjelder: deranged 0.5.9
    limitations under the License.
 ```
 
-### Tekst 134 (1 komponenter)
+### Tekst 141 (1 komponenter)
+
+Gjelder: esm-env 1.2.2
+
+```text
+Copyright 2022 Benjamin McCann
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### Tekst 142 (1 komponenter)
 
 Gjelder: strsim 0.11.1
 
@@ -8185,7 +8530,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 135 (1 komponenter)
+### Tekst 143 (1 komponenter)
 
 Gjelder: scopeguard 1.2.0
 
@@ -8217,7 +8562,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 136 (1 komponenter)
+### Tekst 144 (1 komponenter)
 
 Gjelder: hyper-util 0.1.21
 
@@ -8243,7 +8588,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 137 (1 komponenter)
+### Tekst 145 (1 komponenter)
 
 Gjelder: crc32fast 1.5.5
 
@@ -8271,7 +8616,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 138 (1 komponenter)
+### Tekst 146 (1 komponenter)
 
 Gjelder: string_cache 0.9.0
 
@@ -8303,7 +8648,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 139 (1 komponenter)
+### Tekst 147 (1 komponenter)
 
 Gjelder: libc 0.2.191
 
@@ -8335,7 +8680,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 140 (1 komponenter)
+### Tekst 148 (1 komponenter)
 
 Gjelder: simd-adler32 0.3.10
 
@@ -8363,7 +8708,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 141 (1 komponenter)
+### Tekst 149 (1 komponenter)
 
 Gjelder: untrusted 0.9.0
 
@@ -8383,7 +8728,7 @@ Gjelder: untrusted 0.9.0
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Tekst 142 (1 komponenter)
+### Tekst 150 (1 komponenter)
 
 Gjelder: blake3 1.8.7
 
@@ -8608,7 +8953,7 @@ the License, but only in their entirety and only with respect to the Combined
 Software.
 ```
 
-### Tekst 143 (1 komponenter)
+### Tekst 151 (1 komponenter)
 
 Gjelder: ring 0.17.14
 
@@ -8624,7 +8969,7 @@ See src/polyfill/once_cell/LICENSE-APACHE and src/polyfill/once_cell/LICENSE-MIT
 for the license to code that was sourced from the once_cell project.
 ```
 
-### Tekst 144 (1 komponenter)
+### Tekst 152 (1 komponenter)
 
 Gjelder: utf8_iter 1.1.0
 
@@ -8673,7 +9018,7 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 <LICENSE-MIT> or <http://opensource.org/licenses/MIT>, at your option.
 ```
 
-### Tekst 145 (1 komponenter)
+### Tekst 153 (1 komponenter)
 
 Gjelder: web-time 1.1.0
 
@@ -8701,7 +9046,34 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 146 (1 komponenter)
+### Tekst 154 (1 komponenter)
+
+Gjelder: @tauri-apps/api 2.12.4
+
+```text
+SPDXVersion: SPDX-2.1
+DataLicense: CC0-1.0
+PackageName: tauri
+DataFormat: SPDXRef-1
+PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
+PackageHomePage: https://tauri.app
+PackageLicenseDeclared: Apache-2.0
+PackageLicenseDeclared: MIT
+PackageCopyrightText: 2019-2025, The Tauri Programme in the Commons Conservancy
+PackageSummary: <text>Tauri is a rust project that enables developers to make secure
+and small desktop applications using a web frontend.
+                </text>
+PackageComment: <text>The package includes the following libraries; see
+Relationship information.
+                </text>
+Created: 2019-05-20T09:00:00Z
+PackageDownloadLocation: git://github.com/tauri-apps/tauri
+PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
+PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
+Creator: Person: Daniel Thompson-Yvetot
+```
+
+### Tekst 155 (1 komponenter)
 
 Gjelder: want 0.3.2
 
@@ -8727,7 +9099,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Tekst 147 (1 komponenter)
+### Tekst 156 (1 komponenter)
 
 Gjelder: form_urlencoded 1.2.2
 
@@ -8759,7 +9131,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 148 (1 komponenter)
+### Tekst 157 (1 komponenter)
 
 Gjelder: typenum 1.20.1
 
@@ -8767,7 +9139,7 @@ Gjelder: typenum 1.20.1
 MIT OR Apache-2.0
 ```
 
-### Tekst 149 (1 komponenter)
+### Tekst 158 (1 komponenter)
 
 Gjelder: slab 0.4.12
 
@@ -8799,7 +9171,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 150 (1 komponenter)
+### Tekst 159 (1 komponenter)
 
 Gjelder: dom_query 0.28.0
 
@@ -8833,7 +9205,7 @@ derived from the "nipper" project (https://github.com/importcjj/nipper),
 developed by Chen Jiaju, licensed under the MIT License and the Apache License 2.0 (dual licensed).
 ```
 
-### Tekst 151 (1 komponenter)
+### Tekst 160 (1 komponenter)
 
 Gjelder: synstructure 0.14.0
 
@@ -8847,7 +9219,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 152 (1 komponenter)
+### Tekst 161 (1 komponenter)
 
 Gjelder: tokio-rustls 0.26.6
 
@@ -9055,7 +9427,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 153 (1 komponenter)
+### Tekst 162 (1 komponenter)
 
 Gjelder: window-vibrancy 0.8.1
 
@@ -9083,7 +9455,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 154 (1 komponenter)
+### Tekst 163 (1 komponenter)
 
 Gjelder: muda 0.20.0
 
@@ -9109,7 +9481,51 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/muda.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 155 (1 komponenter)
+### Tekst 164 (1 komponenter)
+
+Gjelder: zimmerframe 1.1.5
+
+```text
+MIT License
+
+Copyright (c) 2023 [these people](https://github.com/Rich-Harris/zimmerframe/graphs/contributors)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Tekst 165 (1 komponenter)
+
+Gjelder: clsx 2.1.1
+
+```text
+MIT License
+
+Copyright (c) Luke Edwards <luke.edwards05@gmail.com> (lukeed.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### Tekst 166 (1 komponenter)
 
 Gjelder: ico 0.6.0
 
@@ -9137,7 +9553,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 156 (1 komponenter)
+### Tekst 167 (1 komponenter)
 
 Gjelder: raw-window-handle 0.6.2
 
@@ -9155,7 +9571,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### Tekst 157 (1 komponenter)
+### Tekst 168 (1 komponenter)
 
 Gjelder: ring 0.17.14
 
@@ -9433,7 +9849,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Tekst 158 (1 komponenter)
+### Tekst 169 (1 komponenter)
 
 Gjelder: sha2 0.10.9
 
@@ -9467,7 +9883,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 159 (1 komponenter)
+### Tekst 170 (1 komponenter)
 
 Gjelder: infer 0.22.0
 
@@ -9495,7 +9911,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 160 (1 komponenter)
+### Tekst 171 (1 komponenter)
 
 Gjelder: ipnet 2.12.2
 
@@ -9509,7 +9925,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 161 (1 komponenter)
+### Tekst 172 (1 komponenter)
 
 Gjelder: powerfmt 0.2.1
 
@@ -9717,7 +10133,7 @@ Gjelder: powerfmt 0.2.1
    limitations under the License.
 ```
 
-### Tekst 162 (1 komponenter)
+### Tekst 173 (1 komponenter)
 
 Gjelder: rustls-pki-types 1.16.0
 
@@ -9749,7 +10165,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 163 (1 komponenter)
+### Tekst 174 (1 komponenter)
 
 Gjelder: tao 0.37.2
 
@@ -9774,7 +10190,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tao.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-### Tekst 164 (1 komponenter)
+### Tekst 175 (1 komponenter)
 
 Gjelder: num-conv 0.2.2
 
@@ -9800,7 +10216,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 165 (1 komponenter)
+### Tekst 176 (1 komponenter)
 
 Gjelder: uuid 1.29.2
 
@@ -9833,7 +10249,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 166 (1 komponenter)
+### Tekst 177 (1 komponenter)
 
 Gjelder: option-ext 0.2.0
 
@@ -10213,7 +10629,21 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### Tekst 167 (1 komponenter)
+### Tekst 178 (1 komponenter)
+
+Gjelder: esrap 2.4.0
+
+```text
+Copyright (c) 2023-2025 [these people](https://github.com/sveltejs/esrap/graphs/contributors)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### Tekst 179 (1 komponenter)
 
 Gjelder: precomputed-hash 0.1.1
 
@@ -10241,7 +10671,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 168 (1 komponenter)
+### Tekst 180 (1 komponenter)
 
 Gjelder: ring 0.17.14
 
@@ -10261,7 +10691,7 @@ OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Tekst 169 (1 komponenter)
+### Tekst 181 (1 komponenter)
 
 Gjelder: chrono 0.4.45
 
@@ -10507,7 +10937,7 @@ limitations under the License.
 ~~~~
 ```
 
-### Tekst 170 (1 komponenter)
+### Tekst 182 (1 komponenter)
 
 Gjelder: bytes 1.12.1
 
@@ -10539,7 +10969,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 171 (1 komponenter)
+### Tekst 183 (1 komponenter)
 
 Gjelder: arrayvec 0.7.8
 
@@ -10571,7 +11001,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 172 (1 komponenter)
+### Tekst 184 (1 komponenter)
 
 Gjelder: http 1.5.0
 
@@ -10779,7 +11209,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 173 (1 komponenter)
+### Tekst 185 (1 komponenter)
 
 Gjelder: png 0.18.1
 
@@ -10811,7 +11241,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 174 (1 komponenter)
+### Tekst 186 (1 komponenter)
 
 Gjelder: block-buffer 0.10.4
 
@@ -10843,7 +11273,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 175 (1 komponenter)
+### Tekst 187 (1 komponenter)
 
 Gjelder: fnv 1.0.7
 
@@ -10875,7 +11305,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 176 (1 komponenter)
+### Tekst 188 (1 komponenter)
 
 Gjelder: tokio-rustls 0.26.6
 
@@ -10907,7 +11337,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 177 (1 komponenter)
+### Tekst 189 (1 komponenter)
 
 Gjelder: jsonptr 0.7.1
 
@@ -11115,7 +11545,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 178 (1 komponenter)
+### Tekst 190 (1 komponenter)
 
 Gjelder: crossbeam-channel 0.5.17
 
@@ -11715,7 +12145,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Tekst 179 (1 komponenter)
+### Tekst 191 (1 komponenter)
 
 Gjelder: idna_adapter 1.2.2
 
@@ -11747,7 +12177,35 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Tekst 180 (1 komponenter)
+### Tekst 192 (1 komponenter)
+
+Gjelder: acorn 8.19.0
+
+```text
+MIT License
+
+Copyright (C) 2012-2022 by various contributors (see AUTHORS)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+### Tekst 193 (1 komponenter)
 
 Gjelder: generic-array 0.14.7
 
@@ -11775,7 +12233,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Tekst 181 (1 komponenter)
+### Tekst 194 (1 komponenter)
 
 Gjelder: wry 0.57.2
 
@@ -11812,23 +12270,5 @@ Disse har kun SPDX-uttrykk i metadata (ingen egen lisensfil i pakken). Lisenstek
 - webview2-com 0.39.1 (MIT)
 - webview2-com-macros 0.8.1 (MIT)
 - webview2-com-sys 0.39.1 (MIT)
-- @jridgewell/gen-mapping 0.3.13 (MIT)
-- @jridgewell/remapping 2.3.5 (MIT)
-- @jridgewell/resolve-uri 3.1.2 (MIT)
-- @jridgewell/sourcemap-codec 1.6.0 (MIT)
-- @jridgewell/trace-mapping 0.3.31 (MIT)
-- @sveltejs/acorn-typescript 1.0.13 (MIT)
-- @tauri-apps/api 2.12.4 (Apache-2.0 OR MIT)
-- @types/estree 1.0.10 (MIT)
-- acorn 8.19.0 (MIT)
-- aria-query 5.3.1 (Apache-2.0)
-- axobject-query 4.1.0 (Apache-2.0)
-- clsx 2.1.1 (MIT)
-- devalue 5.9.4 (MIT)
-- esm-env 1.2.2 (MIT)
-- esrap 2.4.0 (MIT)
 - is-reference 3.0.3 (MIT)
 - locate-character 3.0.0 (MIT)
-- magic-string 0.30.21 (MIT)
-- svelte 5.57.3 (MIT)
-- zimmerframe 1.1.5 (MIT)
