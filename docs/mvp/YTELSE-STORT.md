@@ -79,6 +79,13 @@ bygging). `just bench --rows 100000` ga to ganger brudd på **decide_many under 
 og en kjøring med `MALLOC_ARENA_MAX=2 --rounds 20` gikk grønn. Målingen skjedde på en maskin med load 11–15, så om bruddet
 skyldes støy eller reelt tap ved 100 000 er **ikke avgjort**.
 
+**Årsak funnet og rettet (50 000 rader, load 1–2):** `decide_many` under skann lå på 20–57 ms p95. Skanningen skriver
+til indeksen hele tiden, så bakgrunnsutregningen av grupper fikk foreldet resultat i alle tre forsøk utenfor skrivelåsen og
+falt tilbake til å regne under låsen (180–270 ms målt), og handlinger ventet på den. Bakgrunnsoppdateringen bruker nå
+`refresh_groups_nonblocking`: den gir opp uten å låse og venter til skanningen er over før den regner på nytt (skanningen
+oppdaterer gruppene selv underveis og til slutt). Etter rettelsen: 2,35 ms p95 (`just bench`, 50 000 rader). Småindekser
+og kall fra skanningen bruker fortsatt den låste reserveløsningen. Ikke målt ved 100 000 rader eller på Windows.
+
 ## 5. Funn som ikke er rettet, og hva som gjenstår
 
 - **Topp RSS for hele `just bench --rows 100000` er 190–301 MB** (funn 20 oppga 294 MB), ikke 150. Byggetrinnet er 122–128 MB;

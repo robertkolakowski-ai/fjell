@@ -67,7 +67,7 @@ Kommentarer:
 - `Purge` krever typen `Confirmed`, som bare kan lages av `api` etter brukerbekreftelse. Dermed kan ikke hard sletting skje ved en feil.
 - Selve slettingen i plattformen er adapterens `delete(ids) -> Vec<(AssetId, Deleted|Cancelled|Failed)>` (egen trait utenfor `AssetSource`, som ikke har skrivemetoder). Kalles bare av UI med `PurgeTicket` fra `api` (beslutning 17).
 - Fjernede kilder (`ChangeSet.removed`) avstemmes av `pipeline` via `store` til `state = purged` med `cause = external`, uten å gå via `actions` (beslutning 18).
-- Kratnivå (håndheves av `tools/check-layers`, `[crates]` i `layers.toml`): `fjell-core` er nederst og kjenner ingen annen krate. `fjell-models` (V1, utenfor kjernen som `fjell-fs`) avhenger bare av `fjell-core` og bruker bare `fjell_core::model` (implementerer `EyeAnalyzer`/`FaceAnalyzer`); kjernen kan aldri avhenge av `fjell-models`. Kraten er tom inntil modellfasen (`docs/v1/MODELLER.md`).
+- Kratnivå (håndheves av `tools/check-layers`, `[crates]` i `layers.toml`): `fjell-core` er nederst og kjenner ingen annen krate. `fjell-models` (V1, utenfor kjernen som `fjell-fs`) avhenger bare av `fjell-core` og bruker bare `fjell_core::model` (implementerer `EyeAnalyzer`/`FaceAnalyzer`); kjernen kan aldri avhenge av `fjell-models`. Kraten har modellrammen (manifest, laster, økt og adaptere, med tester), men ingen modell og ingen kjøremotor; ekte modell kommer i en egen fase (`docs/v1/MODELLER.md`).
 - Plattformadaptere (MVP: filsystem/Windows i `fjell-fs`; etter MVP: PhotoKit, MediaStore) ligger utenfor `core/crates/fjell-core` og implementerer `AssetSource`. Kjernen kjenner ingen plattform.
 - L1 og L2 (unntatt `actions`) er rene funksjoner. De testes uten database.
 

@@ -121,7 +121,7 @@ Forskjeller konformitetstesten avdekket (kjernen vant, mocken er rettet):
 
 Siden kjernen tar imot `0` og forhåndsvisningen ikke validerer, ville en tom tallrute i regelbyggeren (tolket som 0) blitt en regel som treffer alle bilder. `conditionsError` i `screens/rulesState.ts` stopper det før bridgen kalles: minst ett vilkår, tekstvilkår ikke tomme, tall hele og minst 1. Feilkodene er de samme (`empty_rule`, `invalid_condition`). Anbefaling til kjernen (ikke gjort, filen eies ikke av UX-fasen): avvis `0` som `invalid_condition` i `suggest_rules::validate`.
 
-**Funn, ikke rettet:** skallet sender V1-feilkodene som `{ code: "core_error", detail: "empty_rule" }` (`ErrorDto::from(ApiError)`, testet i `tests_v1.rs`), mens mocken og tekstoppslaget (`error.<kode>`) bruker `code: "empty_rule"`. I den ekte appen vil derfor alle V1-feil vise den generelle teksten til `TauriBridge` normaliserer: når `code === "core_error"` og `detail` er en av `V1_ERROR_CODES`, bruk `detail` som `code`. Konformitetstesten antar den normaliseringen.
+**Funn, rettet i V1-fullføringen (`52c5963`):** skallet sender V1-feilkodene som `{ code: "core_error", detail: "empty_rule" }` (`ErrorDto::from(ApiError)`, testet i `tests_v1.rs`), mens mocken og tekstoppslaget (`error.<kode>`) bruker `code: "empty_rule"`. `TauriBridge` normaliserer nå (`normalizeError`): når `code === "core_error"` og `detail` er en av `V1_ERROR_CODES`, brukes `detail` som `code`. Konformitetstesten bygger på den normaliseringen. Ikke verifisert i den ekte appen på Windows.
 
 ## 9. Albumvilkår uten `listAlbums`
 

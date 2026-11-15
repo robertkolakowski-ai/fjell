@@ -223,3 +223,36 @@ fn removed_sources_are_reconciled_and_leave_groups() {
     });
     assert_eq!((state, cause.as_str()), (2, "external"));
 }
+
+/// Håndtak som skriver til indeksen hver gang utregningen tar låsen for å lese tilstanden, som en
+/// pågående skanning gjør. Alle forsøk utenfor låsen blir da foreldet.
+struct Churn(Mutex<Store>);
+
+impl StoreHandle for Churn {
+    fn with_store<R>(&self, f: impl FnOnce(&mut Store) -> R) -> R {
+        let mut g = self.0.lock().unwrap();
+        let spec = crate::store::BatchSpec {
+            ts: 0,
+            cause: crate::store::Cause::User,
+            ops: vec![],
+        };
+        g.apply_batch(&spec).unwrap();
+        f(&mut g)
+    }
+}
+
+/// Handling < 100 ms: bakgrunnsoppdateringen regner aldri under skrivelåsen. Er indeksen skrevet
+/// imens i alle forsøk, gir den `None` (kalleren prøver igjen) i stedet for å låse hele
+/// utregningen; `refresh_groups` beholder den låste reserveløsningen og gir alltid et resultat.
+#[test]
+fn nonblocking_refresh_gives_up_instead_of_computing_under_the_lock() {
+    let dir = std::env::temp_dir().join(format!("fjell-nonblocking-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let store = Store::open(&dir.join("index.sqlite")).unwrap();
+    let h = Churn(Mutex::new(store));
+    let clock = crate::model::FakeClock::new(1_000);
+    assert_eq!(refresh_groups_nonblocking(&h, &clock).unwrap(), None);
+    assert!(refresh_groups(&h, &clock).is_ok());
+    let _ = std::fs::remove_dir_all(&dir);
+}

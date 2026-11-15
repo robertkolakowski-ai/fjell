@@ -159,7 +159,16 @@ impl Fjell {
         let sh = self.sh.clone();
         std::thread::spawn(move || loop {
             while sh.dirty.swap(false, Ordering::SeqCst) {
-                let r = pipeline::refresh_groups(&Handle(&sh), sh.clock.as_ref());
+                // Uten utregning under skrivelåsen: en handling skal aldri vente på O(biblioteket).
+                let r = pipeline::refresh_groups_nonblocking(&Handle(&sh), sh.clock.as_ref());
+                if matches!(r, Ok(None)) {
+                    // Indeksen ble skrevet imens (pågående skanning): vent til skrivingen er over og regn på nytt.
+                    sh.dirty.store(true, Ordering::SeqCst);
+                    while !matches!(sh.progress.snapshot().phase, Phase::Done | Phase::Idle) {
+                        std::thread::sleep(Duration::from_millis(50));
+                    }
+                    continue;
+                }
                 *sh.refresh_error.lock().unwrap_or_else(|e| e.into_inner()) =
                     r.err().map(|e| e.to_string());
             }
