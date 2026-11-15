@@ -297,6 +297,12 @@ fn parse_id(name: &str) -> Option<u64> {
         .ok()
 }
 
+/// Tvinger filen til disk. På Windows krever `FlushFileBuffers` skrivetilgang, så en skrivebeskyttet
+/// `File::open` gir «tilgang nektet»; åpne for skriving (uten å avkorte) i stedet.
+fn sync_file(p: &Path) -> std::io::Result<()> {
+    std::fs::OpenOptions::new().write(true).open(p)?.sync_all()
+}
+
 /// Høyeste id i mappen, både `.db`, `.meta` og `.tmp` (en halvferdig kopi gjenbruker aldri en id).
 fn max_id(dir: &Path) -> u64 {
     fs::read_dir(dir)
@@ -337,7 +343,7 @@ fn write_meta(path: &Path, m: &BackupMeta) -> io::Result<()> {
     );
     let tmp = with_suffix(path, ".tmp");
     fs::write(&tmp, text)?;
-    File::open(&tmp)?.sync_all()?;
+    sync_file(&tmp)?;
     fs::rename(&tmp, path)
 }
 
@@ -620,7 +626,7 @@ impl Store {
             IndexCheck::SchemaTooNew(_) => return Err(BackupError::SchemaTooNew),
             _ => return Err(BackupError::Failed(BackupCause::SourceCorrupt)),
         }
-        File::open(tmp).and_then(|f| f.sync_all()).map_err(io_err)?;
+        sync_file(tmp).map_err(io_err)?;
         let bytes = fs::metadata(tmp).map_err(io_err)?.len();
         let checksum = hash_file(tmp).map_err(io_err)?;
         Ok((bytes, checksum, schema, assets))
@@ -875,7 +881,7 @@ fn unique_aside(db: &Path, now: i64) -> PathBuf {
 /// Kopierer en kopi til `tmp` (ved siden av indeksen, samme volum) og kontrollerer at kopien er lik og hel.
 fn stage_copy(src: &Path, tmp: &Path, meta: &BackupMeta) -> Result<(), BackupError> {
     fs::copy(src, tmp).map_err(io_err)?;
-    File::open(tmp).and_then(|f| f.sync_all()).map_err(io_err)?;
+    sync_file(tmp).map_err(io_err)?;
     if hash_file(tmp).map_err(io_err)? != meta.checksum {
         return Err(BackupError::Corrupt);
     }
