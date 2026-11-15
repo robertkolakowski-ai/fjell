@@ -128,7 +128,9 @@
     {:else if $route.name === "series"}
       <SeriesCompare id={$route.id} />
     {:else if $route.name === "cards"}
-      <Cards kind={$route.kind} />
+      {#key $route.kind}
+        <Cards kind={$route.kind} />
+      {/key}
     {:else if $route.name === "people"}
       <People />
     {:else if $route.name === "rules"}

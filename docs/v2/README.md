@@ -1,3 +1,3 @@
 # V2
 
-Plassholder. Under arbeid; planen skrives i en egen fase. Bindende regler: `CLAUDE.md`.
+Planen står i [`V2-PLAN.md`](V2-PLAN.md); delplaner: `RAW-OG-PAR.md`, `MOBIL.md`, `EKSPORT.md`. Ingen kode ennå. Bindende regler: `CLAUDE.md`.

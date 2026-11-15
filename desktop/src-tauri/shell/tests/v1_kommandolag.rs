@@ -413,34 +413,12 @@ fn v1_errors_are_codes_never_user_text() {
     assert!(!e.detail.contains("Hemmelig"), "{e:?}");
 }
 
-/// KONTRAKTSBRUDD (funnet av denne testen, se docs/v1/WINDOWS-V1.md del 8): frontend slår opp feilmelding på `BridgeError.code`
-/// (rulesState.ts: `ERROR_KEYS[e.code]`) og mocken sender `code = "empty_rule"` osv. Skallet sender derimot
-/// `code = "core_error"` med den stabile koden i `detail` (`ErrorDto::from(ApiError::Internal(kode))` i dto.rs), og TauriBridge
-/// sender feilen videre uendret. Resultat i ekte app: regelfeil vises som generisk melding i stedet for «Regelen trenger et navn».
-///
-/// Testen krever riktig oppførsel og feiler derfor i dag. `should_panic` holder den grønn så lenge bruddet finnes, og slår ut den
-/// dagen det er rettet (da fjernes attributtet). Rettelsen hører til delte filer (`shell/src/dto.rs` eller `tauri-bridge.ts`).
-#[test]
-#[should_panic(expected = "V1-feilkoder når ikke frontend")]
-fn v1_error_codes_reach_frontend_as_the_code_it_has_messages_for() {
-    let s = shell();
-    let brudd: Vec<String> = v1_errors(&s)
-        .into_iter()
-        .filter(|(_, e)| {
-            V1_FRONTEND_CODES.contains(&e.detail.as_str()) && !V1_FRONTEND_CODES.contains(&e.code)
-        })
-        .map(|(hva, e)| format!("{hva}: code={:?} detail={:?}", e.code, e.detail))
-        .collect();
-    assert!(
-        brudd.is_empty(),
-        "V1-feilkoder når ikke frontend som code:\n{}",
-        brudd.join("\n")
-    );
-}
-
+/// Skallet sender V1-feilkoder som `code = "core_error"` med den stabile koden i `detail` (`ErrorDto::from` i dto.rs).
+/// TauriBridge (`normalizeError` i tauri-bridge.ts) løfter `detail` til `code` når den er en kjent V1-kode, og frontend slår opp
+/// `error.<kode>` på den. Tråden holdes derfor uendret her; TS-testen i bridge/v1.test.ts dekker løftingen.
 #[test]
 fn v1_error_wire_shape_today_is_core_error_with_detail_code() {
-    // Dokumenterer dagens form slik at en endring (enten rettelsen over eller en utilsiktet endring) blir synlig.
+    // Låser trådformen slik at en utilsiktet endring blir synlig; frontend normaliserer den (se over).
     let s = shell();
     let e = err(s.save_rule(&RuleDraftDto {
         id: None,

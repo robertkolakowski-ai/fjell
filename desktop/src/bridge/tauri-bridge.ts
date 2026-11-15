@@ -43,18 +43,42 @@ const pickDirectory: PickDirectory = async (title) => {
   return typeof r === "string" ? r : null;
 };
 
+/** V1-feilkodene skallet sender som `{ code: "core_error", detail: <kode> }` (ErrorDto::from i dto.rs). Frontend slår opp meldinger på `code`. */
+export const V1_ERROR_CODES: readonly string[] = [
+  "empty_folder", "unknown_target", "empty_rule", "empty_name", "name_too_long",
+  "invalid_condition", "rule_not_found", "unknown_person", "not_merged", "unknown_series",
+];
+
+/** Løfter en kjent V1-kode fra `detail` til `code`, slik mocken og feiltekstene (`error.<kode>`) forventer. Andre feil sendes uendret videre. */
+export function normalizeError(e: unknown): unknown {
+  const x = e as { code?: unknown; detail?: unknown } | null;
+  if (x && x.code === "core_error" && typeof x.detail === "string" && V1_ERROR_CODES.includes(x.detail)) {
+    return { code: x.detail, detail: "" };
+  }
+  return e;
+}
+
 export class TauriBridge implements CoreBridge {
   readonly canPickFolder = true;
+  private readonly call: Invoke;
   /** Funnet oppdatering fra siste sjekk; `installUpdate` bruker den. */
   private pending: UpdateHandle | null = null;
 
   constructor(
-    private readonly call: Invoke = invoke,
+    call: Invoke = invoke,
     private readonly updater: UpdaterApi = tauriUpdater,
     private readonly pick: PickDirectory = pickDirectory,
     /** Hvor lenge appen kan leve etter ferdig nedlasting før installasjonen regnes som stoppet (ms). På Windows avslutter appen seg selv med en gang installeren er startet. */
     private readonly stallMs = 90_000,
-  ) {}
+  ) {
+    this.call = (async <T>(...a: [string, Record<string, unknown>?]): Promise<T> => {
+      try {
+        return await call<T>(...a);
+      } catch (e) {
+        throw normalizeError(e);
+      }
+    }) as Invoke;
+  }
 
   getState(): Promise<AppState> {
     return this.call<AppState>("get_state");

@@ -224,11 +224,8 @@ test("Kortforklaring: serie og regel kan avgjøres og angres med knapper og tast
   await expect(page.getByRole("group", { name: /^Forslag 1 av 6/ })).toHaveAccessibleName(/Regel: /);
 });
 
-// Kjent feil, funnet av denne spesen (ikke rettet her: Cards.svelte er delt og låst for denne grenen, se integration_notes).
-// Cards.svelte oppretter CardsSession én gang fra `kind`-propen, så hash-skifte rett fra #/cards/series til #/cards/rule beholder serie-bunken.
-// `test.fail()` gjør at testen står grønt så lenge feilen finnes, og slår ut (rødt) den dagen den er rettet, slik at merkingen fjernes.
+// Rettet i integrasjonen: App.svelte nøkler <Cards> på kind, så hash-skifte mellom korttyper bytter bunke.
 test("Kortforklaring: hash-skifte mellom korttyper bytter bunke", async ({ page }) => {
-  test.fail(true, "Cards.svelte gjenbruker CardsSession ved kind-skifte (kjent funn, se docs/v1/WINDOWS-V1.md del 8)");
   await scanned(page, "#/cards/series");
   await go(page, "#/cards/rule");
   await expect(page.getByRole("group", { name: /^Forslag 1 av 6/ })).toHaveAccessibleName(/Regel: /, { timeout: 2000 });

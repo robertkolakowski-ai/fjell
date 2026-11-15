@@ -142,7 +142,7 @@ Punkt 14 over er løst av main: skallet åpner en ekte `Fjell` (`Shell::with_dat
 |---|---|---|
 | 1 | I16-utvidelsen (`person.name`, `rule.name`, `rule.spec`, `face_embedding`) godtas: indeksfilen ligger lokalt i appdata, det finnes ingen eksport, og ingenting forlater enheten. Kryptering av indeksen er ikke krevd i V1. Skulle en eksport komme, skal navn og embeddings ekskluderes som standard. | **Anbefaling, ikke besluttet** (personvern) |
 | 2 | `face_index_wipe` er ikke angrebar (avledet data, kan gjenskapes), krever bekreftelse med varselet `people.index.wipe.confirm`, og personbeskyttelser blir beskyttelse av hvert bilde. Konformitetstesten viser at mocken og kjernen gjør det samme. | **Besluttet** |
-| 3 | Terskler og modellvalg: kalibrering mot golden-korpus og valg av modell krever ekte bilder, modellfiler og nett, og er ikke gjort. Standardene er fortsatt startverdier, og Null-analysatorene gjelder. | **Åpen** |
+| 3 | Terskler og modellvalg. Kalibreringsverktøy og golden-tester finnes (`KALIBRERING-V1.md`) og `fjell-models` har rammen (`MODELLER.md`), men tallene kommer fra syntetisk korpus og ingen modell er valgt. Integrasjonen lot standardene stå: anbefalingen High `blur_scale` 1,1 (fra 1,3) bygger på syntetiske data uten ekte harde negativer og tas inn først med Roberts testsett. Null-analysatorene gjelder. | **Åpen** (krever Robert: modell og ekte data) |
 | 4 | Regelspråket er startlisten (OG, ingen ELLER eller negasjon); kodingen er den versjonerte teksten i `suggest_rules::spec`. Kjernen tar imot tall fra 0, og forhåndsvisningen validerer ingenting. Skjermen krever mer (minst ett vilkår, tekst ikke tom, tall minst 1; `conditionsError`), så en tom tallrute aldri blir en regel som treffer alt. Anbefaling til kjernen: avvis 0 som `invalid_condition` (`suggest_rules::validate`, ikke UX-fasens fil). | Skjermvalidering **besluttet**. Kjerneendring: **anbefaling, ikke besluttet** |
 | 5 | Mappebeskyttelse og flytting: akseptabelt i V1 (beslutning 21, «borte + ny»). Beskyttelsen forsvinner aldri stille (den står i Innstillinger, `protections()` er uendret), og et flyttet bilde får bare vanlige forslag; sletting skjer fortsatt bare via bekreftet papirkurv og kan angres. Svakheten er at det flyttede bildet er ubeskyttet. Testet i `api/fjell_v1_tests/scope.rs` (`folder_protection_is_a_prefix_and_does_not_follow_a_move`). Anbefaling (krever delte filer i `store` og `pipeline`): når et bilde som var beskyttet blir borte og samme innholdshash dukker opp på ny sti, overfør beskyttelsen eller varsle; og vis antall treff per beskyttelse i Innstillinger (0 treff betyr at mappen ikke finnes lenger). | V1-aksept: **besluttet**. Overføring og treffantall: **anbefaling, ikke besluttet** |
 | 6 | Serie vs. visuell duplikat: samme bilde har aldri to kort. Kortprioritet er eksakt, visuell, serie, regel, skjermbilde, uskarpt (`store/cards.rs`), og bilder som er duplikater deltar ikke i serier. Låst av `api/fjell_v1_tests.rs` (alle typer, ingen asset i to kort) og av konformitetsscenariet «samme bilde vises aldri i flere kort» mot både kjerne og mock. | **Besluttet** |
@@ -150,7 +150,7 @@ Punkt 14 over er løst av main: skallet åpner en ekte `Fjell` (`Shell::with_dat
 | 8 | Ansiktsmodell er ikke valgt (lisens, størrelse, ONNX) og ingen modell er lastet ned. | **Åpen** |
 | 9 | `PersonRow` og `FaceRow` blir i `store/people.rs`; Integrer kan eksportere dem hvis `fjell-ffi` trenger dem. Ingen UX-konsekvens. | Ingen handling |
 | 10 | Bilder uten ansikter analyseres på nytt ved hver kjøring med indeksen på. Trenger en delt schema-endring (`face_scan`) før en ekte modell tas i bruk. | **Åpen** |
-| 11 | `fjell-ffi` speiler ikke V1-flaten. Trengs først for iOS og Android, som kommer etter MVP. | **Åpen**, etter MVP |
+| 11 | `fjell-ffi` speiler nå V1-flaten (`FFI.md`, paritetstest mot `FjellApi`). Ingen mobilkode. | **Løst** |
 | 12 | Øyemodell er ikke valgt. Til da rangeres serier på skarphet, og `series.eyes.unavailable` vises på serieside (SKJERMER del 6, punkt 6). | **Åpen** |
 | 13, 14, 16 | Allerede løst (se over). | Løst |
 | 15 | `just` er ikke installert her og `fjell-desktop` (GTK) kan ikke bygges her; `desktop`-jobben på `windows-latest` bygger skallet. | Miljø |
@@ -167,5 +167,18 @@ De tre punktene etter sammenslåingen:
 
 - **Kjernen merker beskyttede bilder.** `Card.protect_flags` og `SeriesMemberView.protect_flags` får bit 16 (`SCOPE_FLAG` i `api/fjell_v1.rs`) for bilder beskyttet via `protection`. Før satte bare mocken den; i den ekte appen ville beskyttede kort ellers blitt vist som vanlige og forhåndsvalgt. Dokumentkommentaren på `protect_flags` i `api/types.rs` (delt) bør nevne bit 16.
 - **Konformitet**: `conformance_v1.json` kjøres mot både kjerne og `MockBridge` (SKJERMER del 7). Den avdekket fire avvik i mocken (forhåndsvisning av tom regel, tomme vilkår, tall fra 0, mappematching), som er rettet.
-- **Feilkoder i skallet**: V1-feilkoder når UI som `core_error` med koden i `detail`, ikke som koden selv (SKJERMER del 8). Ikke rettet; `tauri-bridge.ts` er delt.
+- **Feilkoder i skallet**: V1-feilkoder kom til UI som `core_error` med koden i `detail`. Rettet i integrasjonen: `TauriBridge` (`normalizeError`) løfter kjent kode til `code`; trådformen i skallet er uendret og låst i `v1_kommandolag.rs`.
 - **`listAlbums`**: ikke lagt til; utforming for Integrer i SKJERMER del 9.
+
+## V1-fullføring (integrasjon, 2026-11-15)
+
+Seks grener er slått sammen (`models`, `calibrate`, `ux`, `ffi`, `winkit`, `v2plan`) uten konflikter. Rettet i integrasjonen: V1-feilkoder løftes i `TauriBridge`; `<Cards>` nøkles på `kind` i `App.svelte` (hash-skifte mellom korttyper bytter bunke). De to forventet-feilende testene (`#[should_panic]`, `test.fail()`) er fjernet.
+
+Åpne funn (ikke rettet, krever produktvalg eller delte filer):
+- `Store::apply_series` beholder lagret keeper også når brukeren ikke valgte den, så øyeanalysen flytter ikke keeper i en allerede lagret serie. Forslag: egen markør for manuelt valgt keeper.
+- `set_settings` (sensitivitet) utløser ingen ny gruppering; gjelder fra neste skanning.
+- `ProtectScope::Folder` følger mappegrenser, ikke tegnprefiks; Windows-skrivemåte (`C:\bilder` mot `C:\Bilder`) er ikke case-ufølsom.
+- `suggest_rules::validate` godtar 0 dager (konformitetsfixturen låser det; snu begge samtidig).
+- `listAlbums` mangler (SKJERMER del 9).
+- Dokumentkommentaren på `protect_flags` (`api/types.rs`, `types.ts`) bør nevne bit 16.
+- Windows-jobbene `v1-mock` og `v1-shell` er ikke kjørt.

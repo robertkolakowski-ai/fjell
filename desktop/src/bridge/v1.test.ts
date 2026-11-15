@@ -350,3 +350,15 @@ describe("MockBridge: dashboard, innstillinger og terskler", () => {
     expect(await b.getThresholds()).toEqual({ visualMaxHamming: 8, blurMaxScore: 0.0042, seriesGapSecs: 20, closedEyesMinConfidence: 0.7 });
   });
 });
+
+describe("TauriBridge: feilkoder", () => {
+  it("løfter kjent V1-kode fra detail til code; andre feil går uendret videre", async () => {
+    const call = vi.fn().mockRejectedValueOnce({ code: "core_error", detail: "empty_rule" })
+      .mockRejectedValueOnce({ code: "core_error", detail: "noe_annet" })
+      .mockRejectedValueOnce({ code: "plan_stale", detail: "" });
+    const b = new TauriBridge(call);
+    await expect(b.listRules()).rejects.toEqual({ code: "empty_rule", detail: "" });
+    await expect(b.listRules()).rejects.toEqual({ code: "core_error", detail: "noe_annet" });
+    await expect(b.listRules()).rejects.toEqual({ code: "plan_stale", detail: "" });
+  });
+});
