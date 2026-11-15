@@ -12,6 +12,8 @@ Sist oppdatert: 2026-11-15 (V1: lagt til ansiktsindeks, serier, regler og beskyt
 - **Ansiktsindeks er av som standard.** Fjell analyserer ingen ansikter før du selv slår det på og bekrefter. Se [Ansiktsindeks og personer](#ansiktsindeks-og-personer-valgfritt-av-som-standard).
 - **Unntak: oppdateringssjekk i beta-kanalen.** Bare når du trykker «Se etter oppdatering», eller hvis du selv har slått på «Sjekk automatisk ved oppstart» (standard: av), henter Fjell en liten tekstfil fra GitHub. Se [Oppdateringssjekk](#oppdateringssjekk-beta-kanalen).
 
+> **Utkast for juridisk gjennomgang.** Denne teksten er teknisk og kontrollert mot koden, men ikke gjennomgått av jurist og er ikke rettslig rådgivning. Åpne spørsmål og vurderinger: [juridisk/GDPR-ANSIKTSINDEKS.md](juridisk/GDPR-ANSIKTSINDEKS.md), [juridisk/BEHANDLINGSOVERSIKT.md](juridisk/BEHANDLINGSOVERSIKT.md), [juridisk/LISENSER.md](juridisk/LISENSER.md).
+
 ## Hva Fjell leser
 
 Bare mappene du selv velger (i oppstarten eller i Innstillinger), inkludert eksterne disker og nettverksstasjoner du legger til. Fjell leser filnavn, størrelse, endringstid, EXIF-metadata (f.eks. opptakstidspunkt) og bildeinnholdet for å regne ut: Mappevalget («Bla …») er Windows' egen mappedialog (`dialog:allow-open`, ingen nettverk): den gir bare tilbake stien du velger, og ingenting leses før du bekrefter.
@@ -32,7 +34,14 @@ Dette skjer på maskinen din, med vanlig kode (ingen KI-modell lastes ned, ingen
 | Karantene | `<disk>\.fjell-karantene\<gruppe>\` på samme disk som bildet | Selve filene du har flyttet til «papirkurven» i Fjell (ikke kopier; samme innhold, bare flyttet), pluss `manifest.json` med opprinnelig sti, og en README som forklarer mappen | Gjenopprett i Fjell, eller tøm papirkurven i Fjell |
 | Språkvalg i grensesnittet | Skallets innstillingsfil (`shell.json`) når appen kjører i Tauri; reserve og eldre verdi i WebView-lagring (`localStorage`, nøkkel `fjell.language`) | «system», «nb» eller «en» | Avinstaller og slett `%LOCALAPPDATA%\Fjell\` / WebView2-data. (Skallets lagring er testet på Linux; Tauri-kommandoene er ikke kjørt.) |
 
-Det lagres **ikke**: bilder i indeksen (bare hasher og metadata; heller ingen ansiktsbilder), konto- eller enhets-ID-er, IP-adresser, posisjon, kontakter, passord eller innhold fra andre apper. Fjell skriver ikke loggfiler med filstier ut over det som står over.
+Det lagres **ikke**: bilder i indeksen (bare hasher og metadata; heller ingen ansiktsbilder), konto- eller enhets-ID-er, IP-adresser, posisjon, kontakter, passord eller innhold fra andre apper.
+
+### Logg, sikkerhetskopi og diagnoserapport
+
+- **Loggfiler:** Fjell skriver ingen loggfiler (kontrollert i koden: ingen loggbibliotek, ingen loggfil). Ved enkelte feil skriver skallet en linje til standard feilutgang (stderr) som kan nevne en filsti, for eksempel hvis indeksen ikke kunne flyttes. Dette lagres ikke og sendes ikke.
+- **Sikkerhetskopi av indeksen (planlagt, ikke bygget):** vil være en kopi av Fjells egen indeks, aldri bildene. Siden indeksen kan inneholde ansikts-embeddings og navn, vil en kopi gjøre det samme. Slik det er i dag **fjerner «Slett ansiktsindeks» ikke slike data fra kopier**; dette må løses før funksjonen leveres, og denne teksten oppdateres da.
+- **Diagnoserapport (planlagt, ikke bygget):** skal bare inneholde tall og koder, aldri bilder, stier, filnavn eller navn, og du skal se hele rapporten før noe eksporteres. Fjell sender den aldri noe sted selv. Hvordan den eksporteres er ikke avgjort.
+- **Diverse:** WebView2 (Microsofts nettleserkomponent) lagrer egne data i brukerprofilen din. Fjell lagrer kun språkvalget der. Hva WebView2 ellers lagrer er ikke kontrollert på Windows.
 
 ## Ansiktsindeks og personer (valgfritt, av som standard)
 
@@ -45,6 +54,7 @@ V1 kan gruppere bilder etter hvem som er på dem («Personer»). Dette er det me
 - **Modell:** analysen krever en lokal ansiktsmodell som følger med installasjonsprogrammet; appen laster aldri ned modeller. **Per 2026-11-15 er ingen ansiktsmodell valgt eller inkludert**, så Personer er tom også med indeksen på til en modell er på plass. Dette dokumentet må leses på nytt når en modell kommer inn (lisens, hva modellen lagrer).
 - **Slå av:** å slå indeksen av stopper ny analyse. Eksisterende ansiktsdata blir liggende til du sletter dem.
 - **Slett ansiktsindeksen («wipe»):** knappen i Innstillinger fjerner alle embeddings og alle personer, inkludert navnene du har gitt. **Dette kan ikke angres**; det er et bevisst unntak fra «alt kan angres», og dialogen sier det. Begrunnelsen er personvern: dataene er avledet og kan bygges opp igjen ved å slå indeksen på igjen, men navn og beskyttelse av personer faller bort. Bildene beholdes. Bytes som slettes overskrives (`secure_delete`) og loggfilen (WAL) tømmes. Beskyttelse av en person gjøres om til beskyttelse av hvert enkelt bilde i samme operasjon, så ingen bilder mister beskyttelsen.
+- **Andre personer:** biblioteket ditt inneholder trolig andre enn deg (familie, barn, venner). Ansiktsindeksen vil også analysere dem. Ansikts-embeddings regnes forsiktig som sensitive personopplysninger (biometri). Bruker du Fjell privat på egen PC faller dette trolig utenfor personvernreglene (husholdningsunntaket), men bruker du det i yrkessammenheng eller deler du indeksen, kan det være annerledes. Dette er ikke avklart av jurist; se [juridisk/GDPR-ANSIKTSINDEKS.md](juridisk/GDPR-ANSIKTSINDEKS.md).
 - **Ikke krypteringsbeskyttet:** indeksfilen er ikke kryptert i V1. Den som har tilgang til brukerprofilen din kan lese navn og embeddings. Beskyttelsen er Windows-kontoen og diskkryptering (f.eks. BitLocker), ikke Fjell.
 - **Øyne i serier** (lukkede øyne) er et eget signal fra en eventuell øyemodell og lagrer ingen ansiktsindeks eller person. Heller ingen øyemodell er valgt per 2026-11-15; serier rangeres da på skarphet alene.
 
@@ -93,7 +103,7 @@ Fjell deler ikke data med noen. Det finnes ingen server å dele med. Du kan selv
 
 ## Barn, samtykke, rettigheter
 
-Fjell samler ikke inn personopplysninger og har derfor ingen behandlingsgrunnlag å oppgi, ingen databehandlere og ingen kontaktskjema. Dataene på maskinen din er dine; GDPR-rettigheter (innsyn, retting, sletting) oppfylles ved at du selv kan se og slette alt som er listet over.
+Fjell samler ikke inn personopplysninger og har ingen databehandlere og ingen kontaktskjema. Dataene på maskinen din er dine; rettigheter som innsyn, retting og sletting oppfylles ved at du selv kan se og slette alt som er listet over. (Om utvikleren likevel regnes som behandlingsansvarlig for det som ligger lokalt hos deg, er et åpent spørsmål til jurist.) Fjell er ikke rettet mot barn. Full oversikt per datatype: [juridisk/BEHANDLINGSOVERSIKT.md](juridisk/BEHANDLINGSOVERSIKT.md).
 
 ## Endringer
 
