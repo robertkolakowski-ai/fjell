@@ -1,11 +1,30 @@
-//! `fjell-models`: modelladapter for V1 (øyne og ansikter). Ligger utenfor `fjell-core`,
+//! `fjell-models`: modellramme for V1 (øyne og ansikter). Ligger utenfor `fjell-core`,
 //! som `fjell-fs`; kjernen kjenner ikke denne krate-en (håndheves av `tools/check-layers`).
 //!
-//! Grensesnitt (fylles ut i egen fase, se `docs/v1/MODELLER.md`):
-//! - Implementasjoner av `fjell_core::model::EyeAnalyzer` og `FaceAnalyzer`.
-//! - Bruker bare `fjell_core::model`; ingen andre kjernemoduler.
+//! Avhenger bare av `fjell_core::model`. Se `docs/v1/MODELLER.md`.
+//! Grensesnitt:
+//! - `ModelManifest`: lokal JSON-beskrivelse (hash, størrelse, lisens, former, kalibrerte terskler).
+//! - `load_verified`/`verify_bytes`: verifiserer hash, størrelse (≤ 30 MB) og lisens (tillatt-liste).
+//! - `OnnxSession`/`SessionFactory`: kjøreport; `MockSession` til tester; ekte ONNX bak featuren `onnx`.
+//! - `ModelEyeAnalyzer`/`ModelFaceAnalyzer`: implementerer `EyeAnalyzer`/`FaceAnalyzer`, svarer
+//!   `Unavailable` (aldri «ingen funn») når modell mangler, feiler verifisering eller kjøremotor mangler.
 //!
-//! Foreløpig tom: ingen modellfiler, ingen runtime, ingen nettverk (CLAUDE.md: on-device).
+//! Ingen nettverkskode og ingen modellfiler (CLAUDE.md: on-device først).
+
+pub mod adapters;
+pub mod error;
+pub mod loader;
+pub mod manifest;
+pub mod session;
+
+pub use adapters::{preprocess, ModelEyeAnalyzer, ModelFaceAnalyzer};
+pub use error::ModelError;
+pub use loader::{load_verified, verify_bytes, VerifiedModel};
+pub use manifest::{
+    license_allowed, ModelManifest, Purpose, ALLOWED_LICENSES, EYE_MIN_CONFIDENCE,
+    FACE_MIN_QUALITY, MAX_MODEL_BYTES,
+};
+pub use session::{MockFactory, MockSession, NoRuntime, OnnxSession, SessionFactory, Tensor};
 
 /// Krate-ens versjon (fra Cargo).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -18,7 +37,6 @@ mod tests {
     #[test]
     fn crate_compiles_and_sees_core_model() {
         assert!(!VERSION.is_empty());
-        // Bekrefter at avhengigheten mot `fjell_core::model` virker (kjernen er L0 for denne krate-en).
         fn assert_analyzer<T: EyeAnalyzer>(_: &T) {}
         assert_analyzer(&NullEyeAnalyzer);
         let _ = AnalyzeError::Unavailable;
