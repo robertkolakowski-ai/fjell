@@ -4,6 +4,10 @@
 //!
 //! Grensesnitt: bare tester. Bruker korpuset fra `pipeline::tests` pluss tre bilder i én serie.
 
+// UX-fasen: V1-flagget for beskyttede bilder og konformitet mot MockBridge (egne filer under `fjell_v1_tests/`).
+mod conformance;
+mod scope;
+
 use super::fjell_v1::V1_ERROR_CODES;
 use super::*;
 use crate::model::ConsequenceCode;

@@ -52,7 +52,7 @@ Troverdig innebygd data og samme semantikk som kjernen (`bridge/mock-v1.ts`, tes
 - **Data**: seks kort per type (serie 41 og 42 med tre kort hver, serie 42 har et kort med lukkede øyne; regel 1 og 2 med tre kort hver), fire personer (to med navn, bare synlige når ansiktsindeksen er på), to album, to regler, seks måneder dashboard-tall.
 - **Ansiktsindeks av som standard**: `listPeople` gir tom liste. `setFaceIndex(true)` viser personene. `wipeFaceIndex` nuller personer, gjør personbeskyttelser om til bildebeskyttelse (ingen mister vernet) og returnerer antall ansikter; ny skanning med indeksen på bygger personene på nytt.
 - **Regler foreslår bare**: `saveRule` lager kort (aldri papirkurv), `previewRule` teller uten å lagre, beskyttede bilder gir aldri treff (og treffet kommer tilbake når beskyttelsen fjernes), av/på og sletting skjuler regelens kort, `restoreRule` henter dem tilbake.
-- **Beskyttede bilder** får `protectFlags` bit 16 (`SCOPE_FLAG`), så skjermene aldri forhåndsvelger dem. Papirkurv uten bekreftelse gir `ack_required` med `detail = "protected_by_scope"`; behold er alltid trygt.
+- **Beskyttede bilder** får `protectFlags` bit 16 (`SCOPE_FLAG`), så skjermene aldri forhåndsvelger dem. Kjernen setter samme bit (del 6, punkt 4). Papirkurv uten bekreftelse gir `ack_required` med `detail = "protected_by_scope"`; behold er alltid trygt.
 - **Dashboard**: `freedBytes` er 0 til noe er tømt; `freedByMonth` fylles bare ved «Tøm»; `nextStep` er `review`, `empty_trash` eller `nothing`.
 - **Terskler** følger sensitiviteten (V1-PLAN del 7). `setSuggestionSettings` validerer (`bad_request`).
 
@@ -79,21 +79,60 @@ Nye filer i egen skjermmappe er fritt fram (state, flyt, test etter mønsteret `
 
 `CardExplain` har to eiere (serie og regel). Foreslått avtale: `series` lager skjelettet (`switch` på `reason`), `rules` legger til regelgrenen etter at `series` er sammenslått.
 
-## 6. Åpne UX-spørsmål
+## 6. Avklaringer av de åpne UX-spørsmålene (UX-fasen)
 
-1. **Personer i navigasjonen når indeksen er av.** Navigasjonen viser alltid «Personer». Med ansiktsindeksen av (standard) er skjermen bare en forklaring og en «Slå på»-knapp. Alternativ: skjul valget til indeksen er på. Anbefaling: behold synlig, så funksjonen kan oppdages, men aldri slå på av seg selv.
-2. **Beskyttelsesbryter: hvor.** `ProtectToggle` passer i Gruppe (per bilde), Serie (per bilde), Personer (per person) og i Innstillinger («Beskyttelser»). Skal Gjennomgang ha den på hver flis? Kan gjøre flisene travle; foreslått: bare i detaljvisning.
-3. **Hva skjer med beskyttede kort i Kortmodus.** I dag hoppes de over (aldri i bunken). Alternativ: vis dem med merket «Beskyttet» og bare knappene Behold og Hopp over. Må avklares sammen med `ack_required`-flyten (`protected_by_scope`): skal brukeren kunne velge «Flytt likevel» med eksplisitt bekreftelse, eller er beskyttet alltid låst i Gjennomgang?
-4. **Beskyttelse og `protectFlags`.** Mocken setter bit 16 på bilder brukeren selv har beskyttet. Kjernen sender plattformflaggene (1, 2, 4, 8) i `Card.protect_flags`; beskyttelse fra `protection`-tabellen (bilde, mappe, album, person) går i dag via bekreftelsesporten (`ack_required`) og ikke via flagget. Avklar med Integrer om kjernen også skal sette et flagg for dette, ellers må Review/Cards vise slike kort som vanlige og møte `ack_required`.
-5. **Serie vs. gruppe i Gjennomgang.** Serier vises som grupperader (som duplikater) med «Sammenlign serien». «Velg gruppe» velger alle kort unntatt behold-kandidaten, som for duplikater. Er det riktig for serier der brukeren ofte vil beholde to eller tre?
-6. **`series.eyes.unavailable`.** Til øyemodell er valgt (V1-PLAN åpent spørsmål 12) rangeres serier på skarphet alene. Skal merket vises på hver serie eller bare én gang øverst i Gjennomgang?
-7. **«Tømt» vs «frigjort».** `freedBytes` betyr bare tømt fra Fjell (standard «Tøm» går til Windows Papirkurv). Dashboardet må ikke påstå frigjort plass; tekstene `dashboard.freed.*` er allerede formulert slik.
-8. **Regel-forhåndsvisning før lagring.** `previewRule` gir antall, størrelse og opptil tre eksempelbilder. Skal «Lagre» være deaktivert ved 0 treff (regelen er likevel gyldig)? Foreslått: aktiv, med forklaring.
-9. **Navn er brukerens egne** (personer og regler, maks 100 og 80 tegn). Vis aldri navnene i miniatyrenes `alt`/tooltips i feilmeldinger som kan logges; navn forlater aldri enheten.
-10. **200 % skalering og pseudo.** `nav` har nå seks valg; under 900 px bryter toppmenyen over flere linjer. Verifiser ved 200 % og med pseudo (nb +30 %) når skjermene er på plass; ingen horisontal sideskroll.
-11. **Home og seks kategorikort.** `auto-fit` gir 3×2 på bred skjerm. Skal serier og regler vises under en egen overskrift («Nytt i V1») eller blandes inn? Foreslått: blandes inn.
+Merkene: **besluttet** = følger av `CLAUDE.md` (trygghet først) eller er gjort og testet i koden. **Anbefaling, ikke besluttet** = egentlig et produktvalg for Robert; anbefalingen er det som er bygget til han sier noe annet.
 
-## 7. Status etter integrasjon
+| # | Spørsmål | Avklaring | Status |
+|---|---|---|---|
+| 1 | Personer i navigasjonen når indeksen er av | Valget er synlig så funksjonen kan oppdages, men ansiktsindeksen slås aldri på av seg selv (egen «Slå på» med samtykke). | Aldri automatisk: **besluttet** (`CLAUDE.md`). Synlig valg: **anbefaling, ikke besluttet** |
+| 2 | Beskyttelsesbryter: hvor | `ProtectToggle` i Gruppe, Serie, Personer og Innstillinger («Beskyttelser»), ikke på hver flis i Gjennomgang. Beskyttede fliser er likevel synlige fordi kjernen merker dem (se 4). | **Anbefaling, ikke besluttet** |
+| 3 | Beskyttede kort i Kortmodus og «Flytt likevel» | Beskyttet er låst i skjermene: aldri i Kortmodus-bunken, aldri forhåndsvalgt, ikke flyttbare i Gjennomgang, Gruppe og Serie. For å flytte et beskyttet bilde fjerner brukeren beskyttelsen først (kan angres). Det finnes ingen «Flytt likevel» i V1. Porten i kjernen (`ack_required` med `protected_by_scope`) står uendret som siste sperre for det som likevel kommer gjennom (beskyttelse satt etter at listen ble lastet, CLI, andre klienter), og dialogene som svarer på den finnes i Gjennomgang, Gruppe, Serie og Kortmodus. | Låst beskyttelse: **besluttet** (trygghet først). Å tilby «Flytt likevel» senere: **anbefaling, ikke besluttet** (nei i V1) |
+| 4 | Beskyttelse og `protectFlags` | **Løst, kjernen er sannheten.** Kjernen setter bit 16 (`SCOPE_FLAG`) i `Card.protect_flags` og `SeriesMemberView.protect_flags` for bilder som er beskyttet via `protection`-tabellen (bilde, mappe, album, person), pluss plattformflaggene 1, 2, 4, 8 som før. MockBridge brukte allerede bit 16; nå gjør kjernen det også (`api/fjell_v1.rs`, `scoped_assets`/`with_scope_flag`; ett kall mot `protection` per side). Flagget er bare visning; sletting stoppes av `ack_required`. `conformance_v1.json` holder mock og kjerne like (del 3). | **Besluttet** og testet |
+| 5 | Serie vs. gruppe i Gjennomgang | Serier vises som grupperader. «Velg gruppe» velger alle unntatt behold-kandidaten, som for duplikater. Ingenting flyttes uten bekreftelse, og alt kan angres. Vil brukeren beholde to eller tre, avmerker hun enkeltbilder eller åpner «Sammenlign serien». | **Anbefaling, ikke besluttet** |
+| 6 | `series.eyes.unavailable` | Merket vises én gang per serieside (`SeriesCompare`), ikke på hver rad i Gjennomgang. Et felles merke øverst i Gjennomgang er ikke bygget (`Review.svelte` er delt). | **Anbefaling, ikke besluttet** |
+| 7 | «Tømt» vs «frigjort» | Dashboardet sier «tømt», aldri «frigjort», til purge-modus lagres (V1-PLAN, oppfølging). | **Besluttet** (kjernen kan ikke vite om «Tøm» gikk til Windows Papirkurv) |
+| 8 | Regel-forhåndsvisning før lagring | «Lagre» er aktiv ved 0 treff, med forklaringen `rules.preview.zero`. Skjermen avviser derimot tom regel og tomme eller ugyldige verdier lokalt (se del 8). | **Anbefaling, ikke besluttet** (0 treff). Lokal validering: **besluttet** |
+| 9 | Navn er brukerens egne | Navn på personer og regler brukes aldri i `alt`, `title`, `aria-label` på miniatyrer eller i feilmeldinger, og skrives ikke til konsollen (gjennomgang av `People`, `Rules`, `RuleEditor`, `CardExplain`, `SettingsFaces`). Gjennomgangen er ikke en automatisk test. | **Besluttet**; ikke automatisk testet |
+| 10 | 200 % skalering og pseudo | Dekket av `herding.spec.ts` (omvisningen går gjennom alle V1-skjermer med skalering 100–200 %, pseudo-språk og høykontrast). Ikke kjørt på nytt i UX-fasen, og ikke verifisert med Narrator eller NVDA. | **Ikke verifisert på Windows** |
+| 11 | Home og seks kategorikort | Serier og regler blandes inn i kategorikortene (3×2 på bred skjerm), uten egen overskrift. | **Anbefaling, ikke besluttet** |
+
+Anbefalingene som egentlig er Roberts produktvalg: 1 (synlig valg), 2, 3 (nei til «Flytt likevel»), 5, 6, 8 (aktiv ved 0 treff) og 11.
+
+## 7. Konformitet mellom MockBridge og kjernen
+
+Skjermer og e2e kjører mot `MockBridge`; den ekte appen kjører mot kjernen. For at mocken ikke skal love noe kjernen ikke gjør, kjører begge samme scenarier fra én fil, `core/crates/fjell-core/src/api/fjell_v1_tests/conformance_v1.json`:
+
+- Kjernen: `api/fjell_v1_tests/conformance.rs` (`core_matches_conformance_fixture`) mot en ekte `Fjell` med syntetisk korpus.
+- Mocken: `desktop/src/bridge/conformance.test.ts` mot `MockBridge`.
+
+Fixturen dekker, for hver forslagstype (eksakt, visuell, serie, regel, uskarp) og for beskyttelse av bilde og mappe: merket (`SCOPE_FLAG`), `ack_required` med `protected_by_scope`, bekreftet flytting, behold uten bekreftelse, fjernet beskyttelse, «alt eller ingenting» når ett kort i runden er beskyttet, medlemsflagg i serie og beskyttet behold-kandidat, regeltreff som forsvinner og kommer tilbake, at samme bilde aldri står i flere kort, mappebeskyttelse (hele mappenavn og eksakt skrivemåte), wipe av ansiktsindeksen (personbeskyttelse blir bildebeskyttelse, ingen mister vernet) og 20 feilkoder. Endres kontrakten, endres fixturen og begge sidene i samme commit.
+
+Forskjeller konformitetstesten avdekket (kjernen vant, mocken er rettet):
+
+| Område | Mocken gjorde | Kjernen gjør (nå også mocken) |
+|---|---|---|
+| Forhåndsvisning av tom regel | `empty_rule` | 0 treff, ingen feil (en tom regel treffer aldri alt) |
+| Forhåndsvisning av tomt mime- eller mappevilkår | `invalid_condition` | 0 treff, ingen feil |
+| Tall i vilkår (`older_than_days: 0` osv.) | `invalid_condition` for alt ≤ 0 | Tar imot heltall fra 0; avviser bare tomme tekstvilkår ved lagring |
+| Mappebeskyttelse | rent prefiks, uavhengig av store/små bokstaver | hele stikomponenter, tegn for tegn |
+
+## 8. Det skjermen selv må fange
+
+Siden kjernen tar imot `0` og forhåndsvisningen ikke validerer, ville en tom tallrute i regelbyggeren (tolket som 0) blitt en regel som treffer alle bilder. `conditionsError` i `screens/rulesState.ts` stopper det før bridgen kalles: minst ett vilkår, tekstvilkår ikke tomme, tall hele og minst 1. Feilkodene er de samme (`empty_rule`, `invalid_condition`). Anbefaling til kjernen (ikke gjort, filen eies ikke av UX-fasen): avvis `0` som `invalid_condition` i `suggest_rules::validate`.
+
+**Funn, ikke rettet:** skallet sender V1-feilkodene som `{ code: "core_error", detail: "empty_rule" }` (`ErrorDto::from(ApiError)`, testet i `tests_v1.rs`), mens mocken og tekstoppslaget (`error.<kode>`) bruker `code: "empty_rule"`. I den ekte appen vil derfor alle V1-feil vise den generelle teksten til `TauriBridge` normaliserer: når `code === "core_error"` og `detail` er en av `V1_ERROR_CODES`, bruk `detail` som `code`. Konformitetstesten antar den normaliseringen.
+
+## 9. Albumvilkår uten `listAlbums`
+
+Regelvilkåret `in_album` tar et albumnummer, og brukeren har ingen måte å finne nummeret på i appen. Det er trygt (feil nummer gir færre eller andre forslag, aldri sletting), men ubrukelig. **Besluttet: `listAlbums` legges ikke til i denne fasen.** Den trenger endringer i delte filer og i skallet som ikke lar seg bygge her: `FjellApi` (`api/mod.rs`), `CoreBridge` og `TauriBridge`, Tauri-kommando og DTO i `desktop/src-tauri`, `fjell-ffi`-speil og i18n. Å legge halvparten inn (mock og bro uten skall) ville gitt en metode som feiler i den ekte appen. Minste mulige utforming for Integrer:
+
+- Kjerne: `FjellApi::albums() -> Result<Vec<AlbumView>, ApiError>` med `AlbumView { id: u64, name: String, shared: bool, count: u64 }`, rett fra `album` og `asset_album` (aktive bilder), sortert på navn. Navnene er brukerens egne album fra plattformen og forlater aldri enheten.
+- Bro: `listAlbums(): Promise<Album[]>` i `CoreBridge`, `TauriBridge` (`list_albums`) og `MockBridge` (fra `MOCK_ALBUMS`, med navn).
+- UI: `RuleEditor` bytter tallfeltet for `in_album` med en liste; `ProtectionsSession` bruker navnet i stedet for «nr. N».
+- Til da: anbefaling, ikke besluttet, at `in_album` skjules i regelbyggeren i den ekte appen.
+
+## 10. Status etter integrasjon
 
 Alle skjermene i del 1 er bygget; `placeholder.todo` er fjernet. Navigasjonen viser teller for Gjennomgang (alle seks typer), Personer (når ansiktsindeksen er på), Regler (aktive) og Papirkurv; tellerne for Personer og Regler hentes fra `getDashboard` ved start og rutebytte. Hjem viser oversikten (`DashboardPanel`) med små tellere som lenker til serier, personer og regler.
 
@@ -107,4 +146,4 @@ Alle skjermene i del 1 er bygget; `placeholder.todo` er fjernet. Navigasjonen vi
 
 Funn under integrasjon: `MockBridge.getUpdateDownloadUrl` returnerte en `http://`-adresse som havnet i produksjonsbygget og feilet `nonet.test.ts` så snart `dist/` fantes; den er nå en sti uten skjema.
 
-Åpne UX-spørsmål 1–11 i del 6 er ikke besluttet og står som anbefalt der (Personer synlig i navigasjonen, beskyttelsesbryter i detaljvisning, serier som grupperader, «Tømt» og ikke «frigjort»). Verifisering med Narrator og NVDA på Windows med ekte kjerne gjenstår (som M9 for MVP).
+Åpne UX-spørsmål 1–11 er avklart i del 6 (de som er produktvalg står som anbefaling, ikke besluttet) (Personer synlig i navigasjonen, beskyttelsesbryter i detaljvisning, serier som grupperader, «Tømt» og ikke «frigjort»). Verifisering med Narrator og NVDA på Windows med ekte kjerne gjenstår (som M9 for MVP).

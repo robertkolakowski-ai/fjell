@@ -77,6 +77,21 @@ export function conditionOf(r: ConditionRow): Condition {
 
 export const conditionsOf = (rows: readonly ConditionRow[]): Condition[] => rows.map(conditionOf);
 
+/**
+ * Feil skjermen selv fanger før noe sendes til bridgen. Kjernen avviser bare tom regel og tomme tekstvilkår, og tar imot tall
+ * som 0 («eldre enn 0 dager» treffer alt), og forhåndsvisning validerer ingenting. Derfor krever skjermen mer enn kjernen:
+ * minst ett vilkår, tekst som ikke er tom og tall som er hele og over 0 (V1-PLAN åpent spørsmål 4). Samme koder som kjernen.
+ */
+export function conditionsError(rows: readonly ConditionRow[]): BridgeError | null {
+  if (rows.length === 0) return { code: "empty_rule", detail: "" };
+  for (const c of conditionsOf(rows)) {
+    if (!("value" in c)) continue;
+    const bad = typeof c.value === "string" ? c.value === "" : !Number.isInteger(c.value) || c.value < 1;
+    if (bad) return { code: "invalid_condition", detail: c.kind };
+  }
+  return null;
+}
+
 /** Stabil nøkkel for «har vilkårene endret seg siden forhåndsvisningen». */
 export const conditionsKey = (rows: readonly ConditionRow[]): string => JSON.stringify(conditionsOf(rows));
 

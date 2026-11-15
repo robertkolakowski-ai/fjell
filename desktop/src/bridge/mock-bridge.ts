@@ -12,7 +12,7 @@ import type {
 } from "./types-v1";
 import {
   cleanRuleName, folderMatches, MOCK_ALBUMS, MOCK_ASSETS, MOCK_BYTES, monthSeries, normalizeScope, PERSON_NAME_MAX, ruleCandidates, ruleHitBytes,
-  SCOPE_FLAG, scopeKey, seedPeople, seedRules, thresholdsFor, TOP_FOLDERS, validateConditions, yearMonthOf, type MockPerson, type MockRule,
+  SCOPE_FLAG, previewHasNoMatches, scopeKey, seedPeople, seedRules, thresholdsFor, TOP_FOLDERS, validateConditions, yearMonthOf, type MockPerson, type MockRule,
 } from "./mock-v1";
 
 export interface MockOptions {
@@ -659,7 +659,8 @@ export class MockBridge implements CoreBridge {
 
   async previewRule(conditions: Condition[]): Promise<RulePreview> {
     await this.wait();
-    validateConditions(conditions);
+    // Som kjernen: forhåndsvisning lagrer og validerer ingenting; tom regel gir null treff (se `previewHasNoMatches`).
+    if (previewHasNoMatches(conditions)) return { hits: 0, bytes: 0, sample: [] };
     const decided = new Set([...this.trashed, ...this.kept].map((c) => c.asset));
     const hits = ruleCandidates(conditions).filter((a) => !decided.has(a) && !this.isProtected(a));
     return { hits: hits.length, bytes: hits.reduce((n, a) => n + ruleHitBytes(a), 0), sample: hits.slice(0, 3) };
