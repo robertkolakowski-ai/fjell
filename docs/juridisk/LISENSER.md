@@ -30,7 +30,7 @@
 
 ## Prosess for å legge inn en modell (jf. `docs/v1/MODELLER.md`)
 
-1. Eier velger modell og kjøremotor (ort eller tract). Hver gjelder egen lisensvurdering, også `cargo deny` og `--locked` for motoren.
+1. Eier velger modell og kjøremotor (ort eller tract). Hver gjelder egen lisensvurdering, også `cargo deny` og `--locked` for motoren. Verifisert underlag (lisensfiler for YuNet = MIT og SFace = Apache-2.0, ONNX Runtime = MIT, `tract`-treets lisenser) står i `docs/v1/MODELLER.md` avsnitt 7; treningsdatavilkår er ikke avklart (avsnitt 8).
 2. Verifiser mot primærkilde, med dato: lisens for **vektene**, lisens/vilkår for **treningsdata** (egen vurdering; kan være mer restriktiv enn vektene), opphav og størrelse (≤ 30 MB per fil).
 3. Lag `manifest.json` (navn, formål, versjon, BLAKE3, bytes, SPDX-lisens, `source_url` som metadata). Lasteporten avviser lisens utenfor tillatt-listen (Apache-2.0, MIT, BSD-2/3, 0BSD, CC0-1.0), feil størrelse eller feil hash.
 4. Legg modellen i installasjonsprogrammet (aldri nedlasting fra appen). Legg den til som bundlet ressurs i `gen_third_party.py` (`BUNDLED_ASSETS`, med lisensfil og kilde) og regenerer `THIRD_PARTY.md`. Lisensteksten må hentes fra kilden og kontrolleres av eier; ikke skriv den fra hukommelsen.
