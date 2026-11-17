@@ -31,7 +31,7 @@ Detaljer og åpne spørsmål: `v1/V1-PLAN.md`.
 | V2 | Plan skrevet: `v2/V2-PLAN.md` (Raw og par, mobil, eksport). Ingen kode |
 
 ### Hva som gjenstår før V1 er ferdig
-1. **Ekte modell, valgt av Robert**: øyemodell og ansiktsmodell (lisens, ≤ 30 MB, ONNX), kjøremotor bak `onnx` (må passere `cargo deny` og `--locked`), per-modell-omformer, `THIRD_PARTY.md`, ev. økt `ALGO_VER`, og installasjonsløype for modellmappen. Ansiktsindeksen er av som standard og øyesignalet mangler til dette er gjort.
+1. **Ekte modell, valgt av Robert**: øyemodell og ansiktsmodell (lisens, ≤ 40 MB, ONNX), kjøremotor bak `onnx` (må passere `cargo deny` og `--locked`), per-modell-omformer, `THIRD_PARTY.md`, ev. økt `ALGO_VER`, og installasjonsløype for modellmappen. Ansiktsindeksen er av som standard og øyesignalet mangler til dette er gjort.
 2. **Ekte kalibrering** på Roberts eget testsett (`mvp/KALIBRERING.md`). Anbefalingen om High `blur_scale` 1,3 til 1,1 er ikke tatt inn: den bygger på syntetisk korpus uten ekte harde negativer, og et lite funn (presisjon 0,878 mot 0,901) er ikke nok til å endre en brukersynlig sensitivitet. Standardene (Low 0,7 / Normal 1,0 / High 1,3 for uskarphet) står til ekte data finnes. Øyesikkerhet er plassholder.
 3. **Manuell Windows-verifisering** av V1-skjermene (Narrator, NVDA, skalering, høykontrast, ytelse på ekte bibliotek) og kjøring av V1-jobbene på `windows-latest`.
 4. Kjernefunn å avgjøre (se `v1/V1-PLAN.md`, avklaringene og «Åpne funn etter integrasjon»): manuelt valgt keeper vs. øyeanalyse, ny gruppering ved endret sensitivitet, mappebeskyttelse på tegnnivå og Windows-skrivemåte, `older_than_days` 0, overføring av beskyttelse ved flytting, `listAlbums`.
