@@ -21,6 +21,7 @@
 //! bortsett fra avstemming av fjernede kilder (I13).
 
 mod analyzers;
+mod control;
 mod fast;
 mod full;
 mod groups;
@@ -31,6 +32,10 @@ pub(crate) mod tests;
 mod tuning;
 
 pub use analyzers::{run_analyzers, AnalyzerReport, EYE_ALGO, FACE_ALGO};
+pub use control::{
+    scan_controlled, ActiveGuard, ControlState, ControlStatus, GuardedSource, PowerProbe,
+    ScanControl, WorkerHook,
+};
 pub(crate) use groups::member;
 pub use groups::{
     compute, compute_tuned, compute_with, compute_with_rules, refresh_groups,
@@ -181,11 +186,17 @@ pub(crate) struct Ctx<'a, H: StoreHandle> {
     pub cancel: &'a AtomicBool,
     pub started: Instant,
     pub algo: crate::model::AlgoVer,
+    /// Styring (pause, tråder, prioritet); `None` = ustyrt skanning som før.
+    pub ctl: Option<&'a ScanControl>,
 }
 
 impl<H: StoreHandle> Ctx<'_, H> {
     /// Avbrutt av bruker eller fristen er ute.
+    /// Står skanningen på pause, parkeres tråden her (mellom bilder) til den fortsetter eller avbrytes.
     pub fn stop(&self) -> bool {
+        if let Some(c) = self.ctl {
+            c.checkpoint(self.cancel, || self.deadline_hit());
+        }
         self.cancel.load(Ordering::SeqCst) || self.deadline_hit()
     }
     pub fn deadline_hit(&self) -> bool {
@@ -196,9 +207,25 @@ impl<H: StoreHandle> Ctx<'_, H> {
     /// Tråder for rayon-poolen.
     pub fn threads(&self) -> usize {
         let all = std::thread::available_parallelism().map_or(2, |n| n.get());
+        if let Some(c) = self.ctl {
+            return c.threads(all);
+        }
         match self.cfg.priority {
             Priority::Foreground => all,
             Priority::Background => all.clamp(1, 2),
+        }
+    }
+}
+
+impl<H: StoreHandle> Ctx<'_, H> {
+    /// Rayon-pool med riktig antall tråder og (ved lav prioritet) plattformkroken.
+    pub fn pool(&self) -> Result<rayon::ThreadPool, PipelineError> {
+        match self.ctl {
+            Some(c) => c.build_pool(self.threads()),
+            None => rayon::ThreadPoolBuilder::new()
+                .num_threads(self.threads())
+                .build()
+                .map_err(|e| PipelineError::Pool(e.to_string())),
         }
     }
 }
@@ -214,10 +241,11 @@ pub fn scan<H: StoreHandle>(
     progress: &Progress,
     cancel: &AtomicBool,
 ) -> Result<ScanReport, PipelineError> {
-    scan_with(src, store, clock, cfg, progress, cancel, ALGO_VER)
+    scan_with(src, store, clock, cfg, progress, cancel, ALGO_VER, None)
 }
 
 /// Som `scan`, men med eksplisitt algoritmeversjon (tester av K7-9).
+#[allow(clippy::too_many_arguments)] // intern; algoritmeversjon (tester) og styring er de to valgfrie delene
 pub(crate) fn scan_with<H: StoreHandle>(
     src: &dyn AssetSource,
     store: &H,
@@ -226,6 +254,7 @@ pub(crate) fn scan_with<H: StoreHandle>(
     progress: &Progress,
     cancel: &AtomicBool,
     algo: crate::model::AlgoVer,
+    ctl: Option<&ScanControl>,
 ) -> Result<ScanReport, PipelineError> {
     let cx = Ctx {
         src,
@@ -236,6 +265,7 @@ pub(crate) fn scan_with<H: StoreHandle>(
         cancel,
         started: Instant::now(),
         algo,
+        ctl,
     };
     let mut report = ScanReport::default();
     progress.reset();

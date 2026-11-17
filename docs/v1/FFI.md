@@ -16,7 +16,7 @@ Kjernen holdes plattformnøytral, og det bygges ingen iOS-/Android-kode i MVP el
 
 ## Hva som er speilet
 
-Alle `FjellApi`-metoder (36 av 36), som `pub fn` på objektet `Fjell`:
+Alle `FjellApi`-metoder fra V1 (36 av 36), som `pub fn` på objektet `Fjell`. Robusthetsflaten (sikkerhetskopi, indeksstyring, diagnose; 13 metoder, `docs/v1/ROBUSTHET-KONTRAKT.md`) er bevisst ikke speilet ennå og står i `NOT_MIRRORED_API`:
 
 | Gruppe | Metoder |
 | --- | --- |

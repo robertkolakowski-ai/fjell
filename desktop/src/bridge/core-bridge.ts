@@ -5,6 +5,9 @@ import type {
 import type {
   Condition, Dashboard, Person, Protection, Rule, RuleDraft, RulePreview, Scope, SeriesCompare, SuggestionSettings, Thresholds,
 } from "./types-v1";
+import type {
+  Backup, DiagReport, RebuildResult, IndexingSettings, IndexingStatus, IntegrityCode, RestoreReport,
+} from "./types-robust";
 
 export interface CoreBridge {
   getState(): Promise<AppState>;
@@ -119,4 +122,41 @@ export interface CoreBridge {
   getSuggestionSettings(): Promise<SuggestionSettings>;
   setSuggestionSettings(settings: SuggestionSettings): Promise<SuggestionSettings>;
   getThresholds(): Promise<Thresholds>;
+
+  // ---- Robusthet: sikkerhetskopi av indeksen, indeksering og diagnose (docs/v1/ROBUSTHET-KONTRAKT.md) ----
+  // Sikkerhet: en kopi inneholder bare Fjells egen indeks, aldri bilder. `restoreBackup` krever avkrysning
+  // (`acknowledged`) og kan angres med `undoRestoreBackup`. Ingenting her sletter eller endrer bilder, og ingenting
+  // sendes ut av maskinen. Feil er koder (`BridgeError`, se `ROBUST_ERROR_CODES`), aldri tekst.
+
+  /** Kopier av indeksen, nyeste først. */
+  listBackups(): Promise<Backup[]>;
+  /** Tar en kopi nå (`manual`). Avvises med `backup_failed` (f.eks. når indeksen ikke er hel). */
+  createBackup(): Promise<Backup>;
+  /**
+   * Erstatter indeksen med kopien `id`. `acknowledged` er brukerens avkrysning; uten den avvises kallet med `backup_ack_required`.
+   * Kjernen tar først en `pre_restore`-kopi (`RestoreReport.safety`). Avvises også med `backup_not_found`, `backup_corrupt`, `index_busy`.
+   */
+  restoreBackup(id: number, acknowledged: boolean): Promise<RestoreReport>;
+  /** Angrer en gjenoppretting: setter kopien `safety` tilbake. Krever ingen bekreftelse. */
+  undoRestoreBackup(safety: number): Promise<RestoreReport>;
+  /** Sjekker at indeksen er hel. Alt annet enn `ok` gir trygg modus. Uten bibliotek: `ok`. */
+  checkIntegrity(): Promise<IntegrityCode>;
+
+  /** Trygg modus: legger den ødelagte indeksen til side (aldri slettet) og bygger en ny. Bildene røres ikke. */
+  rebuildIndex(): Promise<RebuildResult>;
+  /** Status for indeksering (bakgrunnsskann). */
+  getIndexingStatus(): Promise<IndexingStatus>;
+  /** Avvises med `indexing_not_running` når ingenting indekseres. */
+  pauseIndexing(): Promise<void>;
+  resumeIndexing(): Promise<void>;
+  /** Det som er funnet beholdes. Avvises med `indexing_not_running`. */
+  cancelIndexing(): Promise<void>;
+  getIndexingSettings(): Promise<IndexingSettings>;
+  /** Avvises med `indexing_invalid_settings` (ukjent prioritet, tråder utenfor 0..=64). Returnerer lagret verdi. */
+  setIndexingSettings(settings: IndexingSettings): Promise<IndexingSettings>;
+
+  /** Diagnoserapport slik brukeren ser den før eksport: tall, koder og redigert tekst. Ingen stier, filnavn eller bilder. */
+  previewDiagnostics(): Promise<DiagReport>;
+  /** Samme innhold til eksport. Appen sender aldri rapporten noe sted selv. */
+  exportDiagnostics(): Promise<DiagReport>;
 }

@@ -232,6 +232,23 @@ Skriv ett funn per rad. Alvorlighet: **A** blokkerer bruk (for eksempel ikke nå
 
 Send tilbake: utfylt protokoll, skjermbilder av alt som ble `[F]` (uten private bilder synlige), talehistorikk fra NVDA ved opplesningsfunn, og Windows-versjon.
 
+## 7b. Robusthet: manuelle Windows-punkter (backup, diagnose, indeksering, trygg modus)
+
+Ikke prøvd på Windows. Skriv resultat (OK / Feil / Ikke testet) i protokollen.
+
+| # | Punkt | Forventet |
+|---|---|---|
+| R1 | Ta kopi nå; kopien dukker opp i listen. Gjenopprett med avkrysning, deretter «Angre». | Indeksen byttes via `rename` også med antivirus aktivt; angre gir tilbake forrige indeks. Ingen bilder berørt. |
+| R2 | Ødelegg indeksfilen (lukk appen, overskriv noen byte i `index.db`), start appen. | Trygg modus vises. «Gjenopprett» virker; «Bygg på nytt» legger den ødelagte filen til side (`.corrupt-<tid>`), skanner på nytt og lar «Nylig slettet» være tom. |
+| R3 | Start appen med indeks som skal migreres. | En automatisk kopi finnes etterpå. |
+| R4 | Fyll disken (liten VHD) og ta kopi. | Feilmelding «kopi mislyktes», appen fortsetter, ingen halvferdig kopi i listen. |
+| R5 | Diagnose: Eksporter. | Filen ligger i `%APPDATA%`-mappen for Fjell under `diagnose`, stien vises, innholdet har ingen stier eller filnavn. OS-versjon og skalering vil stå `unknown` til `set_env` er koblet. |
+| R6 | Panikkhook: provoser en panikk (utviklerbygg). | Linje `cat=panic` i `logs/fjell.log`, uten melding eller sti. |
+| R7 | Bærbar: skann på batteri, deretter koble til strøm. | Pause på batteri hvis valgt; «Fortsett» overstyrer; strømstatus fra `GetSystemPowerStatus`. |
+| R8 | Trådprioritet: skann med «Lav» og se Oppgavebehandling. | Arbeidertrådene har lavere prioritet; appen er responsiv. |
+| R9 | Trekk ut ekstern disk midt i skanning. | Skanningen avsluttes med feilkode, ingenting regnes som slettet (ventemodus er av som standard). |
+| R10 | Narrator og NVDA: bekreftelsesdialogen for gjenoppretting, trygg modus og «Bygg på nytt». | Overskrift, banner og avkrysning leses opp; fokus er riktig. |
+
 ## 8. Funn fra de automatiske testene
 
 Disse er funnet av V1-spesene og kontraktstesten. Funn 1 og 2 er rettet i V1-fullføringen (integrasjonscommit `52c5963`); de forventet-feilende testene (`test.fail()` og `#[should_panic]`) er fjernet, og Playwright-testen under er nå en vanlig test som skal være grønn.

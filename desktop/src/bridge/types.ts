@@ -152,6 +152,9 @@ export type BridgeErrorCode =
   // V1 (V1-PLAN del 7): beskyttelse, regler, personer, serier.
   | "empty_folder" | "unknown_target" | "empty_rule" | "empty_name" | "name_too_long" | "invalid_condition"
   | "rule_not_found" | "unknown_person" | "not_merged" | "unknown_series"
+  // Robusthet (docs/v1/ROBUSTHET-KONTRAKT.md): sikkerhetskopi av indeksen, indeksering, diagnose.
+  | "backup_not_found" | "backup_ack_required" | "backup_corrupt" | "backup_failed" | "index_busy"
+  | "indexing_not_running" | "indexing_invalid_settings" | "diag_failed" | "not_implemented"
   // Flere mapper: overlapp (detail = forklaring), bilder i «Nylig slettet» (detail = antall),
   // første mappe kan ikke fjernes, mappen har en Fjell-karantene fra et annet bibliotek (detail = sti).
   | "root_overlap" | "root_has_trash" | "root_is_primary" | "root_has_quarantine" | "not_a_folder"

@@ -15,6 +15,7 @@
 //! Status (M3, undermodul `ops`): trygg sletting. `apply_batch` (én transaksjon per batch), `undo_top`,
 //! `reconcile_removed`, lesespørringer for plan/utløp/oppsummering.
 
+mod backup;
 mod cards;
 mod dashboard;
 mod groups;

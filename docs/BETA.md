@@ -128,6 +128,17 @@ Rettet i `desktop/src/lib/components`: se commit-meldingen. Gjenstår i `desktop
 - `role="status"`/`role="alert"` settes inn **sammen med teksten** i flere skjermer (f.eks. «Laster …», «N gjenopprettet»). Narrator og NVDA annonserer ofte ikke slike. Løsning: en vedvarende `LiveRegion` per skjerm (komponenten finnes) og bytt teksten.
 - `Toast` har fått forsinket tekst slik at regionen finnes før teksten, men er ikke i bruk på skjermene ennå.
 
+## 8b. Robusthet (nytt: backup, diagnose, indeksering, trygg modus)
+
+Betatestere skal prøve dette (detaljer og forventet resultat: `v1/WINDOWS-V1.md` del 7b):
+
+- **Backup og gjenoppretting:** ta kopi, gjenopprett, angre. Les notatet om at kopier kan inneholde stier og navn og ikke er kryptert.
+- **Trygg modus:** bare med en bevisst ødelagt indeks på testmaskin. Gjenopprett en kopi, og prøv «Bygg på nytt».
+- **Trygg modus ved `degraded`:** i dag sperrer appen for alt annet enn `ok`, også når bare `foreign_key_check` avviker og indeksen er lesbar. Uten brukbar kopi er «Bygg på nytt» eneste vei, og den nullstiller «Nylig slettet» og angrehistorikk. Er dette riktig, eller skal `degraded` gi banner i stedet for sperring? Ikke avklart av eier (`v1/ROBUSTHET-KONTRAKT.md`, åpent spørsmål 3); vurder under beta.
+- **Diagnose:** eksporter, åpne filen og kontroller at den ikke har stier, filnavn eller navn. Sjekk at ingenting sendes.
+- **Indeksering på bærbar:** pause på batteri, «Fortsett», lav prioritet, antall tråder. Er appen responsiv under skanning?
+- **Narrator/NVDA:** dialoger og banner i disse flatene (manuell test kreves).
+
 ## 9. Beta-utgang
 
 Beta kan åpnes når: alle punkter i 1–6 er OK eller har akseptert og dokumentert unntak, brukbarhetsmålene i 7 er nådd, `just check`, `just desktop-check`, `npx playwright test` og CI-jobben `desktop` er grønne, og [RELEASE.md](RELEASE.md) sjekklisten er gått gjennom.

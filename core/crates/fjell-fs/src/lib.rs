@@ -8,6 +8,7 @@
 //! - `RecycleBin`/`FsDeleter`: «Tøm» via Papirkurv (standard) eller permanent med `PermanentAck`.
 //! - `roots`: flere røtter i ett bibliotek (`MultiSource`, `RootSet`: karantene og ruting per rot).
 //! - `cloud`: sikkerhetsnett som kjenner igjen skysynkede mappenavn (iCloud/OneDrive/Dropbox).
+//! - `power`: strømstatus (`PowerSource`, plattformnøytral); Windows-delen ligger i `windows::power`.
 //! - `path`: lange stier og UNC. `windows` (cfg(windows)): Papirkurv-implementasjon mot Windows.
 
 pub mod cloud;
@@ -16,6 +17,7 @@ pub mod drives;
 pub mod locality;
 pub mod manifest;
 pub mod path;
+pub mod power;
 pub mod quarantine;
 pub mod roots;
 pub mod source;

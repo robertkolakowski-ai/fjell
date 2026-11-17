@@ -9,6 +9,7 @@
   import type { IconName } from "./lib/components/Icon.svelte";
   import { fmt } from "./lib/i18n";
   import type { AppState } from "./bridge/types";
+  import type { IntegrityCode } from "./bridge/types-robust";
   import { NAV_ROUTES, navFor, navHash, navigate, route, type NavRoute } from "./router";
   import Cards from "./screens/Cards.svelte";
   import Group from "./screens/Group.svelte";
@@ -17,6 +18,7 @@
   import Home from "./screens/Home.svelte";
   import People from "./screens/People.svelte";
   import Onboarding from "./screens/Onboarding.svelte";
+  import RecoveryMode from "./screens/RecoveryMode.svelte";
   import { shouldShowOnboarding } from "./screens/onboardingGate";
   import Review from "./screens/Review.svelte";
   import Rules from "./screens/Rules.svelte";
@@ -53,6 +55,13 @@
     const timer = setInterval(() => { if (!document.hidden) void refreshCounts(); }, 3000);
     return () => clearInterval(timer);
   });
+  // Trygg modus: er indeksen ikke hel, vises RecoveryMode i stedet for skjermene (ingen skanning, ingen endringer). Feil ved sjekken
+  // sperrer aldri appen (ukjent regnes som hel); sjekken kjører ved start og på «Sjekk på nytt».
+  let integrity = $state<IntegrityCode>("ok");
+  async function checkIntegrity(): Promise<void> {
+    try { integrity = await bridge.checkIntegrity(); } catch { /* ukjent: ikke sperr appen */ }
+  }
+  onMount(() => void checkIntegrity());
   const pending = $derived(counts ? counts.perKind.reduce((n, k) => n + k.count, 0) : 0);
   const countOf = (n: NavRoute): { count: string | null; label?: string } => {
     const v = n === "review" ? pending : n === "trash" ? (counts?.trashCount ?? 0) : n === "people" ? people : n === "rules" ? rulesActive : 0;
@@ -117,7 +126,9 @@
   </Sidebar>
 
   <main id="main" tabindex="-1" bind:this={main}>
-    {#if $route.name === "onboarding"}
+    {#if integrity !== "ok"}
+      <RecoveryMode {integrity} onrecheck={() => void checkIntegrity()} />
+    {:else if $route.name === "onboarding"}
       <Onboarding />
     {:else if $route.name === "home"}
       <Home />

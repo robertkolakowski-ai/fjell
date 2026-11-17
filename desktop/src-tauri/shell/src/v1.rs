@@ -27,7 +27,7 @@ fn scope(s: &ScopeDto) -> Result<fjell_core::model::ProtectScope, ErrorDto> {
 
 impl Shell {
     /// Kjernens API (`no_library` før en mappe er valgt).
-    fn api(&self) -> Result<Arc<dyn FjellApi>, ErrorDto> {
+    pub(crate) fn api(&self) -> Result<Arc<dyn FjellApi>, ErrorDto> {
         Ok(self.parts()?.0)
     }
 

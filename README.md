@@ -26,6 +26,11 @@ Fjell gjør tusenvis av ukurerte bilder om til et bibliotek du faktisk vil åpne
 | [docs/v1/KALIBRERING-V1.md](docs/v1/KALIBRERING-V1.md) | V1: kalibrering på syntetisk korpus (ikke ekte bilder) |
 | [docs/v1/FFI.md](docs/v1/FFI.md) | V1: FFI (`fjell-ffi`, UniFFI-speil av V1-flaten) |
 | [docs/v1/WINDOWS-V1.md](docs/v1/WINDOWS-V1.md) | V1: Windows-verifisering (testprotokoll og automatiske tillegg; ikke kjørt på Windows) |
+| [docs/v1/ROBUSTHET-KONTRAKT.md](docs/v1/ROBUSTHET-KONTRAKT.md) | Robusthet: kontrakt for backup, indeksering og diagnose (grensesnitt, eierskap per fil, åpne spørsmål) |
+| [docs/v1/BACKUP.md](docs/v1/BACKUP.md) | Robusthet: sikkerhetskopi av indeksen og trygg modus (under arbeid) |
+| [docs/v1/INDEKSERING.md](docs/v1/INDEKSERING.md) | Robusthet: indeksering, pause og innstillinger (under arbeid) |
+| [docs/v1/DIAGNOSE.md](docs/v1/DIAGNOSE.md) | Robusthet: diagnoserapport uten stier og bilder (under arbeid) |
+| [docs/juridisk/README.md](docs/juridisk/README.md) | Juridiske tekster (under arbeid) |
 | [docs/v2/README.md](docs/v2/README.md) | V2: plan og delplaner (ingen kode ennå) |
 | [docs/BETA.md](docs/BETA.md) | Manuell testing: Narrator/NVDA, skalering, høykontrast, installasjon, brukbarhetstest |
 | [docs/RELEASE.md](docs/RELEASE.md) | NSIS mot MSIX, WebView2, kodesignering, versjonering |

@@ -359,6 +359,26 @@ pub const MIRRORED_API: &[&str] = &[
     "thresholds",
 ];
 
-/// `FjellApi`-metoder som bevisst ikke er speilet, med begrunnelse. Tom i dag; hver ny oppføring må
-/// forklare hvorfor plattformen ikke trenger metoden.
-pub const NOT_MIRRORED_API: &[(&str, &str)] = &[];
+/// `FjellApi`-metoder som bevisst ikke er speilet, med begrunnelse. Hver ny oppføring må forklare hvorfor
+/// plattformen ikke trenger metoden.
+///
+/// Robusthetsflaten (docs/v1/ROBUSTHET-KONTRAKT.md) er bare et desktop-behov i MVP: sikkerhetskopi av indeksen,
+/// indekseringsstyring og diagnose har ingen iOS-/Android-bruker, og det bygges ingen mobilkode nå (CLAUDE.md,
+/// beslutning 2026-11-11). Speiles i en egen fase hvis mobil trenger dem.
+const DESKTOP_ONLY: &str =
+    "robusthet (ROBUSTHET-KONTRAKT.md): bare desktop i MVP, speiles etter MVP ved behov";
+pub const NOT_MIRRORED_API: &[(&str, &str)] = &[
+    ("backup_create", DESKTOP_ONLY),
+    ("backup_list", DESKTOP_ONLY),
+    ("backup_restore", DESKTOP_ONLY),
+    ("backup_restore_undo", DESKTOP_ONLY),
+    ("integrity_check", DESKTOP_ONLY),
+    ("indexing_status", DESKTOP_ONLY),
+    ("indexing_pause", DESKTOP_ONLY),
+    ("indexing_resume", DESKTOP_ONLY),
+    ("indexing_cancel", DESKTOP_ONLY),
+    ("indexing_settings", DESKTOP_ONLY),
+    ("indexing_settings_set", DESKTOP_ONLY),
+    ("diag_preview", DESKTOP_ONLY),
+    ("diag_export", DESKTOP_ONLY),
+];
