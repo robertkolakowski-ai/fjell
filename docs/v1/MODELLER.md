@@ -200,7 +200,7 @@ Robert valgte **vei A: `tract` + SFace fp32**. Dette er det som er avgjort og de
 **Avgjort**
 - Kjøremotor er `tract` (ren Rust). ONNX Runtime/`ort` velges bort for denne omgangen (22,7 MB DLL, `rc`-krate, nedlasting ved bygging).
 - Embeddingmodell er SFace fp32 (`face_recognition_sface_2021dec.onnx`, 38 696 353 byte, Apache-2.0). Kvantiserte modeller (int8) brukes ikke, siden `tract` ikke støtter dem.
-- Taket per modellfil heves fra 30 til **40 MiB** (`MAX_MODEL_BYTES` i `fjell-models`). Det er en hard grense i lasteporten og dekker SFace fp32 med liten margin; en større modell krever ny beslutning (testen `cap_fits_the_chosen_sface_fp32_but_not_much_more` vokter det).
+- Taket per modellfil heves fra 30 til **40 MiB** (`MAX_MODEL_BYTES` i `fjell-models`). Det er en hard grense i lasteporten og dekker SFace fp32 med liten margin; en større modell krever ny beslutning (en kompileringstidssjekk i `manifest.rs` vokter det).
 - Detektoren er foreløpig anbefalt, ikke bekreftet: YuNet `2026may` (se 7.5). Siden `tract` støtter den dynamiske modellen, er den kompatibel med vei A.
 
 **Fortsatt åpent (ikke avgjort)**

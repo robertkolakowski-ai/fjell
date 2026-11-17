@@ -247,16 +247,13 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn cap_fits_the_chosen_sface_fp32_but_not_much_more() {
-        // SFace fp32 fra OpenCV Zoo (vei A i docs/v1/MODELLER.md): 38 696 353 byte.
+    /// Kompileringstidssjekk (feiler bygget, ikke bare testen): taket dekker SFace fp32 fra OpenCV Zoo
+    /// (vei A i `docs/v1/MODELLER.md`, 38 696 353 byte), og det skal ikke gli oppover uten ny beslutning.
+    const _: () = {
         const SFACE_FP32: u64 = 38_696_353;
         assert!(SFACE_FP32 <= MAX_MODEL_BYTES);
-        assert!(
-            MAX_MODEL_BYTES <= 48 * 1024 * 1024,
-            "taket skal ikke gli oppover uten ny beslutning"
-        );
-    }
+        assert!(MAX_MODEL_BYTES <= 48 * 1024 * 1024);
+    };
 
     #[test]
     fn rejects_declared_size_over_limit() {
