@@ -1,0 +1,16 @@
+# Frittstående måleprogram for modellunderlaget (docs/v1/MODELLER.md). Ikke en del av
+# core-arbeidsområdet, ikke bygget i CI og ikke levert med appen.
+[package]
+name = "tract-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+tract-onnx = "=0.23.10"
+blake3 = "1"
+
+[profile.release]
+opt-level = 3
