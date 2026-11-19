@@ -97,6 +97,12 @@ jobs:
           if (-not $up.WaitForExit(180000)) { Stop-Process -Id $up.Id -Force; throw "oppgradering mens appen kjørte: installasjonsprogrammet hang (over 180 s)" }
           if ($up.ExitCode -ne 0) { throw "oppgradering mens appen kjørte feilet, kode $($up.ExitCode) (Kunne ikke avslutte Fjell?)" }
           if (-not (Test-Path $exe.FullName)) { throw "app-exe mangler etter oppgradering" }
+          # Installasjonsloggen fra NSIS-hooken (diagnose for «Kunne ikke avslutte Fjell»): skal finnes og vise taskkill-forsøkene.
+          $log = Join-Path $env:TEMP "fjell-installer.log"
+          if (-not (Test-Path $log)) { throw "installasjonsloggen mangler: $log" }
+          Write-Host "--- fjell-installer.log ---"
+          Get-Content $log | ForEach-Object { Write-Host $_ }
+          if (-not (Select-String -Path $log -Pattern "taskkill forsok" -Quiet)) { throw "installasjonsloggen mangler taskkill-linjer" }
           Start-Sleep -Seconds 3
           $left = Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($exe.Name)) -ErrorAction SilentlyContinue
           if ($left) { Write-Host "NB: appprosess lever etter oppgradering (id $($left.Id -join ','))"; $left | Stop-Process -Force }
