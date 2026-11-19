@@ -41,6 +41,8 @@ Tvangsavslutning er trygt fordi Fjell ikke har ulagret tilstand: indeksen er SQL
 
 Hookene hjelper **ikke** når Fjell kjører som administrator og installeren som vanlig bruker, eller når et annet program (antivirus, Utforsker) holder exe-filen. Se rådene under.
 
+Hooken skriver også en diagnoselogg, `%TEMP%\fjell-installer.log` (fase, om installeren er administrator, antall Fjell-prosesser før og etter, `taskkill`-kode per forsøk). Den inneholder ingen stier eller brukernavn og forlater aldri maskinen. Bruk den og matrisen i [WINDOWS-TESTMASKIN.md](WINDOWS-TESTMASKIN.md) for å finne årsaken på en ekte maskin.
+
 ### 2. Reservevei i appen: manuell nedlasting
 
 Feiler installasjonen, viser Innstillinger → Oppdateringer en tydelig melding og boksen «Installer manuelt» med adressen til siste utgivelse (`https://github.com/robertkolakowski-ai/fjell/releases/tag/beta`) og knappen «Kopier lenke». Det skjer i tre tilfeller:
