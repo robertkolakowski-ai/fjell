@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Øvre grense for modellfil (byte). Modeller følger med installasjonsprogrammet.
-pub const MAX_MODEL_BYTES: u64 = 30 * 1024 * 1024;
+///
+/// 40 MiB: eier valgte vei A (`tract` + SFace fp32, 38 696 353 byte) 2026-11-17, se `docs/v1/MODELLER.md`
+/// avsnitt 7 og 9. Taket var 30 MiB. Det er fortsatt en hard grense i lasteporten, ikke et mål.
+pub const MAX_MODEL_BYTES: u64 = 40 * 1024 * 1024;
 
 /// Permissive lisenser (eksakt SPDX-id, ingen uttrykk som «A OR B»).
 pub const ALLOWED_LICENSES: [&str; 6] = [
@@ -243,6 +246,14 @@ mod tests {
             face_json(H, 10, "MIT", 4).replace("\"embedding_dim\":4", "\"embedding_dim\":5")
         ));
     }
+
+    /// Kompileringstidssjekk (feiler bygget, ikke bare testen): taket dekker SFace fp32 fra OpenCV Zoo
+    /// (vei A i `docs/v1/MODELLER.md`, 38 696 353 byte), og det skal ikke gli oppover uten ny beslutning.
+    const _: () = {
+        const SFACE_FP32: u64 = 38_696_353;
+        assert!(SFACE_FP32 <= MAX_MODEL_BYTES);
+        assert!(MAX_MODEL_BYTES <= 48 * 1024 * 1024);
+    };
 
     #[test]
     fn rejects_declared_size_over_limit() {

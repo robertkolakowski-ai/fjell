@@ -8,7 +8,7 @@ Status: beslutningsunderlag og beskrivelse av rammen i `core/crates/fjell-models
 - Modeller følger med installasjonsprogrammet. Appen laster aldri ned noe, heller ikke oppdateringer av modeller.
 - Appen foreslår, den dømmer ikke: usikker analyse er «ikke analysert» (`AnalyzeError::Unavailable`), aldri «ingen lukkede øyne».
 - Permissiv lisens (Apache-2.0, MIT, BSD-2/3-Clause, 0BSD, CC0-1.0), både for vektene og, så langt det lar seg avklare, treningsdataene. Lisensen sjekkes maskinelt i lasteporten, men selve lisensvurderingen er eiers.
-- Størrelse ≤ 30 MB per modellfil (håndhevet). Ansiktsdeteksjon + embedding + øyeanalyse til sammen bør holde seg godt under ca. 60 MB i installasjonsprogrammet.
+- Størrelse ≤ 40 MB per modellfil (håndhevet). Ansiktsdeteksjon + embedding + øyeanalyse til sammen bør holde seg godt under ca. 60 MB i installasjonsprogrammet.
 - Handlinger < 100 ms p95 og kald oppstart < 1,5 s: modellen lastes lazy første gang den trengs, aldri ved oppstart, og kjøres bare på 256 px-miniatyrer, i bakgrunnen (ikke i en brukerhandling).
 - Ansiktsanalyse kjører bare når brukeren har slått på `face_index`.
 
@@ -17,7 +17,7 @@ Status: beslutningsunderlag og beskrivelse av rammen i `core/crates/fjell-models
 | Del | Hva |
 |---|---|
 | `ModelManifest` | Lokal JSON: navn, formål `eye`/`face`, versjon, BLAKE3 (64 hex), byte-størrelse, SPDX-lisens, `source_url` (kun metadata, aldri hentet), `file`, `input_shape` `[1,C,H,W]`, `output_shape`, `embedding_dim`, `input_mean`/`input_std`, kalibrerte `thresholds`. Ukjente felt avvises. |
-| Lasteport (`load_verified`) | Rekkefølge: parse, formål, lisens på tillatt-liste, deklarert størrelse ≤ 30 MB, faktisk filstørrelse (metadata, så lesing med tak), størrelse = manifest, BLAKE3 = manifest. Alt feiler lukket med typet `ModelError`. Først etter dette finnes en `VerifiedModel`, og bare den kan åpnes av en `SessionFactory`. |
+| Lasteport (`load_verified`) | Rekkefølge: parse, formål, lisens på tillatt-liste, deklarert størrelse ≤ 40 MB, faktisk filstørrelse (metadata, så lesing med tak), størrelse = manifest, BLAKE3 = manifest. Alt feiler lukket med typet `ModelError`. Først etter dette finnes en `VerifiedModel`, og bare den kan åpnes av en `SessionFactory`. |
 | `OnnxSession`/`SessionFactory` | Trait for selve kjøringen. `MockSession` i tester. `NoRuntime` svarer `RuntimeUnavailable`. |
 | `ModelEyeAnalyzer`, `ModelFaceAnalyzer` | Implementerer `EyeAnalyzer`/`FaceAnalyzer`. Manglende fil, feil formål, hash-/størrelses-/lisensfeil og manglende runtime gir `Unavailable` (årsak i `unavailable_reason()`). Feil utdataform/-verdier og kjørefeil gir `Failed`. |
 | Feature `onnx` | Av som standard. Slått på gir den bare en `OnnxFactory` som feiler lukket (se «Hva mangler»). |
@@ -78,7 +78,7 @@ Kalibreringsrisiko generelt: «lukket øye» er et mykt begrep (blunk midt i, my
 
 | Kandidat | Omtrentlig størrelse | Lisens (påstått) | Risiko |
 |---|---|---|---|
-| SFace (OpenCV Zoo) | ca. 37 MB fp32, ca. 10 MB int8 | Apache-2.0 (må verifiseres av eier) | fp32 er over 30 MB-taket, så int8 er det eneste som passer. Kvantisering kan svekke nøyaktigheten. Treningsdata (MS1M/Glint e.l.) er omstridt, må vurderes av eier. |
+| SFace (OpenCV Zoo) | ca. 37 MB fp32, ca. 10 MB int8 | Apache-2.0 (må verifiseres av eier) | fp32 var over det opprinnelige 30 MB-taket; taket heves til 40 MB (avsnitt 9), så fp32 passer nå. Kvantisering kan svekke nøyaktigheten. Treningsdata (MS1M/Glint e.l.) er omstridt, må vurderes av eier. |
 | MobileFaceNet (ulike open source-vekter) | 4–5 MB | Varierer per vekt; må verifiseres av eier | Samme treningsdatarisiko. Demografisk skjevhet i likhet gir feilgruppering av personer. |
 | ArcFace/buffalo (InsightFace) | 5–170 MB | Ferdigtrente modeller: ikke-kommersiell (må verifiseres) | Lisens. Utelukk med mindre eier verifiserer det motsatte. |
 
@@ -192,3 +192,21 @@ Veiledende, ikke et kalibreringssett: to bilder fra Zoo-en (en gruppeselfie 2048
 - `ort`-krateet er ikke bygget eller kjørt her (bare metadata er lest); ONNX Runtime er målt via Python-hjulet, som er samme C++-motor men ikke samme Rust-binding.
 - `cargo deny` er ikke kjørt (ikke installert); lisensvurderingen av `tract`-treet er gjort mot `deny.toml` med et eget skript på `cargo metadata`.
 - Narrator/NVDA er ikke relevant her; ingen UI-endring.
+
+## 9. Beslutning: vei A (2026-11-17, eier)
+
+Robert valgte **vei A: `tract` + SFace fp32**. Dette er det som er avgjort og det som ikke er det.
+
+**Avgjort**
+- Kjøremotor er `tract` (ren Rust). ONNX Runtime/`ort` velges bort for denne omgangen (22,7 MB DLL, `rc`-krate, nedlasting ved bygging).
+- Embeddingmodell er SFace fp32 (`face_recognition_sface_2021dec.onnx`, 38 696 353 byte, Apache-2.0). Kvantiserte modeller (int8) brukes ikke, siden `tract` ikke støtter dem.
+- Taket per modellfil heves fra 30 til **40 MiB** (`MAX_MODEL_BYTES` i `fjell-models`). Det er en hard grense i lasteporten og dekker SFace fp32 med liten margin; en større modell krever ny beslutning (en kompileringstidssjekk i `manifest.rs` vokter det).
+- Detektoren er foreløpig anbefalt, ikke bekreftet: YuNet `2026may` (se 7.5). Siden `tract` støtter den dynamiske modellen, er den kompatibel med vei A.
+
+**Fortsatt åpent (ikke avgjort)**
+- Oppløsning for ansiktsdeteksjon (256 px mot 512–640 px, avsnitt 7.4).
+- Øyemodell (ingen kandidat verifisert).
+- Treningsdatavilkår for YuNet og SFace (juridisk vurdering).
+- Kalibrering og terskler.
+
+**Ikke gjort i denne endringen:** `tract` er ikke lagt inn som avhengighet, og ingen modell er sjekket inn eller koblet til. Det gjenstår (se 7.6, punkt 1): legge `tract-onnx` bak feature `onnx` i `fjell-models`, `cargo deny`, `--locked` og `just third-party`; skrive YuNet-dekoding og SFace-justering; manifest med hashene i 7.1; måling på Windows. Modellen kopieres ikke inn i repoet før den siste lisens- og treningsdatavurderingen er gjort.

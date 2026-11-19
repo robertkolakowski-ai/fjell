@@ -4,7 +4,7 @@
 //! Avhenger bare av `fjell_core::model`. Se `docs/v1/MODELLER.md`.
 //! Grensesnitt:
 //! - `ModelManifest`: lokal JSON-beskrivelse (hash, størrelse, lisens, former, kalibrerte terskler).
-//! - `load_verified`/`verify_bytes`: verifiserer hash, størrelse (≤ 30 MB) og lisens (tillatt-liste).
+//! - `load_verified`/`verify_bytes`: verifiserer hash, størrelse (≤ 40 MB) og lisens (tillatt-liste).
 //! - `OnnxSession`/`SessionFactory`: kjøreport; `MockSession` til tester; ekte ONNX bak featuren `onnx`.
 //! - `ModelEyeAnalyzer`/`ModelFaceAnalyzer`: implementerer `EyeAnalyzer`/`FaceAnalyzer`, svarer
 //!   `Unavailable` (aldri «ingen funn») når modell mangler, feiler verifisering eller kjøremotor mangler.
