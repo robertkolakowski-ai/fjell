@@ -86,6 +86,24 @@ falt tilbake til å regne under låsen (180–270 ms målt), og handlinger vente
 oppdaterer gruppene selv underveis og til slutt). Etter rettelsen: 2,35 ms p95 (`just bench`, 50 000 rader). Småindekser
 og kall fra skanningen bruker fortsatt den låste reserveløsningen. Ikke målt ved 100 000 rader eller på Windows.
 
+**Nattlig brudd på CI (20.–22.11.2026) og ny rettelse:** `nightly / bench` feilet hver natt på samme punkt: `decide_many`
+under pågående skann hadde p95 16,5 ms på `ubuntu-latest` (488 runder) og 121,9 ms på `windows-latest` (353 runder) mot 10 ms.
+Lokalt (4 kjerner, og også med 2 kjerner) holdt det (1,4–1,7 ms), så bruddet kommer av tregere disk og CPU på runnerne, ikke av
+støy alene. Måling av hvor lenge skanningen holder skrivelåsen i målevinduet (midlertidig instrumentering, ikke sjekket inn) viste
+33–34 holdt over 10 ms per kjøring, og hver av dem lar en handling vente:
+
+- `refresh_groups` leste øyeanalysene for hele biblioteket (`eye_results`, 50 000 oppslag) **under skrivelåsen**, 35–70 ms, opptil
+  tre ganger per oppdatering. Leses nå på lesetilkoblingen (`store::eye_results_on`), utenfor låsen.
+- Skanningens egne mellomliggende oppdateringer (tidlig visning hvert 2 000. bilde, og etter rask fase når full fase følger) ble
+  foreldet av handlingene, falt tilbake til utregning under låsen og holdt den i ca. 190 ms hver (4 per kjøring). De bruker nå
+  `refresh_groups_nonblocking` og hoppes over ved konflikt. Den avsluttende `refresh_groups` etter full fase (og etter rask fase
+  i rask modus eller ved avbrudd) har fortsatt den låste reserveløsningen, så sluttresultatet er alltid riktig. Konsekvens: under
+  mange handlinger midt i en skanning kan tidlig visning og antallet eksakte duplikater ved `ExactReady` komme senere.
+
+Etter rettelsen (lokalt, 50 000 + 5 000): 13–15 låsholdt over 10 ms, ingen fra øyeanalysene, én låst reserveutregning (den
+avsluttende); p95 1,3–1,6 ms. Ikke verifisert på CI-runnerne før neste nattlige kjøring. Det som gjenstår er mest
+`put_content_hashes` i rask fase (128 rader per transaksjon, 10–20 ms lokalt), som kan bli for lang på en treg disk; ikke endret.
+
 ## 5. Funn som ikke er rettet, og hva som gjenstår
 
 - **Topp RSS for hele `just bench --rows 100000` er 190–301 MB** (funn 20 oppga 294 MB), ikke 150. Byggetrinnet er 122–128 MB;

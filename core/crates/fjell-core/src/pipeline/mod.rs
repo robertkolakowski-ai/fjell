@@ -302,14 +302,21 @@ pub(crate) fn scan_with<H: StoreHandle>(
     fast::run(&cx, &mut report)?;
     report.timings.quick = t.elapsed();
     let t = Instant::now();
-    groups::refresh_groups(store, clock)?;
+    let full = full && !cx.stop();
+    if full {
+        // Full fase følger og avsluttes med en `refresh_groups` som alltid gir riktig resultat, så denne er best mulig
+        // innsats og regner aldri under skrivelåsen (en handling under skanningen skal ikke vente på den).
+        groups::refresh_groups_nonblocking(store, clock)?;
+    } else {
+        groups::refresh_groups(store, clock)?;
+    }
     let exact = store.with_store(|s| s.exact_dup_count())?;
     progress.set_found_exact(exact);
     progress.set_phase(Phase::ExactReady);
     report.timings.cluster += t.elapsed();
 
-    // Steg 3 og 4: full fase.
-    if full && !cx.stop() {
+    // Steg 3 og 4: full fase (avgjort over, før gruppeoppdateringen etter rask fase).
+    if full {
         progress.set_phase(Phase::Analyzing);
         let t = Instant::now();
         full::run(&cx, &mut report)?;
