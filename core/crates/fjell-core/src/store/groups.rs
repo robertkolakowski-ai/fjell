@@ -5,7 +5,8 @@
 //! Grensesnitt:
 //! - `apply_grouping(&[GroupSpec], &[LoneSuggestion]) -> GroupingStats`: alt i én transaksjon.
 //!   En gruppe med samme aktive medlemmer som en eksisterende gjenbrukes (id og keeper beholdes, så
-//!   et manuelt keeper-valg overlever ny klynging). Øvrige gamle grupper byttes ut.
+//!   et manuelt keeper-valg overlever ny klynging). Øvrige gamle grupper byttes ut, unntatt grupper med
+//!   et medlem i papirkurven: de beholdes uten forslag, så angre gir samme gruppe (id og keeper) tilbake.
 //! - Forslag: bare `pending` endres eller fjernes. `accepted`/`rejected` røres aldri, så en
 //!   avvisning overstyres ikke (K5-8) og angre-historikken beholdes. Keeper får aldri forslag.
 //! - `plan_grouping(conn, ..) -> GroupingPlan` leser og regner ut diffen (kan kjøres på en egen
@@ -103,6 +104,16 @@ fn existing_groups(tx: &Connection) -> Result<Existing, StoreError> {
         .map(|(id, (exact, keeper, members))| ((exact, members), (id, keeper)))
         .collect();
     Ok((map, all_ids))
+}
+
+/// Grupper (ikke serier) med minst ett medlem i papirkurven (`state = 1`, kan angres).
+fn groups_with_trashed_member(conn: &Connection) -> Result<HashSet<i64>, StoreError> {
+    let mut st = conn.prepare_cached(
+        "SELECT DISTINCT g.id FROM grp g JOIN grp_member m ON m.grp_id = g.id \
+         JOIN asset a ON a.id = m.asset_id WHERE g.kind <> 'series' AND a.state = 1",
+    )?;
+    let rows = st.query_map([], |r| r.get::<_, i64>(0))?;
+    Ok(rows.collect::<Result<_, _>>()?)
 }
 
 type SuggKey = (i64, String);
@@ -226,9 +237,14 @@ pub fn plan_grouping(
             }
         }
     }
+    // En gruppe som oppløses fordi et medlem ligger i papirkurven, beholdes (uten forslag) så lenge det
+    // kan angres: ved angre har den igjen de samme aktive medlemmene og gjenbrukes med samme id og
+    // keeper, så en åpen gruppevisning og lenker til den virker fortsatt (CLAUDE.md: alt kan angres).
+    // Når medlemmet er tømt eller gruppen ikke lenger dannes, slettes den som før.
+    let dormant = groups_with_trashed_member(conn)?;
     let delete_groups: Vec<i64> = all_ids
         .into_iter()
-        .filter(|id| !kept.contains(id))
+        .filter(|id| !kept.contains(id) && !dormant.contains(id))
         .collect();
     desired.extend(
         lone.iter()

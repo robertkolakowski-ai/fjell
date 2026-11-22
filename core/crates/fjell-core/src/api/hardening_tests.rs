@@ -281,15 +281,17 @@ fn async_refresh_on_file_index_converges_and_never_duplicates_groups() {
         )
     });
     let trashed = f.trash_summary().count as i64;
-    // Hver felte kopi er ett bilde i en gruppe på to; grupper med bare ett aktivt medlem forsvinner.
+    // Hver felte kopi er ett bilde i en gruppe på to. Gruppen beholdes (uten forslag) mens kopien ligger i
+    // papirkurven, så angre gir samme gruppe tilbake: nøyaktig én gruppe per par, også etter mange runder
+    // med flytt og angre (ingen duplikater, ingen tapte).
     assert_eq!(dup, 0);
-    assert_eq!(groups + trashed, P as i64, "grupper + felte = par");
-    // De gjenværende kortene stemmer med en frisk skanning av samme tilstand.
+    assert_eq!(groups, P as i64, "én gruppe per par");
+    // De gjenværende kortene stemmer med en frisk skanning av samme tilstand: ett per par som ikke er felt.
     let live = f
         .cards(SuggestionKind::ExactDup, 5_000, None)
         .unwrap()
         .cards
         .len() as i64;
-    assert_eq!(live, groups);
+    assert_eq!(live, P as i64 - trashed);
     let _ = std::fs::remove_dir_all(&dir);
 }
