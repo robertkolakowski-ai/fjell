@@ -4,7 +4,7 @@
 //! `store`, `super::Ctx`. Grensesnitt: `run(cx, report)`.
 //! Rayon-poolen henter `thumbnail(id)` og regner; resultatene sendes over en begrenset
 //! `sync_channel` (`2 × tråder`) til én skrivetråd som skriver 100 rader per transaksjon og kaller
-//! `refresh_groups` for hver 2 000. bilde, med geometrisk økende avstand (se `EARLY_VIEW_EVERY`; tidlig visning). `catch_unwind` per bilde; `Unavailable`
+//! `refresh_groups_nonblocking` for hver 2 000. bilde, med geometrisk økende avstand (se `EARLY_VIEW_EVERY`; tidlig visning). `catch_unwind` per bilde; `Unavailable`
 //! hoppes over uten feiltelling, øvrige feil øker `fail_count` (3 feil = hoppet over til
 //! algoritmeversjonen øker). Ved avbrudd/frist slutter arbeiderne mellom bilder og skriveren committer
 //! det som er mottatt. Ingen bildedata lagres (I16): miniatyren droppes etter regning.
@@ -117,7 +117,10 @@ fn writer<H: StoreHandle>(
         }
         if since_view >= EARLY_VIEW_EVERY.max((report.analyzed / 4) as usize) {
             flush(&mut rows, &mut fails)?;
-            super::groups::refresh_groups(cx.store, cx.clock)?;
+            // Tidlig visning er best mulig innsats: er indeksen endret imens (en handling under skanningen),
+            // hoppes den over i stedet for å regne under skrivelåsen, som ville latt handlingen vente i hundrevis
+            // av ms. Den avsluttende `refresh_groups` etter full fase gir alltid riktig resultat.
+            super::groups::refresh_groups_nonblocking(cx.store, cx.clock)?;
             since_view = 0;
         }
     }

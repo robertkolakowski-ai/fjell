@@ -15,7 +15,7 @@
 
 use super::{Store, StoreError};
 use crate::model::{AssetId, EyeReport, ProtectFlags, ReasonCode, SeriesId};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::collections::{BTreeMap, HashSet};
 
 /// Ett medlem i en serie som skal lagres. `reason`/`confidence` gjelder forslaget når medlemmet ikke er keeper.
@@ -90,25 +90,7 @@ impl Store {
 
     /// Lagrede øyeanalyser for `ids` (bilder uten rad er ikke med).
     pub fn eye_results(&self, ids: &[AssetId]) -> Result<BTreeMap<AssetId, EyeReport>, StoreError> {
-        let mut st = self.conn.prepare_cached(
-            "SELECT faces, closed, confidence FROM eye_result WHERE asset_id = ?1",
-        )?;
-        let mut out = BTreeMap::new();
-        for id in ids {
-            let row = st
-                .query_row([id.0 as i64], |r| {
-                    Ok(EyeReport {
-                        faces: r.get::<_, i64>(0)?.clamp(0, 255) as u8,
-                        closed: r.get::<_, i64>(1)?.clamp(0, 255) as u8,
-                        confidence: r.get::<_, f64>(2)? as f32,
-                    })
-                })
-                .optional()?;
-            if let Some(r) = row {
-                out.insert(*id, r);
-            }
-        }
-        Ok(out)
+        eye_results_on(&self.conn, ids)
     }
 
     /// Aktive bilder av typen foto med fingeravtrykk som mangler øyeanalyse for `algo` (ikke analysert, eller
@@ -393,6 +375,32 @@ impl Store {
         )?;
         Ok(n as u64)
     }
+}
+
+/// Som `Store::eye_results`, men på en vilkårlig tilkobling (for eksempel lesetilkoblingen fra `Store::reader`),
+/// slik at gruppeoppdateringen kan lese øyeanalysene uten skrivelåsen.
+pub fn eye_results_on(
+    conn: &Connection,
+    ids: &[AssetId],
+) -> Result<BTreeMap<AssetId, EyeReport>, StoreError> {
+    let mut st = conn
+        .prepare_cached("SELECT faces, closed, confidence FROM eye_result WHERE asset_id = ?1")?;
+    let mut out = BTreeMap::new();
+    for id in ids {
+        let row = st
+            .query_row([id.0 as i64], |r| {
+                Ok(EyeReport {
+                    faces: r.get::<_, i64>(0)?.clamp(0, 255) as u8,
+                    closed: r.get::<_, i64>(1)?.clamp(0, 255) as u8,
+                    confidence: r.get::<_, f64>(2)? as f32,
+                })
+            })
+            .optional()?;
+        if let Some(r) = row {
+            out.insert(*id, r);
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

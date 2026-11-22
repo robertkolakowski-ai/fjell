@@ -52,7 +52,7 @@ pub use ops::{BatchSpec, Cause, RowOp, UndoResult};
 pub use ops_read::{AssetRow, PendingSuggestion};
 pub use people::{AssignSlot, FaceRow, PersonRow};
 pub use rules::{rule_groups_on, setting_on, source_ids_on, RuleGroupRow, KEEPER_RULES_KEY};
-pub use series::{SeriesMemberRow, SeriesMemberSpec, SeriesSpec, SeriesStats};
+pub use series::{eye_results_on, SeriesMemberRow, SeriesMemberSpec, SeriesSpec, SeriesStats};
 pub use suggest_rules::RuleRow;
 
 /// Feil fra lagringslaget.

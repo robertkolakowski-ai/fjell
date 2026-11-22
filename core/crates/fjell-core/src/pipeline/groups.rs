@@ -33,8 +33,8 @@ use crate::rules::{decode_rules, protecting_prefix, KeeperRule, RuleReason};
 use crate::screenshot::ShotSignals;
 use crate::series::{build_series, SeriesItem, SeriesParams};
 use crate::store::{
-    index_rows_on, plan_grouping, setting_on, source_ids_on, GroupSpec, GroupingStats, IndexRow,
-    LoneSuggestion, SeriesMemberSpec, SeriesSpec, Store, KEEPER_RULES_KEY,
+    eye_results_on, index_rows_on, plan_grouping, setting_on, source_ids_on, GroupSpec,
+    GroupingStats, IndexRow, LoneSuggestion, SeriesMemberSpec, SeriesSpec, Store, KEEPER_RULES_KEY,
 };
 use crate::suggest::{
     blur_threshold, blurry_for, screenshot_suggestion_default, GroupKind, GroupResult, Member,
@@ -450,10 +450,11 @@ fn refresh_groups_with<H: StoreHandle>(
         );
         let now = clock.now();
         let plan = plan_grouping(&conn, &g.groups, &g.lone, now)?;
-        drop(conn);
-        // Øyeanalysene leses med en kort lås; seriene regnes utenfor låsen.
+        // Øyeanalysene leses på lesetilkoblingen, ikke under skrivelåsen: for hele biblioteket tar det
+        // titalls ms, og en handling under pågående skanning ville ventet på det (budsjett 10 ms).
         let ids: Vec<AssetId> = rows.iter().map(|r| r.id).collect();
-        let eyes = store.with_store(|s| s.eye_results(&ids))?;
+        let eyes = eye_results_on(&conn, &ids)?;
+        drop(conn);
         let series = open_series(&rows, &g, &eyes, &tuning, &ctx);
         let applied = store.with_store(|s| -> Result<Option<GroupingStats>, PipelineError> {
             if s.change_counter() != stamp {
