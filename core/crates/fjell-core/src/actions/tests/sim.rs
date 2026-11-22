@@ -386,9 +386,9 @@ proptest! {
             prop_assert_eq!(log_hash(&sim.fx, max_before), hash_before);
             sim.check();
             // I3: purged er terminal.
-            for i in 0..N {
-                if purged_once.contains(&i) { prop_assert_eq!(sim.st[i], State::Purged); }
-                if sim.st[i] == State::Purged { purged_once.insert(i); }
+            for (i, st) in sim.st.iter().enumerate().take(N) {
+                if purged_once.contains(&i) { prop_assert_eq!(*st, State::Purged); }
+                if *st == State::Purged { purged_once.insert(i); }
             }
         }
     }
