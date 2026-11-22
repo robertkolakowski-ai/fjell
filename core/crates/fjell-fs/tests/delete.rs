@@ -188,3 +188,45 @@ fn ids_outside_ticket_are_refused() {
     assert_eq!(res.last().unwrap().1, DeleteResult::Failed);
     assert!(root.join("other.jpg").is_file());
 }
+
+/// «Tøm» til Papirkurv fra karantenen: filen havner i Papirkurven med sitt opprinnelige navn (Windows viser bare
+/// filnavnet, så `<id>.jpg` var ugjenkjennelig), og karantenemappen ryddes helt (ingen tomme `<id>`-mapper igjen).
+#[test]
+fn recycled_from_quarantine_keeps_original_file_name_and_leaves_no_folders() {
+    let (root, f, t, ids) = world("recycle-name");
+    let src = f.sources_for(&ids);
+    let names: Vec<String> = src
+        .iter()
+        .map(|(_, s)| s.0.rsplit('/').next().unwrap().to_string())
+        .collect();
+    let content: Vec<Vec<u8>> = src
+        .iter()
+        .map(|(_, s)| fs::read(root.join(&s.0)).unwrap())
+        .collect();
+    let q = Arc::new(FsQuarantine::in_library(&root));
+    assert!(q.stage(BatchId(4), &src).iter().all(|(_, r)| r.is_ok()));
+    let bin_dir = tempdir("recycle-name-bin");
+    let b = Arc::new(FakeRecycleBin {
+        bin_dir: Some(bin_dir.clone()),
+        ..Default::default()
+    });
+    let d = FsDeleter::new(&root, Some(q.clone()), b, DeleteMode::Recycle, None).unwrap();
+    let res = d.delete(&t, &src);
+    assert!(
+        res.iter().all(|(_, o)| *o == DeleteOutcome::Deleted),
+        "{res:?}"
+    );
+    for (name, bytes) in names.iter().zip(&content) {
+        let p = bin_dir.join(name);
+        assert!(
+            p.is_file(),
+            "«{name}» skal ligge i Papirkurven med sitt eget navn"
+        );
+        assert_eq!(&fs::read(&p).unwrap(), bytes, "innholdet er uendret");
+    }
+    assert!(q.staged().is_empty());
+    assert!(
+        !root.join(".fjell-karantene/4").exists(),
+        "batchmappen (med <id>-mappene) skal være ryddet bort"
+    );
+}

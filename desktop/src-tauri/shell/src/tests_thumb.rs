@@ -291,7 +291,14 @@ fn thumbnail_never_reads_outside_library_or_quarantine() {
         .unwrap()
         .unwrap()
         .path();
-    let stored = batch.join(format!("{}.jpg", t[0].asset));
+    let mf = batch.join(fjell_fs::manifest::MANIFEST_FILE);
+    let manifest = fjell_fs::manifest::Manifest::load(&batch).unwrap();
+    let entry = manifest
+        .entries
+        .iter()
+        .find(|x| x.id == t[0].asset)
+        .unwrap();
+    let stored = batch.join(&entry.stored);
     let keep = batch.join("flyttet.bin");
     fs::rename(&stored, &keep).unwrap();
     symlink(&outside, &stored).unwrap();
@@ -299,10 +306,14 @@ fn thumbnail_never_reads_outside_library_or_quarantine() {
     fs::remove_file(&stored).unwrap();
     fs::rename(&keep, &stored).unwrap();
     // Manifest som peker på en annen original enn indeksen har (KR-1): karantenefilen brukes ikke.
-    let mf = batch.join(fjell_fs::manifest::MANIFEST_FILE);
-    let txt = fs::read_to_string(&mf).unwrap();
-    assert!(txt.contains(&t[0].name));
-    fs::write(&mf, txt.replace(&t[0].name, "annen.jpg")).unwrap();
+    // Bare `original` endres; `stored` peker fortsatt på den eksisterende filen.
+    assert!(fs::read_to_string(&mf).unwrap().contains(&t[0].name));
+    let mut m = manifest.clone();
+    for x in m.entries.iter_mut().filter(|x| x.id == t[0].asset) {
+        x.original = "annen.jpg".into();
+    }
+    m.save(&batch).unwrap();
+    assert!(stored.is_file(), "oppsett: karantenefilen finnes");
     assert_eq!(e.sh.thumbnail(t[0].asset).unwrap_err().code, "not_found");
 }
 

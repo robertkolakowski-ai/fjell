@@ -68,3 +68,4 @@ npx playwright test -c e2e-real/playwright.real.config.ts
 - «Fikk ikke CDP-forbindelse»: port i bruk, eller WebView2 fikk ikke argumentet. Står `msedgewebview2` uten `--remote-debugging-port` i diagnostikken, mangler policyen i registeret (punkt 1). Sjekk også at ingen `fjell-desktop.exe` ligger igjen.
 - Test feiler: se `skjermbilde ved feil` og `feil-*.html` i artefakten `real-e2e-resultater`.
 - Velger finner ikke tekst: sammenlign `strings.ts` med `desktop/src/lib/i18n/strings/`.
+- Test 4 (Tøm til Papirkurv) leter etter testfilene på opprinnelig navn i Windows Papirkurv. Det forutsetter at karantenen lagrer `<batch>\<id>\<opprinnelig navn>` (ARKITEKTUR beslutning 20); med det eldre `<id>.<ext>` står de der som tall.

@@ -9,8 +9,10 @@
 //! - Annet volum (`CrossesDevices`) gir `CrossVolume`: filen blir liggende («Merket, ikke flyttet»).
 //! - Kollisjon ved gjenoppretting gir `navn (gjenopprettet).ext`, aldri overskriving.
 //!
+//! Lagring: `<batch>/<id>/<opprinnelig filnavn>`, så en fil som tømmes til Windows Papirkurv vises der
+//! med sitt eget navn. Eldre manifester med `<batch>/<id>.<ext>` leses fortsatt.
 //! Åpent punkt: Windows Papirkurv husker karantenestien som opprinnelse for filer som tømmes
-//! derfra (ARKITEKTUR del 9: karantene og skyspeilede mapper).
+//! derfra, så «Gjenopprett» i Papirkurv legger filen i karantenemappen (ARKITEKTUR del 9).
 
 use crate::manifest::{
     scan_batches as scan_batches_raw, Entry, Manifest, README_FILE, README_TEXT,
@@ -23,13 +25,42 @@ use std::path::{Path, PathBuf};
 
 pub const QUARANTINE_DIR: &str = ".fjell-karantene";
 
-/// `stored` fra manifestet er data på disk og må være ett vanlig filnavn (ingen `..`, `/`, `\\`, stasjon).
-fn safe_stored(s: &str) -> bool {
+/// Ett vanlig filnavn: én `Normal`-komponent, uten `/`, `\\`, `:` (stasjon) og uten `.`/`..`.
+fn plain_name(s: &str) -> bool {
     let mut it = Path::new(s).components();
     matches!(
         (it.next(), it.next()),
         (Some(std::path::Component::Normal(_)), None)
     ) && !s.contains(['/', '\\', ':'])
+}
+
+/// `stored` fra manifestet er data på disk og må peke inn i batchmappen: enten ett vanlig filnavn
+/// (eldre format `<id>.<ext>`) eller `<id>/<navn>` der første del er oppføringens egen id (F3, KR-2).
+fn safe_stored(e: &Entry) -> bool {
+    match e.stored.split_once('/') {
+        None => plain_name(&e.stored),
+        Some((dir, name)) => dir == e.id.to_string() && plain_name(name),
+    }
+}
+
+/// Lagret navn i batchmappen: `<id>/<opprinnelig filnavn>`, så filen beholder navnet sitt hvis den
+/// senere tømmes til Windows Papirkurv (der vises bare filnavnet, ikke karantenestien). Mappen per id
+/// hindrer kollisjon mellom like filnavn fra ulike mapper. Er navnet ikke et vanlig filnavn, brukes
+/// det eldre `<id>.<ext>`.
+fn stored_name(id: AssetId, sid: &SourceId, src: &Path) -> String {
+    let name = sid.0.rsplit('/').next().unwrap_or("");
+    if !name.is_empty() && plain_name(name) {
+        return format!("{}/{name}", id.0);
+    }
+    match src.extension().and_then(|e| e.to_str()) {
+        Some(ext) if !ext.is_empty() => format!("{}.{ext}", id.0),
+        _ => id.0.to_string(),
+    }
+}
+
+/// Mappen `<id>` for nytt format, `None` for eldre (fil rett i batchmappen).
+fn id_dir(batch_dir: &Path, e: &Entry) -> Option<PathBuf> {
+    e.stored.split_once('/').map(|(dir, _)| batch_dir.join(dir))
 }
 
 /// Som `manifest::scan_batches`, men uten oppføringer med usikker `stored`.
@@ -42,7 +73,7 @@ fn scan_batches(dir: &Path) -> Vec<(PathBuf, Manifest)> {
             .unwrap_or(false)
     });
     for (_, m) in &mut v {
-        m.entries.retain(|e| safe_stored(&e.stored));
+        m.entries.retain(safe_stored);
     }
     v
 }
@@ -194,6 +225,11 @@ impl FsQuarantine {
     fn drop_entries(&self, ids: &[u64]) {
         for (d, mut m) in scan_batches(&os_path(&self.dir)) {
             let before = m.entries.len();
+            for e in m.entries.iter().filter(|e| ids.contains(&e.id)) {
+                if let Some(dir) = id_dir(&d, e) {
+                    let _ = fs::remove_dir(&dir); // bare hvis tom: filen er flyttet tilbake eller tømt
+                }
+            }
             m.entries.retain(|e| !ids.contains(&e.id));
             if m.entries.len() == before {
                 continue;
@@ -217,7 +253,13 @@ impl FsQuarantine {
             fs::read_dir(b.path()).is_ok_and(|rd| {
                 rd.filter_map(|f| f.ok()).any(|f| {
                     let name = f.file_name().to_string_lossy().into_owned();
-                    split_name(&name).0 == id.0.to_string()
+                    if f.path().is_dir() {
+                        // Nytt format: `<id>/<navn>`; en tom mappe er ingen fil.
+                        name == id.0.to_string()
+                            && fs::read_dir(f.path()).is_ok_and(|mut r| r.next().is_some())
+                    } else {
+                        split_name(&name).0 == id.0.to_string()
+                    }
                 })
             })
         })
@@ -331,12 +373,7 @@ impl Quarantine for FsQuarantine {
                     continue;
                 }
             };
-            let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("");
-            let stored = if ext.is_empty() {
-                id.0.to_string()
-            } else {
-                format!("{}.{ext}", id.0)
-            };
+            let stored = stored_name(*id, sid, &src);
             let entry = Entry {
                 id: id.0,
                 original: sid.0.clone(),
@@ -363,7 +400,12 @@ impl Quarantine for FsQuarantine {
         }
         let mut failed: Vec<u64> = Vec::new();
         for (id, src, entry) in &plan {
-            let r = fs::rename(os_path(src), os_path(&bdir).join(&entry.stored)).map_err(map_io);
+            let dir = id_dir(&bdir, entry);
+            let r = dir
+                .as_ref()
+                .map_or(Ok(()), |d| fs::create_dir_all(os_path(d)))
+                .and_then(|_| fs::rename(os_path(src), os_path(&bdir).join(&entry.stored)))
+                .map_err(map_io);
             if r.is_err() {
                 failed.push(id.0);
             }

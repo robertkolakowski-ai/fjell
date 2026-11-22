@@ -22,7 +22,7 @@ pub struct Entry {
     pub id: u64,
     /// Opprinnelig `source_id` (relativ sti med `/`).
     pub original: String,
-    /// Filnavn inne i batchmappen.
+    /// Sti inne i batchmappen: `<id>/<opprinnelig filnavn>`, eller eldre `<id>.<ext>`.
     pub stored: String,
     pub bytes: u64,
 }
