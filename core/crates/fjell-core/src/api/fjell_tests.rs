@@ -317,3 +317,81 @@ fn storage_summary_over_scanned_corpus_matches_index_and_follows_trash() {
     assert_eq!(t.trash_bytes, card.bytes);
     assert_eq!(t.total_bytes + t.trash_bytes, s.total_bytes);
 }
+
+/// Angre gir samme gruppe tilbake (samme id og manuelt valgt keeper), både med minnedatabase og indeksfil (appen bruker
+/// fil, og der regnes gruppene på lesetilkoblingen). Før: gruppen ble slettet da den falt under to aktive medlemmer, og
+/// angre lagde en ny med ny id, så en åpen gruppevisning (`#/group/<id>`) mistet den (fanget av e2e-windows / real).
+/// Når det flyttede bildet er tømt, ryddes gruppen bort som før.
+#[test]
+fn undo_brings_back_the_same_group_id_and_keeper() {
+    let mem = Store::open_in_memory().unwrap();
+    let dir = std::env::temp_dir().join(format!("fjell-undo-group-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = Store::open(&dir.join("index.db")).unwrap();
+    for store in [mem, file] {
+        let mut fx = Fx::new();
+        fx.corpus();
+        let f = Fjell::new(store, fx.src.clone(), Arc::new(FakeClock::new(5_000_000)));
+        f.start_scan(ScanConfig {
+            mode: ScanMode::Full,
+            priority: 1,
+            deadline: None,
+        })
+        .unwrap();
+        f.wait_scan().unwrap().unwrap();
+        let grp_rows = |g: GroupId| -> i64 {
+            f.with_store(|s| {
+                s.conn()
+                    .query_row(
+                        "SELECT count(*) FROM grp WHERE id = ?1",
+                        [g.0 as i64],
+                        |r| r.get(0),
+                    )
+                    .unwrap()
+            })
+        };
+        let c = all(&f, SuggestionKind::ExactDup)[0].clone();
+        let (g, old_keeper) = (c.group.unwrap(), c.keeper.unwrap());
+        // Manuelt keeper-valg: det skal også overleve angre.
+        f.set_keeper(g, c.asset).unwrap();
+        let card = |f: &Fjell| {
+            all(f, SuggestionKind::ExactDup)
+                .into_iter()
+                .find(|x| x.group == Some(g))
+        };
+        let before = card(&f).unwrap();
+        assert_eq!((before.asset, before.keeper), (old_keeper, Some(c.asset)));
+
+        f.decide_many(vec![(before.id, Decision::Trash)]).unwrap();
+        f.sync_groups().unwrap();
+        assert!(
+            card(&f).is_none(),
+            "gruppen skal ikke ha forslag mens bildet ligger i papirkurven"
+        );
+        assert_eq!(
+            grp_rows(g),
+            1,
+            "gruppen skal beholdes mens flyttingen kan angres"
+        );
+
+        f.undo().unwrap();
+        f.sync_groups().unwrap();
+        let after = card(&f).expect("angre skal gi samme gruppe-id tilbake");
+        assert_eq!((after.asset, after.keeper), (old_keeper, Some(c.asset)));
+
+        // Flytt igjen og tøm: da er gruppen borte for godt.
+        f.decide_many(vec![(after.id, Decision::Trash)]).unwrap();
+        let intent = f.begin_purge(vec![old_keeper]).unwrap();
+        let ticket = f.confirm_purge(&intent).unwrap();
+        f.finish_purge(ticket, vec![(old_keeper, DeleteOutcome::Deleted)])
+            .unwrap();
+        f.sync_groups().unwrap();
+        assert_eq!(
+            grp_rows(g),
+            0,
+            "gruppen skal ryddes bort når bildet er tømt"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
