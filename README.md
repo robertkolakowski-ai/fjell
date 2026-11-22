@@ -33,6 +33,7 @@ Fjell gjør tusenvis av ukurerte bilder om til et bibliotek du faktisk vil åpne
 | [docs/juridisk/README.md](docs/juridisk/README.md) | Juridiske tekster (under arbeid) |
 | [docs/v2/README.md](docs/v2/README.md) | V2: plan og delplaner (ingen kode ennå) |
 | [docs/BETA.md](docs/BETA.md) | Manuell testing: Narrator/NVDA, skalering, høykontrast, installasjon, brukbarhetstest |
+| [docs/WINDOWS-TESTMASKIN.md](docs/WINDOWS-TESTMASKIN.md) | Hva som verifiseres hvor (Windows-maskin mot Linux-VPS) og matrise for installasjonsfeilen «Kunne ikke avslutte Fjell» |
 | [docs/RELEASE.md](docs/RELEASE.md) | NSIS mot MSIX, WebView2, kodesignering, versjonering |
 | [docs/RELEASE-PROSESS.md](docs/RELEASE-PROSESS.md) | Slik lages en utgivelse |
 | [docs/OPPDATERING.md](docs/OPPDATERING.md) | Innebygd oppdatering fra beta-kanalen, og hva du gjør når den feiler |
