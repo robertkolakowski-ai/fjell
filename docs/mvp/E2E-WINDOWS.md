@@ -6,7 +6,7 @@ Status: **skrevet, ikke kjørt.** Alt under er laget på Linux. Fixture-generato
 
 Den vanlige e2e-en (`desktop/e2e`) kjører mot vite dev med MockBridge. Den sier ingenting om ekte Tauri-IPC, Rust-kjernen, miniatyrer eller Windows Papirkurv. Denne varianten starter den bygde appen og styrer WebView2 fra Playwright:
 
-1. Appen startes med `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`.
+1. Appen startes med `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`. Tauri/wry setter selv `AdditionalBrowserArguments`, og da blir miljøvariabelen ikke lagt til (nattlige kjøringer 20.–22.11.2026: `msedgewebview2` startet uten porten). I CI settes derfor porten også som WebView2-policy i registeret (`HKCU`/`HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments`), som i `update-e2e.yml`. Lokalt på egen maskin må du gjøre det samme (og fjerne nøkkelen etterpå), ellers får du «Fikk ikke CDP-forbindelse».
 2. Playwright kobler til med `chromium.connectOverCDP('http://127.0.0.1:9222')` og bruker appvinduet som en vanlig `page`.
 3. Hver kjøring har egen `APPDATA` og `LOCALAPPDATA` (temp), så ingenting lekker mellom kjøringer og førstegangs oppstart er ekte.
 4. Fixture-biblioteket lages deterministisk (fast seed) i en temp-mappe.
@@ -65,6 +65,6 @@ npx playwright test -c e2e-real/playwright.real.config.ts
 
 ## Feilsøking
 
-- «Fikk ikke CDP-forbindelse»: port i bruk eller WebView2 ignorerte argumentet. Sjekk at ingen `fjell-desktop.exe` ligger igjen.
+- «Fikk ikke CDP-forbindelse»: port i bruk, eller WebView2 fikk ikke argumentet. Står `msedgewebview2` uten `--remote-debugging-port` i diagnostikken, mangler policyen i registeret (punkt 1). Sjekk også at ingen `fjell-desktop.exe` ligger igjen.
 - Test feiler: se `skjermbilde ved feil` og `feil-*.html` i artefakten `real-e2e-resultater`.
 - Velger finner ikke tekst: sammenlign `strings.ts` med `desktop/src/lib/i18n/strings/`.

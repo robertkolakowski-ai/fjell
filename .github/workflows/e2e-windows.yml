@@ -39,6 +39,18 @@ jobs:
           $cfg = Join-Path $env:RUNNER_TEMP "uten-oppdatering.json"
           '{"bundle":{"createUpdaterArtifacts":false}}' | Set-Content -Path $cfg -Encoding utf8
           npx tauri build --no-bundle --config $cfg
+      # Tauri/wry setter selv AdditionalBrowserArguments, så WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS fra launch.ts blir ikke lagt til
+      # (sett i CI-logg: msedgewebview2 startet uten --remote-debugging-port, CDP på 9222 svarte aldri). Samme grep som i
+      # update-e2e.yml: WebView2-policyen i registeret gjelder uavhengig av appens egne valg. Kun på denne runneren (ephemeral).
+      - name: Slå på CDP-port for WebView2 (policy i registeret, kun denne runneren)
+        shell: pwsh
+        run: |
+          foreach ($hive in "HKCU", "HKLM") {
+            $k = "${hive}:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments"
+            New-Item -Path $k -Force | Out-Null
+            foreach ($n in "fjell-desktop.exe", "*") { New-ItemProperty -Path $k -Name $n -Value "--remote-debugging-port=9222" -PropertyType String -Force | Out-Null }
+            Get-Item $k | Format-List
+          }
       - name: Ekte e2e (Playwright over CDP mot WebView2)
         working-directory: desktop
         shell: pwsh
