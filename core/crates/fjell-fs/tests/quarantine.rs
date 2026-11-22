@@ -137,15 +137,15 @@ fn t26_manifest_lost_or_file_gone_never_loses_files() {
         r.iter().all(|(_, x)| *x == Reconciled::Orphaned),
         "ikke purged: {r:?}"
     );
-    assert!(root.join(".fjell-karantene/5/1.jpg").is_file());
-    assert!(root.join(".fjell-karantene/5/2.jpg").is_file());
+    assert!(root.join(".fjell-karantene/5/1/a.jpg").is_file());
+    assert!(root.join(".fjell-karantene/5/2/b.jpg").is_file());
 }
 
 #[test]
 fn t26_trashed_but_gone_everywhere_is_missing() {
     let (root, q) = setup("t26d");
     q.stage(BatchId(6), &items(&[(1, "a.jpg")]));
-    fs::remove_file(root.join(".fjell-karantene/6/1.jpg")).unwrap(); // slettet utenfra
+    fs::remove_file(root.join(".fjell-karantene/6/1/a.jpg")).unwrap(); // slettet utenfra
     let r = q.reconcile(&items(&[(1, "a.jpg")]));
     assert_eq!(r, vec![(AssetId(1), Reconciled::Missing)]);
 }
@@ -178,4 +178,61 @@ fn unstage_recreates_missing_parent_dir() {
     fs::remove_dir(root.join("sub")).unwrap();
     assert_eq!(q.unstage(&[AssetId(1)])[0].1, Ok(sid("sub/b.jpg")));
     assert!(root.join("sub/b.jpg").is_file());
+}
+
+/// Lagres som `<batch>/<id>/<opprinnelig navn>`: like filnavn fra ulike mapper kolliderer ikke, angre legger
+/// begge tilbake uendret, og `<id>`-mappene ryddes bort.
+#[test]
+fn same_name_from_two_folders_is_stored_under_own_id_and_cleaned_on_undo() {
+    let root = tempdir("same-name");
+    write(&root, "x/IMG_0001.jpg", &jpeg(30, 20, None));
+    write(&root, "y/IMG_0001.jpg", &jpeg(20, 30, None));
+    let q = FsQuarantine::in_library(&root);
+    let before = snapshot(&root);
+    let r = q.stage(
+        BatchId(2),
+        &items(&[(1, "x/IMG_0001.jpg"), (2, "y/IMG_0001.jpg")]),
+    );
+    assert!(r.iter().all(|(_, x)| x.is_ok()), "{r:?}");
+    assert!(root.join(".fjell-karantene/2/1/IMG_0001.jpg").is_file());
+    assert!(root.join(".fjell-karantene/2/2/IMG_0001.jpg").is_file());
+    assert_eq!(
+        q.locate(AssetId(2)),
+        Some(root.join(".fjell-karantene/2/2/IMG_0001.jpg"))
+    );
+    let u = q.unstage(&[AssetId(1), AssetId(2)]);
+    assert!(u.iter().all(|(_, x)| x.is_ok()), "{u:?}");
+    assert_eq!(snapshot(&root), before, "begge tilbake, uendret");
+    assert!(!root.join(".fjell-karantene/2").exists(), "ryddet");
+}
+
+/// Manifestet er data på disk (F3/KR-2): det nye formatet godtas bare som `<egen id>/<vanlig navn>`.
+/// En oppføring som peker til en annen ids mappe eller ut av batchmappen ignoreres, og filen der røres ikke.
+#[test]
+fn stored_in_new_format_must_be_own_id_and_plain_name() {
+    let (root, q) = setup("stored-check");
+    write(&root, ".fjell-karantene/9/8/a.jpg", b"tilhorer id 8");
+    write(&root, ".fjell-karantene/viktig.jpg", b"utenfor batchmappen");
+    for stored in [
+        "8/a.jpg",
+        "1/../../viktig.jpg",
+        "1/sub/a.jpg",
+        "1/C:a.jpg",
+        "1/a\\b.jpg",
+    ] {
+        let m = Manifest {
+            batch: 9,
+            entries: vec![Entry {
+                id: 1,
+                original: "a.jpg".into(),
+                stored: stored.into(),
+                bytes: 1,
+            }],
+        };
+        m.save(&root.join(".fjell-karantene/9")).unwrap();
+        assert_eq!(q.locate(AssetId(1)), None, "«{stored}» skal avvises");
+        assert!(q.staged().is_empty(), "«{stored}» skal avvises");
+    }
+    assert!(root.join(".fjell-karantene/9/8/a.jpg").is_file());
+    assert!(root.join(".fjell-karantene/viktig.jpg").is_file());
 }

@@ -100,17 +100,25 @@ fn files(dir: &Path) -> BTreeMap<String, Vec<u8>> {
 
 /// Bildefiler i mappens karantene (uten manifest og README).
 fn quarantined(dir: &Path) -> Vec<PathBuf> {
-    let mut v: Vec<PathBuf> = fs::read_dir(dir.join(QUARANTINE_DIR))
-        .into_iter()
-        .flatten()
-        .filter_map(|b| b.ok())
-        .flat_map(|b| fs::read_dir(b.path()).into_iter().flatten())
-        .filter_map(|f| f.ok().map(|f| f.path()))
-        .filter(|p| {
-            p.file_name()
+    // Karantenen lagrer `<batch>/<id>/<opprinnelig navn>` (eldre: `<batch>/<id>.<ext>`): gå rekursivt.
+    fn walk(d: &Path, out: &mut Vec<PathBuf>) {
+        for p in fs::read_dir(d)
+            .into_iter()
+            .flatten()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+        {
+            if p.is_dir() {
+                walk(&p, out);
+            } else if p
+                .file_name()
                 .is_some_and(|n| n != "manifest.json" && n != "README.txt")
-        })
-        .collect();
+            {
+                out.push(p);
+            }
+        }
+    }
+    let mut v = Vec::new();
+    walk(&dir.join(QUARANTINE_DIR), &mut v);
     v.sort();
     v
 }

@@ -258,11 +258,12 @@ fn f3_manifest_stored_med_dotdot_sletter_fil_utenfor_biblioteket() {
         .join(batch.0.to_string())
         .join("manifest.json");
     let raw = fs::read_to_string(&mf).unwrap();
-    let stored = format!("\"{}.jpg\"", x.0);
-    assert!(
-        raw.contains(&stored),
-        "oppsett: fant ikke stored i manifestet"
-    );
+    // Lagret som `<id>/<opprinnelig filnavn>`: finn hele verdien.
+    let start = raw
+        .find(&format!("\"{}/", x.0))
+        .expect("oppsett: fant ikke stored i manifestet");
+    let end = start + 1 + raw[start + 1..].find('"').unwrap();
+    let stored = raw[start..=end].to_string();
     fs::write(&mf, raw.replace(&stored, "\"../../../viktig.txt\"")).unwrap();
 
     let intent = e.fjell.begin_purge(vec![x]).unwrap();

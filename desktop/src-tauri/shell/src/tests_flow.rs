@@ -119,15 +119,27 @@ impl Env {
     }
 
     fn in_quarantine(&self) -> usize {
-        let q = self.lib.join(fjell_fs::QUARANTINE_DIR);
-        fs::read_dir(q).map_or(0, |rd| {
-            rd.filter_map(|b| b.ok())
-                .flat_map(|b| fs::read_dir(b.path()).into_iter().flatten())
-                .filter_map(|f| f.ok())
-                .filter(|f| f.path().extension().is_some_and(|x| x == "jpg"))
-                .count()
-        })
+        quarantine_jpgs(&self.lib.join(fjell_fs::QUARANTINE_DIR)).len()
     }
+}
+
+/// Alle jpg-filer under `dir`, rekursivt (karantenen lagrer `<batch>/<id>/<opprinnelig navn>`).
+fn quarantine_jpgs(dir: &Path) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    for e in fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e.ok())
+    {
+        let p = e.path();
+        if p.is_dir() {
+            out.extend(quarantine_jpgs(&p));
+        } else if p.extension().is_some_and(|x| x == "jpg") {
+            out.push(p);
+        }
+    }
+    out.sort();
+    out
 }
 
 /// Felles slutt for F1: samme bilde legges i «Nylig slettet» på nytt (`again`) og tømmes. Den nye
@@ -241,12 +253,7 @@ fn f2_empty_never_deletes_from_the_original_path() {
     // Filen tilbake på plass og karantenen tom, uten at indeksen vet det.
     let q = e.lib.join(fjell_fs::QUARANTINE_DIR);
     let batch = fs::read_dir(&q).unwrap().next().unwrap().unwrap().path();
-    let stored = fs::read_dir(&batch)
-        .unwrap()
-        .filter_map(|f| f.ok())
-        .find(|f| f.path().extension().is_some_and(|x| x == "jpg"))
-        .unwrap()
-        .path();
+    let stored = quarantine_jpgs(&batch).remove(0);
     fs::rename(stored, &orig).unwrap();
     fs::remove_dir_all(&batch).unwrap();
 

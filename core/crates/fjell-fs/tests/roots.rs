@@ -235,9 +235,9 @@ fn karantene_per_rot_stage_unstage_og_id_isolasjon() {
         "kan ikke forlate roten"
     );
     // Hver fil ligger i SIN rots karantene.
-    assert!(a.join(".fjell-karantene/5/1.jpg").is_file());
-    assert!(b.join(".fjell-karantene/5/2.jpg").is_file());
-    assert!(!a.join(".fjell-karantene/5/2.jpg").exists());
+    assert!(a.join(".fjell-karantene/5/1/x.jpg").is_file());
+    assert!(b.join(".fjell-karantene/5/2/x.jpg").is_file());
+    assert!(!a.join(".fjell-karantene/5/2").exists());
     assert!(a.join("sub/y.jpg").is_file());
     let mut staged = set.staged();
     staged.sort();
@@ -312,5 +312,5 @@ fn avstemming_per_rot_og_frakoblet_rot_endrer_ingenting() {
     assert_eq!(got(2), Reconciled::Unavailable);
     let st = set.stage(BatchId(2), &items(&[(4, "/r2/z.png")]));
     assert_eq!(st[0].1, Err(QuarantineError::Unavailable));
-    assert!(gone.join(".fjell-karantene/1/2.jpg").is_file(), "urørt");
+    assert!(gone.join(".fjell-karantene/1/2/x.jpg").is_file(), "urørt");
 }

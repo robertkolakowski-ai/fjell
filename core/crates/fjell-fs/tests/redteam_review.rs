@@ -80,7 +80,8 @@ fn kr1_tom_sletter_ikke_karantenefil_som_tilhorer_en_annen_sti() {
     let held = root
         .join(QUARANTINE_DIR)
         .join("900")
-        .join(format!("{}.jpg", x.0));
+        .join(x.0.to_string())
+        .join("other.jpg");
     assert!(held.is_file(), "oppsett: other.jpg ligger i karantenen");
     let r = q.stage(BatchId(1), &sources);
     assert!(r[0].1.is_err(), "oppsett: gjenbrukt id avvises (RT-02)");
